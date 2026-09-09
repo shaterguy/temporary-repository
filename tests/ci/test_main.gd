@@ -15,6 +15,7 @@ const TEST_SUITES := [
     preload("res://tests/unit/test_campaign_runtime.gd"),
     preload("res://tests/unit/test_runtime_state_codec.gd"),
     preload("res://tests/unit/test_representative_art.gd"),
+    preload("res://tests/unit/test_representative_audio.gd"),
 ]
 const TEST_SUITE_NAMES := [
     "save_store",
@@ -31,6 +32,7 @@ const TEST_SUITE_NAMES := [
     "campaign_runtime",
     "runtime_state_codec",
     "representative_art",
+    "representative_audio",
 ]
 const FAST_TEST_WATCHDOG_SECONDS: float = 30.0
 
@@ -38,7 +40,6 @@ func _initialize() -> void:
     var watchdog := create_timer(FAST_TEST_WATCHDOG_SECONDS, true)
     watchdog.timeout.connect(_on_watchdog_timeout)
     call_deferred("_run_tests")
-
 
 func _run_tests() -> void:
     var failures: Array[String] = []
@@ -48,19 +49,16 @@ func _run_tests() -> void:
         print("SUITE_START=%s" % suite_name)
         failures.append_array(suite.run())
         print("SUITE_DONE=%s" % suite_name)
-
-    print("TEST_CONTRACT=w13-representative-art-v1")
+    print("TEST_CONTRACT=w14-representative-audio-v1")
     print("SUITES=%d" % TEST_SUITES.size())
     if failures.is_empty():
         print("RESULT=PASS")
         quit(0)
         return
-
     for failure in failures:
         printerr("FAIL: %s" % failure)
     printerr("RESULT=FAIL")
     quit(1)
-
 
 func _on_watchdog_timeout() -> void:
     printerr("RESULT=FAIL_FAST_TEST_WATCHDOG")

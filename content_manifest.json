@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "status": "vertical-slice-representative-art",
+  "status": "vertical-slice-representative-audio",
   "release_gate": {
     "placeholder_assets_required": 0,
     "license_record_required_for_every_runtime_asset": true
@@ -41,9 +41,26 @@
       "human_visual_review": "pending-render-inspection"
     }
   },
+  "representative_audio": {
+    "w14": {
+      "status": "runtime-integrated",
+      "region": "twilight_shipyard",
+      "runtime_asset_count": 7,
+      "music_layers": 3,
+      "event_sound_identities": 4,
+      "sample_rate_hz": 32000,
+      "format": "PCM16_MONO",
+      "max_sfx_voices": 8,
+      "runtime_manifest": "res://assets/runtime/w14/audio_manifest.json",
+      "source_record": "res://assets/source/w14/AUDIO_DIRECTION.md",
+      "license_record": "res://assets/licenses/W14_ORIGINAL_AUDIO.md",
+      "review_contract": "normal WAV + -18dB WAV + warning WAV artifact",
+      "human_listening_review": "pending-artifact-listen"
+    }
+  },
   "notes": [
     "The foundation shell is not counted as playable content.",
     "Counts may only advance when an item has a distinct gameplay role and tracked runtime asset/license state.",
-    "W13 representative visual identities are tracked separately and do not falsely increment production gameplay-content counts."
+    "W13 representative visual identities and W14 representative audio identities are tracked separately and do not falsely increment production gameplay-content counts."
   ]
 }

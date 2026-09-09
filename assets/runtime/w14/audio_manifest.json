@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "milestone": "W14",
+  "sample_rate_hz": 32000,
+  "format": "PCM16_MONO",
+  "runtime_source": "res://game/audio/representative_audio_library.gd",
+  "assets": [
+    {"id":"shipyard_region_bed","category":"region","placeholder":false,"provenance":"original_procedural"},
+    {"id":"shipyard_tension_layer","category":"combat_music","placeholder":false,"provenance":"original_procedural"},
+    {"id":"drowned_navigator_boss_layer","category":"boss_music","placeholder":false,"provenance":"original_procedural"},
+    {"id":"arc_lance_combat_strike","category":"combat","placeholder":false,"provenance":"original_procedural"},
+    {"id":"light_circuit_activation","category":"circuit","placeholder":false,"provenance":"original_procedural"},
+    {"id":"cross_phase_warning","category":"warning","placeholder":false,"provenance":"original_procedural"},
+    {"id":"salvage_reward","category":"reward","placeholder":false,"provenance":"original_procedural"}
+  ],
+  "review": {
+    "normal_mix": "artifacts/w14/representative-mix.wav",
+    "low_volume_mix": "artifacts/w14/representative-mix-low.wav",
+    "warning_cue": "artifacts/w14/warning-cue.wav",
+    "low_volume_gain_db": -18,
+    "human_listening": "required"
+  }
+}
