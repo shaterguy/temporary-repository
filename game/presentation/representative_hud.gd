@@ -88,7 +88,7 @@ func _draw() -> void:
 func _player_line() -> String:
     var health := 0
     var paused := false
-    var model = _player.get("model")
+    var model: Variant = _player.get("model")
     if model != null:
         health = int(model.get("health"))
         paused = bool(model.get("paused"))

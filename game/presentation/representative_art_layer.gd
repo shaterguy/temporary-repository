@@ -92,7 +92,7 @@ func _draw() -> void:
 
 
 func _draw_player() -> void:
-    var model := _player.get("model")
+    var model: Variant = _player.get("model")
     var health := 100.0
     if model != null:
         health = float(model.get("health"))
@@ -100,7 +100,7 @@ func _draw_player() -> void:
     draw_circle(center + Vector2(0.0, 25.0), 23.0, Color(0.055, 0.075, 0.11, 0.94))
     var slot := 0
     var host := get_parent()
-    var campaign = host.get("campaign") if host != null else null
+    var campaign: Variant = host.get("campaign") if host != null else null
     if campaign != null:
         var raw_slot: Variant = campaign.get("active_slot")
         if raw_slot != null:
@@ -127,7 +127,7 @@ func _enemy_states() -> Array[Dictionary]:
     var result: Array[Dictionary] = []
     if not is_instance_valid(_encounter):
         return result
-    var pool = _encounter.get("_pool")
+    var pool: Variant = _encounter.get("_pool")
     if pool == null or not pool.has_method("active_states"):
         return result
     var raw: Variant = pool.call("active_states")
