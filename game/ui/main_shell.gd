@@ -7,6 +7,7 @@ const SwarmEncounterScript = preload("res://game/combat/swarm_encounter.gd")
 const ArkConvoyScript = preload("res://game/world/ark_convoy.gd")
 const LightCircuitControllerScript = preload("res://game/systems/circuit/light_circuit_controller.gd")
 const LightCircuitModelScript = preload("res://game/systems/circuit/light_circuit_model.gd")
+const PhaseBattlefieldControllerScript = preload("res://game/world/phase_battlefield_controller.gd")
 const BASE_MARGIN: int = 48
 
 @onready var safe_area: MarginContainer = %SafeArea
@@ -20,12 +21,13 @@ var combat_preview: Node2D
 var encounter_preview: Node2D
 var ark_preview: Node2D
 var circuit_preview: Node2D
+var phase_preview: Node2D
 
 
 func _ready() -> void:
     get_viewport().size_changed.connect(_apply_safe_area)
     _apply_safe_area()
-    _mount_w07_combat_preview()
+    _mount_w08_combat_preview()
     _show_route_choice_prompt()
 
 
@@ -54,14 +56,20 @@ func _unhandled_input(event: InputEvent) -> void:
     elif key_event.keycode == KEY_4:
         select_circuit_module(LightCircuitModelScript.MODULE_ARK_WARD)
         get_viewport().set_input_as_handled()
+    elif key_event.keycode == KEY_Q:
+        request_phase_switch()
+        get_viewport().set_input_as_handled()
 
 
 func set_transient_input(movement: Vector2, dodge: bool, phase: bool) -> void:
+    var phase_edge := phase and not phase_pressed
     movement_input = movement.limit_length(1.0)
     dodge_pressed = dodge
     phase_pressed = phase
     if is_instance_valid(combat_preview) and combat_preview.has_method("set_virtual_input"):
         combat_preview.call("set_virtual_input", movement_input, dodge_pressed)
+    if phase_edge:
+        request_phase_switch()
 
 
 func _clear_transient_input() -> void:
@@ -73,6 +81,12 @@ func _clear_transient_input() -> void:
         combat_preview.call("clear_transient_input")
 
 
+func request_phase_switch(cancelled: bool = false) -> bool:
+    if not is_instance_valid(phase_preview) or not phase_preview.has_method("request_phase_switch"):
+        return false
+    return bool(phase_preview.call("request_phase_switch", cancelled))
+
+
 func select_ark_route(route_id: String) -> bool:
     if not is_instance_valid(ark_preview) or not ark_preview.has_method("choose_route"):
         return false
@@ -80,7 +94,7 @@ func select_ark_route(route_id: String) -> bool:
     if selected:
         var preview: Dictionary = ark_preview.call("route_preview", route_id)
         status_label.text = (
-            "W07 %s · 위협 %d · 보급 %+d · %s · 이동으로 빛 회로 생성"
+            "W08 %s · 위협 %d · 보급 %+d · %s · 이동으로 빛 회로 생성"
             % [
                 route_id,
                 int(preview.get("threat_level", 0)),
@@ -97,23 +111,24 @@ func select_circuit_module(module_id: String) -> bool:
     var selected := bool(circuit_preview.call("select_module", module_id))
     if selected:
         var circuit_status: Dictionary = circuit_preview.call("status_snapshot")
-        status_label.text = "W07 회로 모듈 %s · 광량 %d · 이동 폐곡선으로 발동" % [
+        status_label.text = "W08 회로 모듈 %s · 광량 %d · 현재 위상 %s" % [
             module_id,
             roundi(float(circuit_status.get("light", 0.0))),
+            str(circuit_status.get("phase", "material")),
         ]
     return selected
 
 
-func _mount_w07_combat_preview() -> void:
+func _mount_w08_combat_preview() -> void:
     combat_preview = SurvivorControllerScript.new()
-    combat_preview.name = "W07SurvivorPreview"
+    combat_preview.name = "W08SurvivorPreview"
     combat_preview.set("camera_enabled", false)
     combat_preview.position = Vector2(640.0, 360.0)
     add_child(combat_preview)
     move_child(combat_preview, 1)
 
     ark_preview = ArkConvoyScript.new()
-    ark_preview.name = "W07ArkPreview"
+    ark_preview.name = "W08ArkPreview"
     ark_preview.position = Vector2(280.0, 360.0)
     add_child(ark_preview)
     move_child(ark_preview, 1)
@@ -121,7 +136,7 @@ func _mount_w07_combat_preview() -> void:
     ark_preview.connect("route_state_changed", Callable(self, "_on_ark_state_changed"))
 
     encounter_preview = SwarmEncounterScript.new()
-    encounter_preview.name = "W07SwarmPreview"
+    encounter_preview.name = "W08SwarmPreview"
     add_child(encounter_preview)
     move_child(encounter_preview, 1)
     if encounter_preview.has_method("configure_player"):
@@ -130,7 +145,7 @@ func _mount_w07_combat_preview() -> void:
         encounter_preview.call("configure_escort_target", ark_preview)
 
     circuit_preview = LightCircuitControllerScript.new()
-    circuit_preview.name = "W07LightCircuitPreview"
+    circuit_preview.name = "W08LightCircuitPreview"
     add_child(circuit_preview)
     move_child(circuit_preview, 1)
     circuit_preview.call("configure", combat_preview, ark_preview)
@@ -139,27 +154,36 @@ func _mount_w07_combat_preview() -> void:
     circuit_preview.connect("circuit_activated", Callable(self, "_on_circuit_activated"))
     circuit_preview.connect("circuit_rejected", Callable(self, "_on_circuit_rejected"))
 
+    phase_preview = PhaseBattlefieldControllerScript.new()
+    phase_preview.name = "W08PhaseBattlefieldPreview"
+    add_child(phase_preview)
+    move_child(phase_preview, 1)
+    phase_preview.call("configure", combat_preview, encounter_preview, circuit_preview)
+    phase_preview.connect("phase_changed", Callable(self, "_on_phase_changed"))
+    phase_preview.connect("phase_rejected", Callable(self, "_on_phase_rejected"))
+
 
 func _show_route_choice_prompt() -> void:
-    status_label.text = "W07 빛 회로 · 1 위험/2 보급 항로 · 3 구속/4 방주보호 회로 · WASD 이동 · Space 회피 · Esc 일시정지 · %s" % BuildIdentityScript.VERSION_NAME
+    status_label.text = "W08 이중 전장 · 1 위험/2 보급 · 3 구속/4 방주보호 · Q 위상전환 · WASD 이동 · Space 회피 · Esc 일시정지 · %s" % BuildIdentityScript.VERSION_NAME
 
 
 func _on_ark_state_changed(route_status: String, route_id: String) -> void:
     if route_status == "AWAITING_ROUTE":
         _show_route_choice_prompt()
     elif route_status == "RESTING":
-        status_label.text = "W07 %s 도착 · 휴식 구간 · 회로/방주 상태 저장 가능" % route_id
+        status_label.text = "W08 %s 도착 · 휴식 구간 · 회로/위상/방주 상태 저장 가능" % route_id
     elif route_status == "ARRIVED":
-        status_label.text = "W07 %s 목적지 확보 · 다음 항로 준비" % route_id
+        status_label.text = "W08 %s 목적지 확보 · 다음 항로 준비" % route_id
     elif route_status == "FAILED_RECOVERABLE":
-        status_label.text = "W07 방주 파손 · 보급을 사용한 복구 가능"
+        status_label.text = "W08 방주 파손 · 보급을 사용한 복구 가능"
 
 
 func _on_circuit_activated(circuit_id: int, module_id: String, light_remaining: float) -> void:
     var circuit_status: Dictionary = circuit_preview.call("status_snapshot")
-    status_label.text = "W07 회로 #%d %s 발동 · 광량 %d · 활성 %d/%d" % [
+    status_label.text = "W08 회로 #%d %s 발동 · 위상 %s · 광량 %d · 활성 %d/%d" % [
         circuit_id,
         module_id,
+        str(circuit_status.get("phase", "material")),
         roundi(light_remaining),
         int(circuit_status.get("active_count", 0)),
         LightCircuitModelScript.MAX_ACTIVE_CIRCUITS,
@@ -170,10 +194,29 @@ func _on_circuit_rejected(reason: String) -> void:
     if reason == "teleport_segment" or reason == "phase_changed":
         return
     var circuit_status: Dictionary = circuit_preview.call("status_snapshot")
-    status_label.text = "W07 회로 미발동: %s · 광량 %d · 재활성 %.1fs" % [
+    status_label.text = "W08 회로 미발동: %s · 광량 %d · 재활성 %.1fs" % [
         reason,
         roundi(float(circuit_status.get("light", 0.0))),
         float(circuit_status.get("cooldown_remaining", 0.0)),
+    ]
+
+
+func _on_phase_changed(phase_id: String, immediate_threat_count: int) -> void:
+    var phase_status: Dictionary = phase_preview.call("status_snapshot")
+    status_label.text = "W08 %s 위상 진입 · 반대 위상 즉시위협 %d · 재전환 %.1fs" % [
+        phase_id,
+        immediate_threat_count,
+        float(phase_status.get("cooldown_remaining", 0.0)),
+    ]
+
+
+func _on_phase_rejected(reason: String) -> void:
+    var phase_status: Dictionary = phase_preview.call("status_snapshot")
+    status_label.text = "W08 위상전환 불가: %s · 목적 위상 %s · 즉시위협 %d · %.1fs" % [
+        reason,
+        str(phase_status.get("target_phase", "unknown")),
+        int(phase_status.get("immediate_threat_count", 0)),
+        float(phase_status.get("cooldown_remaining", 0.0)),
     ]
 
 

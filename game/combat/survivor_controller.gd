@@ -15,6 +15,7 @@ var _keyboard_dodge_down: bool = false
 var _feedback_remaining: float = 0.0
 var _camera: Camera2D
 var _target_provider: Node
+var _phase_provider: Object
 
 
 func _ready() -> void:
@@ -60,7 +61,15 @@ func _physics_process(delta: float) -> void:
 
     var dodge_requested := _virtual_dodge_queued or _consume_keyboard_dodge_edge()
     _virtual_dodge_queued = false
+    var previous_position := global_position
     var events := model.step(delta, requested_movement, dodge_requested, _snapshot_targets())
+
+    if is_instance_valid(_phase_provider) and _phase_provider.has_method("resolve_player_position"):
+        model.position = _phase_provider.call(
+            "resolve_player_position",
+            previous_position,
+            model.position
+        )
 
     velocity = Vector2.ZERO if delta <= 0.0 else (model.position - global_position) / delta
     global_position = model.position
@@ -78,6 +87,10 @@ func _process(delta: float) -> void:
 
 func set_target_provider(provider: Node) -> void:
     _target_provider = provider
+
+
+func set_phase_provider(provider: Object) -> void:
+    _phase_provider = provider
 
 
 func set_virtual_input(movement: Vector2, dodge_pressed: bool) -> void:

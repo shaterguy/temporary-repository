@@ -8,6 +8,10 @@ const SEPARATION_RADIUS: float = 54.0
 const PLAYER_RADIUS: float = 17.0
 const CONTACT_COOLDOWN: float = 0.75
 const BOSS_CONTACT_COOLDOWN: float = 1.20
+const CROSS_PHASE_RANGE: float = 360.0
+const CROSS_PHASE_TELEGRAPH_SECONDS: float = 0.80
+const CROSS_PHASE_ATTACK_COOLDOWN: float = 3.0
+const CROSS_PHASE_ATTACK_RADIUS: float = 54.0
 
 var _spatial = SpatialHashScript.new(96.0)
 var _pool = EnemyPoolScript.new()
@@ -15,7 +19,12 @@ var _director = SpawnDirectorScript.new()
 var _player: Node2D
 var _escort_target: Node2D
 var _area_effect_provider: Object
+var _phase_provider: Object
+var _world_phase: String = "material"
+var _enemy_phases: Dictionary = {}
 var _telegraphs: Array[Dictionary] = []
+var _cross_phase_attacks: Array[Dictionary] = []
+var _cross_phase_attack_cooldowns: Dictionary = {}
 
 
 func _ready() -> void:
@@ -38,21 +47,42 @@ func configure_area_effect_provider(provider: Object) -> void:
     _area_effect_provider = provider
 
 
+func configure_phase_provider(provider: Object) -> void:
+    _phase_provider = provider
+    queue_redraw()
+
+
+func set_world_phase(phase_id: String) -> bool:
+    if phase_id.is_empty():
+        return false
+    _world_phase = phase_id
+    queue_redraw()
+    return true
+
+
 func combat_target_snapshot() -> Array[Dictionary]:
     var targets: Array[Dictionary] = []
     for state in _pool.active_states():
+        var enemy_phase := _phase_for_state(state)
         targets.append({
             "id": int(state.get("id", -1)),
             "position": state.get("position", Vector2.ZERO),
-            "active": bool(state.get("active", false)),
+            "active": bool(state.get("active", false)) and _is_phase_targetable(enemy_phase),
+            "phase": enemy_phase,
         })
     return targets
 
 
 func apply_target_damage(entity_id: int, damage: int) -> bool:
-    if _pool.state_for(entity_id).is_empty():
+    var state := _pool.state_for(entity_id)
+    if state.is_empty():
         return false
-    _pool.apply_damage(entity_id, damage)
+    if not _is_phase_targetable(_phase_for_state(state)):
+        return true
+    var result := _pool.apply_damage(entity_id, damage)
+    if bool(result.get("killed", false)):
+        _enemy_phases.erase(entity_id)
+        _cross_phase_attack_cooldowns.erase(entity_id)
     queue_redraw()
     return true
 
@@ -65,6 +95,55 @@ func pool_capacity() -> int:
     return _pool.capacity()
 
 
+func threat_count_for_phase(phase_id: String, world_position: Vector2, radius: float) -> int:
+    var count := 0
+    var radius_squared := maxf(0.0, radius) * maxf(0.0, radius)
+    for state in _pool.active_states():
+        if _phase_for_state(state) != phase_id:
+            continue
+        var enemy_position: Vector2 = state.get("position", Vector2.ZERO)
+        if enemy_position.distance_squared_to(world_position) <= radius_squared:
+            count += 1
+    return count
+
+
+func enemy_phase_for_id(entity_id: int) -> String:
+    var state := _pool.state_for(entity_id)
+    if state.is_empty():
+        return ""
+    return _phase_for_state(state)
+
+
+func cross_phase_warning_snapshot() -> Array[Dictionary]:
+    var result: Array[Dictionary] = []
+    for warning in _cross_phase_attacks:
+        result.append(warning.duplicate(true))
+    return result
+
+
+func advance_cross_phase_attacks(delta: float) -> void:
+    if delta <= 0.0:
+        return
+    for index in range(_cross_phase_attacks.size() - 1, -1, -1):
+        var warning: Dictionary = _cross_phase_attacks[index]
+        var remaining := maxf(0.0, float(warning.get("remaining", 0.0)) - delta)
+        if remaining > 0.0:
+            warning["remaining"] = remaining
+            _cross_phase_attacks[index] = warning
+            continue
+
+        if (
+            is_instance_valid(_player)
+            and _current_phase() == str(warning.get("target_phase", ""))
+            and _player.global_position.distance_squared_to(warning.get("position", Vector2.ZERO))
+                <= pow(float(warning.get("radius", CROSS_PHASE_ATTACK_RADIUS)), 2.0)
+            and _player.has_method("take_damage")
+        ):
+            _player.call("take_damage", int(warning.get("damage", 0)))
+        _cross_phase_attacks.remove_at(index)
+    queue_redraw()
+
+
 func _physics_process(delta: float) -> void:
     if delta <= 0.0 or not is_instance_valid(_player):
         return
@@ -75,6 +154,8 @@ func _physics_process(delta: float) -> void:
         _consume_director_event(event)
 
     _advance_telegraphs(delta)
+    _advance_cross_phase_cooldowns(delta)
+    advance_cross_phase_attacks(delta)
     _rebuild_spatial()
     _advance_swarm(delta)
     queue_redraw()
@@ -126,7 +207,7 @@ func _spawn_enemy(event: Dictionary) -> void:
             radius = 36.0
             contact_damage = 18
 
-    _pool.acquire(
+    var state := _pool.acquire(
         archetype,
         spawn_position,
         max_health,
@@ -134,11 +215,16 @@ func _spawn_enemy(event: Dictionary) -> void:
         radius,
         contact_damage
     )
+    if not state.is_empty():
+        var entity_id := int(state.get("id", -1))
+        _enemy_phases[entity_id] = _phase_for_state(state)
 
 
 func _rebuild_spatial() -> void:
     _spatial.clear()
     for state in _pool.active_states():
+        if not _is_phase_targetable(_phase_for_state(state)):
+            continue
         _spatial.insert(
             int(state.get("id", -1)),
             state.get("position", Vector2.ZERO)
@@ -153,6 +239,13 @@ func _advance_swarm(delta: float) -> void:
         var enemy_position: Vector2 = state.get("position", Vector2.ZERO)
         var speed := float(state.get("speed", 0.0))
         var archetype := str(state.get("archetype", "swarm"))
+        var enemy_phase := _phase_for_state(state)
+
+        if not _is_phase_targetable(enemy_phase):
+            _pool.advance_contact_timer(entity_id, delta)
+            _maybe_schedule_cross_phase_attack(state, enemy_phase)
+            continue
+
         var pursue_escort := (
             is_instance_valid(_escort_target)
             and (archetype == "boss" or entity_id % 3 == 0)
@@ -200,6 +293,68 @@ func _movement_multiplier_at(world_position: Vector2) -> float:
     if is_instance_valid(_area_effect_provider) and _area_effect_provider.has_method("movement_multiplier_at"):
         return clampf(float(_area_effect_provider.call("movement_multiplier_at", world_position)), 0.0, 1.0)
     return 1.0
+
+
+func _phase_for_state(state: Dictionary) -> String:
+    var entity_id := int(state.get("id", -1))
+    if _enemy_phases.has(entity_id):
+        return str(_enemy_phases[entity_id])
+    var phase_id := _current_phase()
+    if is_instance_valid(_phase_provider) and _phase_provider.has_method("enemy_phase_for"):
+        phase_id = str(_phase_provider.call(
+            "enemy_phase_for",
+            entity_id,
+            str(state.get("archetype", "swarm"))
+        ))
+    _enemy_phases[entity_id] = phase_id
+    return phase_id
+
+
+func _current_phase() -> String:
+    if is_instance_valid(_phase_provider) and _phase_provider.has_method("current_phase_id"):
+        return str(_phase_provider.call("current_phase_id"))
+    return _world_phase
+
+
+func _is_phase_targetable(enemy_phase: String) -> bool:
+    if is_instance_valid(_phase_provider) and _phase_provider.has_method("is_enemy_targetable"):
+        return bool(_phase_provider.call("is_enemy_targetable", enemy_phase))
+    return enemy_phase == _world_phase
+
+
+func _maybe_schedule_cross_phase_attack(state: Dictionary, enemy_phase: String) -> void:
+    if str(state.get("archetype", "")) != "boss" or enemy_phase == _current_phase():
+        return
+    var entity_id := int(state.get("id", -1))
+    if float(_cross_phase_attack_cooldowns.get(entity_id, 0.0)) > 0.0:
+        return
+    var enemy_position: Vector2 = state.get("position", Vector2.ZERO)
+    if enemy_position.distance_squared_to(_player.global_position) > CROSS_PHASE_RANGE * CROSS_PHASE_RANGE:
+        return
+    for warning in _cross_phase_attacks:
+        if int(warning.get("source_id", -1)) == entity_id:
+            return
+
+    _cross_phase_attacks.append({
+        "source_id": entity_id,
+        "source_phase": enemy_phase,
+        "target_phase": _current_phase(),
+        "position": _player.global_position,
+        "duration": CROSS_PHASE_TELEGRAPH_SECONDS,
+        "remaining": CROSS_PHASE_TELEGRAPH_SECONDS,
+        "radius": CROSS_PHASE_ATTACK_RADIUS,
+        "damage": int(state.get("contact_damage", 0)),
+    })
+    _cross_phase_attack_cooldowns[entity_id] = CROSS_PHASE_ATTACK_COOLDOWN
+
+
+func _advance_cross_phase_cooldowns(delta: float) -> void:
+    for key in _cross_phase_attack_cooldowns.keys():
+        var remaining := maxf(0.0, float(_cross_phase_attack_cooldowns.get(key, 0.0)) - delta)
+        if remaining <= 0.0:
+            _cross_phase_attack_cooldowns.erase(key)
+        else:
+            _cross_phase_attack_cooldowns[key] = remaining
 
 
 func _separation_vector(entity_id: int, position: Vector2) -> Vector2:
@@ -256,11 +411,34 @@ func _draw() -> void:
             true
         )
 
+    for warning in _cross_phase_attacks:
+        var warning_position: Vector2 = warning.get("position", Vector2.ZERO)
+        var radius := float(warning.get("radius", CROSS_PHASE_ATTACK_RADIUS))
+        var duration := maxf(0.001, float(warning.get("duration", CROSS_PHASE_TELEGRAPH_SECONDS)))
+        var remaining := clampf(float(warning.get("remaining", 0.0)) / duration, 0.0, 1.0)
+        var progress := 1.0 - remaining
+        draw_circle(warning_position, radius, Color(0.72, 0.38, 1.0, 0.10))
+        draw_arc(
+            warning_position,
+            radius,
+            -PI * 0.5,
+            -PI * 0.5 + TAU * progress,
+            48,
+            Color(0.88, 0.62, 1.0, 0.96),
+            5.0,
+            true
+        )
+
     for state in _pool.active_states():
+        var enemy_phase := _phase_for_state(state)
+        if not _is_phase_targetable(enemy_phase):
+            continue
         var enemy_position: Vector2 = state.get("position", Vector2.ZERO)
         var radius := float(state.get("radius", 12.0))
         var is_boss := str(state.get("archetype", "")) == "boss"
         var body_color := Color(0.72, 0.24, 0.28, 0.96) if is_boss else Color(0.30, 0.48, 0.68, 0.94)
+        if enemy_phase == "shadow" and not is_boss:
+            body_color = Color(0.48, 0.32, 0.72, 0.94)
         draw_circle(enemy_position, radius, body_color)
 
         var health := float(state.get("health", 0))

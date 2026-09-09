@@ -1,4 +1,4 @@
-# Requirement trace — W07 checkpoint
+# Requirement trace — W08 checkpoint
 
 Task: `SR-20260909-150106-PPO12Y`
 Branch target: `v1.0.0-dev1`
@@ -9,18 +9,18 @@ Status terms: `PARTIAL`, `BLOCKED`, `NOT_IMPLEMENTED`. No row in this checkpoint
 | --- | --- | --- | --- |
 | AC-01 | Android install→combat→settlement→hub→next run | NOT_IMPLEMENTED | No user-installable APK or complete expedition loop yet. |
 | AC-02 | First user APK durable non-debug signing/update lineage | BLOCKED | Signing contract recorded; protected secret injection/key creation unavailable in current connector. No debug fallback. |
-| AC-03 | Survivor core loop | PARTIAL | W04 movement/dodge/auto-attack/damage remains; W05 spatial pooling, deterministic warnings, route-compatible swarm pressure, contact damage, and a base-boss primitive remain connected. Combat growth and production integration remain. |
+| AC-03 | Survivor core loop | PARTIAL | W04 movement/dodge/auto-attack/damage remains; W05 spatial pooling, deterministic warnings, route-compatible swarm pressure, contact damage, and a base-boss primitive remain connected. W08 adds phase-aware player movement collision and phase-filtered targets. Combat growth and production integration remain. |
 | AC-04 | N01 mobile fortress/routes | PARTIAL | W06 deterministic route previews, idempotent junction choice, route-specific movement/supply/threat/objective pressure, visible-objective damage gating, rest/arrival, recoverable failure and checkpoint restore remain. W07 adds an optional circuit-provider hook so an active N02 ark ward can reduce visible ark/objective damage without changing unprotected W06 behavior. Final campaign/save UI and production presentation remain later. |
-| AC-05 | N02 movement-drawn circuits | PARTIAL | W07 adds 8-second world-space trail capture, closed-loop length/area validation, jitter/backtrack/self-intersection/teleport rejection, light cost/regeneration, 3-second reactivation cooldown, 2-circuit cap, timed area effects, phase-bound trail reset, active-circuit snapshot/restore, procedural trail/circuit feedback, live snare slowdown against swarm movement, and live N01 ark-ward mitigation. N07 runtime phase wiring and N04 echo replay remain later dependencies; procedural lines are not final art. |
+| AC-05 | N02 movement-drawn circuits | PARTIAL | W07 closed-loop geometry, light budget, cooldown/cap, timed area effects, snapshot/restore, live snare and ark ward remain. W08 now drives the W07 phase token from an actual runtime phase switch so active effects answer only in their recorded phase. N04 echo replay remains a later dependency; procedural lines are not final art. |
 | AC-06 | N03 causal modular weapons | NOT_IMPLEMENTED | W09. |
 | AC-07 | N04 prior-run tactical echo | NOT_IMPLEMENTED | W10; W07 reserves an `echo_beacon` circuit module identity but does not count echo replay as implemented. |
 | AC-08 | N05 disclosed enemy doctrine | NOT_IMPLEMENTED | W11. |
 | AC-09 | N06 persistent world graph | NOT_IMPLEMENTED | W12. |
-| AC-10 | N07 dual-phase battlefield | NOT_IMPLEMENTED | W08; W07 only prevents trail geometry from bridging explicit phase-token changes. |
-| AC-11 | Campaign/hub/save/retry/post-final loop | PARTIAL | Versioned checksum save envelope + primary/backup primitive, W06 route snapshot/restore, and W07 active-circuit snapshot/restore exist; world/campaign/settlement migration still absent. |
-| AC-12 | Distinct content manifest + no release placeholders | PARTIAL | Manifest holds the full planned counts and release gate; implemented production content remains 0. W04 training geometry, W05 swarm preview, W06 ark geometry and W07 circuit lines are development instrumentation, not counted content. |
-| AC-13 | Actual art/animation/audio/readability review | NOT_IMPLEMENTED | W04∼W07 procedural preview geometry is development instrumentation, not presentation acceptance evidence. |
-| AC-14 | Aspect ratio/multitouch/accessibility/lifecycle/save failures | PARTIAL | Safe-area scaling, pause/focus transient-input reset, virtual-input bridge, route pause/checkpoint and W07 pause-safe circuit timers exist; full touch/accessibility/platform matrix remains later. |
+| AC-10 | N07 dual-phase battlefield | PARTIAL | W08 adds same-coordinate material/shadow blockers and cover, destination safety preview, no-cost rejection, cooldown, pause/cancel gating, phase-aware player collision and enemy targeting, actual W07 circuit phase switching, explicit cross-phase boss warning before damage, and phase snapshot/restore. Production maps, final art and later N04 echo integration remain. |
+| AC-11 | Campaign/hub/save/retry/post-final loop | PARTIAL | Versioned checksum save envelope + primary/backup primitive, W06 route snapshot/restore, W07 active-circuit snapshot/restore and W08 phase snapshot/restore exist; world/campaign/settlement migration still absent. |
+| AC-12 | Distinct content manifest + no release placeholders | PARTIAL | Manifest holds the full planned counts and release gate; implemented production content remains 0. W04 training geometry, W05 swarm preview, W06 ark geometry, W07 circuit lines and W08 phase blockers are development instrumentation, not counted content. |
+| AC-13 | Actual art/animation/audio/readability review | NOT_IMPLEMENTED | W04∼W08 procedural preview geometry is development instrumentation, not presentation acceptance evidence. |
+| AC-14 | Aspect ratio/multitouch/accessibility/lifecycle/save failures | PARTIAL | Safe-area scaling, pause/focus transient-input reset, virtual-input bridge, route pause/checkpoint, W07 pause-safe circuit timers and W08 phase input edge/reset exist; full touch/accessibility/platform matrix remains later. |
 | AC-15 | Device performance/memory/soak/16KB | NOT_IMPLEMENTED | W05 spatial partition/state reuse foundations exist, but no device/runtime performance evidence exists. |
 | AC-16 | Licenses/signing provenance/direct APK | PARTIAL | Asset provenance policy + pinned engine source; signing/APK delivery remain unresolved. |
 
@@ -54,7 +54,7 @@ Status terms: `PARTIAL`, `BLOCKED`, `NOT_IMPLEMENTED`. No row in this checkpoint
 - Pausing freezes route progress, and a save-ready primitive checkpoint restores route choice, progress, supply, durability and deterministic continuation without duplicate completion effects.
 - Runtime swarm pressure consumes route threat and entry direction while retaining W04 player-target and W05 pooled-target integration.
 
-## W07 fast-test contract
+## W07 retained fast-test contract
 
 - An open movement line does not activate a circuit; a valid closed loop with minimum path length and enclosed area activates exactly once and charges light once.
 - Stationary jitter, short backtracking, self-intersecting geometry and teleport-sized discontinuities cannot be used as valid closures.
@@ -66,6 +66,18 @@ Status terms: `PARTIAL`, `BLOCKED`, `NOT_IMPLEMENTED`. No row in this checkpoint
 - Ark/objective protection is opt-in through the W07 provider hook: no provider preserves W06 damage, while a live ward applies deterministic mitigation before the W06 model settles visible damage.
 - Active circuit IDs, polygons, module/phase, remaining duration, light, cooldown and activation generation survive snapshot/restore; the transient in-progress trail intentionally resets on restore so a committed closure cannot fire twice.
 - `echo_beacon` is a reserved module identity for W10 and is not evidence that tactical echo replay exists in W07.
+
+## W08 fast-test contract
+
+- Material and shadow share coordinates but use different blocker/cover layouts; movement cannot tunnel through the active phase blocker or leave world bounds.
+- Before a switch, the target phase, destination validity and nearby target-phase threat count are available as preview data.
+- A blocked destination, pause, cancellation or active cooldown rejects a switch without advancing transition generation or improperly consuming a new cooldown.
+- A valid switch changes the active collision/targeting battlefield, arms the reuse cooldown and propagates the phase token into W07 circuits.
+- A valid switch during W06 ark route travel leaves route status, progress and supply untouched, and route simulation continues afterward.
+- Enemy archetypes are assigned deterministic phase identities; W04 auto targeting only receives enemies in the active phase.
+- An opposite-phase boss cannot apply direct contact damage. Its only cross-phase damage path in this checkpoint creates a visible timed warning first and resolves only after that warning.
+- A circuit recorded in material does not affect shadow queries at the same coordinate and becomes active again after returning to material.
+- Phase, remaining cooldown, generation and last valid transition position survive snapshot/restore without replaying a transition.
 
 ## Non-regression and safety
 
