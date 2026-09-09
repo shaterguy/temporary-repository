@@ -6,6 +6,7 @@ signal route_state_changed(status: String, route_id: String)
 
 var model = ArkRouteModelScript.new()
 var _origin_position: Vector2 = Vector2.ZERO
+var _circuit_provider: Object
 
 
 func _ready() -> void:
@@ -18,6 +19,10 @@ func configure_seed(seed: int) -> void:
     position = _origin_position
     queue_redraw()
     route_state_changed.emit(model.status, model.selected_route_id)
+
+
+func set_circuit_provider(provider: Object) -> void:
+    _circuit_provider = provider
 
 
 func choose_route(route_id: String) -> bool:
@@ -54,7 +59,8 @@ func is_objective_visible() -> bool:
 
 
 func apply_objective_damage(raw_damage: int, warning_visible: bool = true) -> bool:
-    var applied := model.apply_objective_damage(raw_damage, warning_visible)
+    var adjusted_damage := _circuit_adjusted_damage(objective_global_position(), raw_damage)
+    var applied := model.apply_objective_damage(adjusted_damage, warning_visible)
     if applied:
         queue_redraw()
         route_state_changed.emit(model.status, model.selected_route_id)
@@ -62,7 +68,8 @@ func apply_objective_damage(raw_damage: int, warning_visible: bool = true) -> bo
 
 
 func apply_ark_damage(raw_damage: int, warning_visible: bool = true) -> bool:
-    var applied := model.apply_ark_damage(raw_damage, warning_visible)
+    var adjusted_damage := _circuit_adjusted_damage(global_position, raw_damage)
+    var applied := model.apply_ark_damage(adjusted_damage, warning_visible)
     if applied:
         queue_redraw()
         route_state_changed.emit(model.status, model.selected_route_id)
@@ -88,6 +95,14 @@ func restore_state(snapshot_state: Dictionary) -> bool:
     queue_redraw()
     route_state_changed.emit(model.status, model.selected_route_id)
     return true
+
+
+func _circuit_adjusted_damage(world_position: Vector2, raw_damage: int) -> int:
+    if raw_damage <= 0:
+        return raw_damage
+    if is_instance_valid(_circuit_provider) and _circuit_provider.has_method("mitigate_damage_at"):
+        return maxi(0, int(_circuit_provider.call("mitigate_damage_at", world_position, raw_damage)))
+    return raw_damage
 
 
 func _physics_process(delta: float) -> void:
