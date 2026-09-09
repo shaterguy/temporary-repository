@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "status": "weapon-relic-expansion-integrated",
+  "status": "region-expansion-integrated",
   "release_gate": {
     "placeholder_assets_required": 0,
     "license_record_required_for_every_runtime_asset": true
@@ -114,12 +114,37 @@
       "human_weapon_relic_balance_review": "pending"
     }
   },
+  "region_expansion": {
+    "w18": {
+      "status": "runtime-mechanics-integrated",
+      "region_catalog": "res://game/data/region_catalog.gd",
+      "region_objective_model": "res://game/world/region_expedition_model.gd",
+      "region_route_runtime": "res://game/world/region_ark_route_model.gd",
+      "region_spawn_runtime": "res://game/combat/region_spawn_director.gd",
+      "main_shell_bridge": "res://game/ui/main_shell_w18.gd",
+      "parent_regions": 2,
+      "subregion_route_profiles": 4,
+      "phase_states_per_region": 2,
+      "enemy_behavior_definitions": 12,
+      "environment_asset_count": 2,
+      "runtime_manifest": "res://assets/runtime/w18/region_manifest.json",
+      "source_record": "res://assets/source/w18/REGION_ART_DIRECTION.md",
+      "license_record": "res://assets/licenses/W18_ORIGINAL_ART.md",
+      "production_region_count": 0,
+      "production_enemy_behavior_count": 0,
+      "focused_ci": ".github/workflows/w18-region-ci.yml",
+      "integration_test": "res://tests/integration/w18_region_expansion_smoke.gd",
+      "human_region_art_review": "pending",
+      "human_region_balance_review": "pending"
+    }
+  },
   "notes": [
     "The foundation shell is not counted as playable content.",
     "Counts may only advance when an item has a distinct gameplay role and tracked runtime asset/license state.",
     "W13 representative visual identities and W14 representative audio identities are tracked separately and do not falsely increment production gameplay-content counts.",
     "W15 records main-flow integration and first-expedition onboarding without falsely advancing production content counts or claiming final fun/readability review.",
     "W16 exposes six runtime-distinct character roles, unlock rules and role tutorials. The two W13 player identities are mapped to Aurora/Cinder, while all six remain excluded from implemented_content until final character-specific production art/audio/provenance and balance gates are complete.",
-    "W17 expands the retained W09 causal system to 18 validated curated weapon definitions, 48 bounded relic definitions, six representative builds and transparent selection/comparison data. Production weapon/relic counts remain zero until final per-item art/audio/provenance and human balance gates are complete."
+    "W17 expands the retained W09 causal system to 18 validated curated weapon definitions, 48 bounded relic definitions, six representative builds and transparent selection/comparison data. Production weapon/relic counts remain zero until final per-item production asset/provenance and human balance gates are complete.",
+    "W18 maps the existing stage-1 and stage-2 campaign destinations into Glass Garden and Flooded Archive runtime regions with four distinct route geometries, two-phase objective gates, twelve deterministic regional entry behaviors and two project-original environment vectors. Production region/enemy-behavior counts remain zero until later boss/audio/full asset breadth and human quality gates are complete."
   ]
 }

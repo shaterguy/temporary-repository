@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "milestone": "w18-region-expansion",
+  "assets": [
+    {
+      "id": "environment_glass_garden",
+      "parent_region": "glass_garden",
+      "path": "res://assets/runtime/w18/environment_glass_garden.svg",
+      "kind": "environment",
+      "source": "res://assets/source/w18/REGION_ART_DIRECTION.md",
+      "license_record": "res://assets/licenses/W18_ORIGINAL_ART.md",
+      "placeholder": false
+    },
+    {
+      "id": "environment_flooded_archive",
+      "parent_region": "flooded_archive",
+      "path": "res://assets/runtime/w18/environment_flooded_archive.svg",
+      "kind": "environment",
+      "source": "res://assets/source/w18/REGION_ART_DIRECTION.md",
+      "license_record": "res://assets/licenses/W18_ORIGINAL_ART.md",
+      "placeholder": false
+    }
+  ]
+}

@@ -1,0 +1,127 @@
+name: w18-region-ci
+
+on:
+  push:
+    branches:
+      - 'v*-dev*'
+      - 'v*-rc*'
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: w18-region-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  w18-region-regression:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      GODOT_VERSION: "4.7.2-stable"
+      GODOT_ARCHIVE_SHA256: "cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4"
+      GODOT_ARCHIVE_URL: "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip"
+      GODOT_BIN: "/tmp/godot/Godot_v4.7.2-stable_linux.x86_64"
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: W18 static contract preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(jq -r '.engine.version' toolchain.lock)" = "$GODOT_VERSION"
+          test "$(jq -r '.engine.linux_x86_64_sha256' toolchain.lock)" = "$GODOT_ARCHIVE_SHA256"
+          test "$(jq -r '.identity.version_name' toolchain.lock)" = "1.0.0-dev1"
+          test "$(jq -r '.identity.version_code' toolchain.lock)" = "1"
+          test "$(jq -r '.status' content_manifest.json)" = "region-expansion-integrated"
+          test "$(jq -r '.region_expansion.w18.status' content_manifest.json)" = "runtime-mechanics-integrated"
+          test "$(jq -r '.region_expansion.w18.parent_regions' content_manifest.json)" = "2"
+          test "$(jq -r '.region_expansion.w18.subregion_route_profiles' content_manifest.json)" = "4"
+          test "$(jq -r '.region_expansion.w18.phase_states_per_region' content_manifest.json)" = "2"
+          test "$(jq -r '.region_expansion.w18.enemy_behavior_definitions' content_manifest.json)" = "12"
+          test "$(jq -r '.region_expansion.w18.environment_asset_count' content_manifest.json)" = "2"
+          test "$(jq -r '.region_expansion.w18.production_region_count' content_manifest.json)" = "0"
+          test "$(jq -r '.region_expansion.w18.production_enemy_behavior_count' content_manifest.json)" = "0"
+          test "$(jq -r '.implemented_content.regions' content_manifest.json)" = "0"
+          test "$(jq -r '.implemented_content.enemy_behaviors' content_manifest.json)" = "0"
+          test "$(jq -r '.assets | length' assets/runtime/w18/region_manifest.json)" = "2"
+          test "$(jq '[.assets[] | select(.placeholder == true)] | length' assets/runtime/w18/region_manifest.json)" = "0"
+          test -f assets/runtime/w18/environment_glass_garden.svg
+          test -f assets/runtime/w18/environment_flooded_archive.svg
+          test -f assets/source/w18/REGION_ART_DIRECTION.md
+          test -f assets/licenses/W18_ORIGINAL_ART.md
+          test -f game/data/region_catalog.gd
+          test -f game/world/region_expedition_model.gd
+          test -f game/world/region_ark_route_model.gd
+          test -f game/world/region_ark_convoy.gd
+          test -f game/combat/region_spawn_director.gd
+          test -f game/combat/region_swarm_encounter.gd
+          test -f game/ui/main_shell_w18.gd
+          test -f tests/unit/test_region_expansion.gd
+          test -f tests/integration/w18_region_expansion_smoke.gd
+          test -f docs/verification/W18_REGION_EXPANSION.md
+          grep -Fq 'path="res://game/ui/main_shell_w18.gd"' game/ui/main_shell.tscn
+          test -z "$(find . -type f \( -name '*.jks' -o -name '*.keystore' -o -name '*.p12' -o -name '*.pem' -o -name '*.key' \) -print -quit)"
+
+      - name: Download pinned Godot editor
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/godot
+          curl --fail --location --proto '=https' --tlsv1.2 "$GODOT_ARCHIVE_URL" --output /tmp/godot.zip
+          echo "$GODOT_ARCHIVE_SHA256  /tmp/godot.zip" | sha256sum --check --strict
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x "$GODOT_BIN"
+          "$GODOT_BIN" --version
+
+      - name: Import W18 candidate headlessly
+        shell: bash
+        run: |
+          set -euo pipefail
+          import_log="$(mktemp)"
+          set +e
+          "$GODOT_BIN" --headless --path . --import 2>&1 | tee "$import_log"
+          godot_status=${PIPESTATUS[0]}
+          set -e
+          test "$godot_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$import_log"; then
+            echo "::error::W18 import reported script compilation errors"
+            exit 1
+          fi
+
+      - name: Run W18 actual region-expansion smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          w18_log="$(mktemp)"
+          set +e
+          "$GODOT_BIN" --headless --path . --script tests/integration/w18_region_expansion_smoke.gd 2>&1 | tee "$w18_log"
+          godot_status=${PIPESTATUS[0]}
+          set -e
+          test "$godot_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$w18_log"; then
+            echo "::error::W18 region smoke reported script/runtime errors"
+            exit 1
+          fi
+          if grep -Eq 'ObjectDB instances leaked|Resources still in use' "$w18_log"; then
+            echo "::error::W18 region smoke leaked runtime objects/resources"
+            exit 1
+          fi
+          if grep -Eq '^W18_FAIL:|^W18_REGION_EXPANSION=FAIL' "$w18_log"; then
+            echo "::error::W18 region smoke contract failed"
+            exit 1
+          fi
+          grep -Fxq 'W18_PARENT_REGIONS=2' "$w18_log"
+          grep -Fxq 'W18_ROUTE_PROFILES=4' "$w18_log"
+          grep -Fxq 'W18_ENEMY_BEHAVIOR_DEFS=12' "$w18_log"
+          grep -Fxq 'W18_ROUTE_OVERRIDE=PASS' "$w18_log"
+          grep -Fxq 'W18_PHASE_OBJECTIVES=PASS' "$w18_log"
+          grep -Fxq 'W18_PERSISTED_REGION=PASS' "$w18_log"
+          grep -Fxq 'W18_FLOODED_ARCHIVE_RUNTIME=PASS' "$w18_log"
+          grep -Fxq 'W18_REGION_EXPANSION=PASS' "$w18_log"
+          action_ms="$(sed -n 's/^W18_REGION_ACTION_MS=//p' "$w18_log" | tail -n 1)"
+          test -n "$action_ms"
+          test "$action_ms" -le 3500

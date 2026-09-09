@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#07191c"/>
+      <stop offset="0.58" stop-color="#123438"/>
+      <stop offset="1" stop-color="#18282a"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#bff6df" stop-opacity="0.54"/>
+      <stop offset="0.48" stop-color="#65c9bd" stop-opacity="0.20"/>
+      <stop offset="1" stop-color="#d7b7ff" stop-opacity="0.42"/>
+    </linearGradient>
+    <radialGradient id="lantern" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#fff2a6" stop-opacity="0.95"/>
+      <stop offset="0.35" stop-color="#f6c65d" stop-opacity="0.44"/>
+      <stop offset="1" stop-color="#f6c65d" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="soft"><feGaussianBlur stdDeviation="13"/></filter>
+  </defs>
+  <rect width="1280" height="720" fill="url(#sky)"/>
+  <circle cx="1030" cy="166" r="150" fill="url(#lantern)" filter="url(#soft)"/>
+  <path d="M0 536 C178 494 322 526 486 486 C678 438 800 500 960 454 C1080 420 1182 432 1280 390 L1280 720 L0 720Z" fill="#0a2526"/>
+  <path d="M0 598 C220 558 374 610 552 566 C760 514 930 584 1280 492 L1280 720 L0 720Z" fill="#102f2c"/>
+  <g stroke="#b6f3d7" stroke-opacity="0.32" fill="url(#glass)">
+    <path d="M104 555 L202 188 L296 551 Z" stroke-width="5"/>
+    <path d="M230 560 L356 92 L462 552 Z" stroke-width="4"/>
+    <path d="M516 554 L625 146 L744 558 Z" stroke-width="5"/>
+    <path d="M724 558 L840 110 L944 552 Z" stroke-width="4"/>
+    <path d="M938 552 L1066 172 L1194 548 Z" stroke-width="5"/>
+  </g>
+  <g fill="none" stroke-linecap="round">
+    <path d="M62 616 C208 540 322 646 470 568 S752 632 888 548 S1110 584 1246 518" stroke="#73d9c6" stroke-width="8" stroke-opacity="0.44"/>
+    <path d="M70 621 C214 548 326 652 474 575 S754 638 894 555 S1112 590 1242 526" stroke="#d4fff2" stroke-width="2" stroke-opacity="0.62"/>
+    <path d="M360 242 C456 194 514 232 590 174" stroke="#d9c0ff" stroke-width="3" stroke-opacity="0.55"/>
+    <path d="M782 232 C886 178 954 212 1046 154" stroke="#d9c0ff" stroke-width="3" stroke-opacity="0.48"/>
+  </g>
+  <g fill="#d9fff1" fill-opacity="0.72">
+    <circle cx="182" cy="356" r="4"/><circle cx="272" cy="278" r="3"/><circle cx="574" cy="308" r="4"/>
+    <circle cx="686" cy="226" r="3"/><circle cx="890" cy="312" r="4"/><circle cx="1110" cy="286" r="3"/>
+  </g>
+  <g transform="translate(566 544)">
+    <path d="M0 0 L58 -20 L128 0 L110 24 L18 24 Z" fill="#263b3a" stroke="#d7ad58" stroke-width="3"/>
+    <circle cx="66" cy="0" r="22" fill="#f2b94e" fill-opacity="0.34"/>
+    <circle cx="66" cy="0" r="8" fill="#ffe39a"/>
+  </g>
+  <g font-family="sans-serif" fill="#d9f7ea" opacity="0.78">
+    <text x="56" y="74" font-size="21" letter-spacing="5">GLASS GARDEN</text>
+    <text x="57" y="102" font-size="13" letter-spacing="2">PRISM ROOTS · SALT VEINS · REFRACTION LANES</text>
+  </g>
+</svg>
