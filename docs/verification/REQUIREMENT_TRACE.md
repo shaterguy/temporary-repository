@@ -1,9 +1,11 @@
-# Requirement trace — W13 checkpoint
+# Requirement trace — W15 checkpoint
 
 Task: `SR-20260909-150106-PPO12Y`
 Branch target: `v1.0.0-dev1`
 
 Status terms: `PARTIAL`, `BLOCKED`, `NOT_IMPLEMENTED`. No row in this checkpoint is a final game PASS.
+
+W14/W15 checkpoint deltas below extend the cumulative AC evidence in the table. They do not convert headless/CI evidence into human visual, listening, fun, Android-device, signing, or release acceptance.
 
 | ID | Requirement | Current state | Evidence / next dependency |
 | --- | --- | --- | --- |
@@ -141,6 +143,27 @@ Status terms: `PARTIAL`, `BLOCKED`, `NOT_IMPLEMENTED`. No row in this checkpoint
 - CI must produce an actual 1280×720 PNG from `w13_showcase.tscn` under Xvfb/OpenGL compatibility rendering and upload it with `run_id` + `run_attempt` artifact identity. Import-only evidence is not visual evidence.
 - Automated PNG production does not itself equal AC-13 visual PASS. The rendered artifact still requires actual visual inspection for silhouette separation, hierarchy, clipping/overlap and obvious presentation defects. Production audio remains outside W13.
 
+## W14 representative-audio contract
+
+- W14 supplies 7 project-original, non-placeholder runtime audio identities for Twilight Shipyard: 3 music layers and 4 event cues, tracked by `assets/runtime/w14/audio_manifest.json`, source direction, and license/provenance records.
+- `AudioDirector` is the runtime autoload and exposes region/boss intensity transitions plus bounded SFX voice handling without becoming authoritative for combat, save, world, circuit, phase, weapon, echo, or doctrine state.
+- `w14-representative-audio-v1` retained W04∼W13 regression coverage and added representative-audio checks, for 15 fast suites total.
+- CI renders normal, -18dB, and warning WAV evidence at 32000 Hz PCM16 mono, validates required contract markers, and uploads the WAV evidence with run identity.
+- Automated WAV generation and checksum evidence do not equal human listening PASS. Warning audibility, mix balance, repetition fatigue, and presentation quality remain pending listening review.
+
+## W15 vertical-slice integration contract
+
+- `main_shell.tscn` mounts the W13 representative art/HUD and W15 first-expedition tutorial while the W14 `AudioDirector` remains the actual runtime autoload.
+- The first-expedition tutorial is observation-only presentation: it latches real slot, departure, movement, circuit, phase-switch, and settlement milestones and never becomes authoritative for gameplay or save state.
+- `tests/integration/w15_vertical_slice_smoke.gd` instantiates the actual main scene and proves the first persistent slot→hub choice→expedition→settlement→hub loop against an isolated `user://ci_w15_vertical_slice` save root.
+- The smoke verifies all seven differentiating systems are present in the real runtime path: N01 Ark route configured from the departure choice; N02 active circuit through the real controller/model; N03 equipped causal weapon recipe; N04 tactical echo persisted at settlement; N05 doctrine plan available; N06 two mutually exclusive next world choices; N07 main-scene phase transition generation advances.
+- Settlement is reloaded through a new `CampaignRuntime` instance and must remain at `HUB` with segment index 1, proving the W12 save boundary preserves the W15 settlement rather than only checking in-memory state.
+- The tutorial unit contract verifies monotonic milestone latching, required earlier steps, and completion hiding. `w15-vertical-slice-v1` retains prior suites and adds the tutorial suite, for 16 fast suites total.
+- CI rejects Godot script/runtime errors, `ObjectDB instances leaked`, `Resources still in use`, W15 explicit failures, missing contract markers, and a headless action interval above 2500ms. This 2500ms check is a CI sanity budget only, not Android frame-time/device-performance evidence.
+- Candidate `e26051b57b750624b10bcd453a3201c0af6bb2eb` passed `foundation-ci` run 34354127805/job 102474375656, including import, 16 fast suites, W15 actual-main-scene smoke, W13 render, and W14 audio render. W13 artifact 10104985356 and W14 artifact 10105003802 are tied to that candidate.
+- AC mapping: W15 adds direct integrated evidence to AC-03∼AC-11 and preserves AC-12∼AC-14 presentation/save boundaries. It does not satisfy AC-01/AC-02 because no production-signed Android APK/device path exists, and it does not satisfy AC-15 because headless timing is not device performance.
+- Human visual inspection, W14 listening review, first-slice fun/readability review, and actual Android performance remain residual verification. W15 mechanical integration success must not be presented as final AAA, sellable-quality, or release acceptance.
+
 ## Non-regression and safety
 
 - NR-01: no repository/application outside `shaterguy/temporary-repository` is mutated by this implementation.
@@ -148,4 +171,4 @@ Status terms: `PARTIAL`, `BLOCKED`, `NOT_IMPLEMENTED`. No row in this checkpoint
 - NR-03: W12 settlement remains idempotent across retry/restart through deterministic settlement IDs, the world model's settled-ID ledger, monotonic save sequence/checksum validation and save-before-live-commit ordering. The restart fixture remains authoritative for reward/progression non-duplication.
 - NR-04: after first distribution, each package/certificate/storage/version lineage must remain update-compatible; no first distribution has occurred yet.
 - NR-05: do not add payments, accounts, runtime networking, broad permissions, or untrusted signing paths without explicit review.
-- NR-06: W13 presentation may read runtime state but must not become authoritative for combat, world, save, doctrine, circuit, phase, weapon or echo semantics.
+- NR-06: W13/W14/W15 presentation may read runtime state but must not become authoritative for combat, world, save, doctrine, circuit, phase, weapon or echo semantics.
