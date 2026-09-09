@@ -14,6 +14,7 @@ const TEST_SUITES := [
     preload("res://tests/unit/test_world_campaign.gd"),
     preload("res://tests/unit/test_campaign_runtime.gd"),
     preload("res://tests/unit/test_runtime_state_codec.gd"),
+    preload("res://tests/unit/test_representative_art.gd"),
 ]
 const TEST_SUITE_NAMES := [
     "save_store",
@@ -29,6 +30,7 @@ const TEST_SUITE_NAMES := [
     "world_campaign",
     "campaign_runtime",
     "runtime_state_codec",
+    "representative_art",
 ]
 const FAST_TEST_WATCHDOG_SECONDS: float = 30.0
 
@@ -47,7 +49,7 @@ func _run_tests() -> void:
         failures.append_array(suite.run())
         print("SUITE_DONE=%s" % suite_name)
 
-    print("TEST_CONTRACT=w12-runtime-integration-v1")
+    print("TEST_CONTRACT=w13-representative-art-v1")
     print("SUITES=%d" % TEST_SUITES.size())
     if failures.is_empty():
         print("RESULT=PASS")

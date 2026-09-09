@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "milestone": "W13",
+  "status": "runtime-integrated",
+  "source_record": "res://assets/source/w13/ART_DIRECTION.md",
+  "license_record": "res://assets/licenses/W13_ORIGINAL_ART.md",
+  "assets": [
+    {"id":"environment_twilight_shipyard","kind":"region","runtime_path":"res://assets/runtime/w13/environment_twilight_shipyard.svg","placeholder":false},
+    {"id":"player_aurora","kind":"player","runtime_path":"res://assets/runtime/w13/player_aurora.svg","placeholder":false},
+    {"id":"player_cinder","kind":"player","runtime_path":"res://assets/runtime/w13/player_cinder.svg","placeholder":false},
+    {"id":"enemy_dusk_mite","kind":"enemy_visual","runtime_path":"res://assets/runtime/w13/enemy_dusk_mite.svg","placeholder":false},
+    {"id":"enemy_rivet_hound","kind":"enemy_visual","runtime_path":"res://assets/runtime/w13/enemy_rivet_hound.svg","placeholder":false},
+    {"id":"enemy_glasswing","kind":"enemy_visual","runtime_path":"res://assets/runtime/w13/enemy_glasswing.svg","placeholder":false},
+    {"id":"enemy_chain_wraith","kind":"enemy_visual","runtime_path":"res://assets/runtime/w13/enemy_chain_wraith.svg","placeholder":false},
+    {"id":"enemy_ballast_guard","kind":"enemy_visual","runtime_path":"res://assets/runtime/w13/enemy_ballast_guard.svg","placeholder":false},
+    {"id":"enemy_hull_reaver","kind":"enemy_visual","runtime_path":"res://assets/runtime/w13/enemy_hull_reaver.svg","placeholder":false},
+    {"id":"enemy_emberling","kind":"enemy_visual","runtime_path":"res://assets/runtime/w13/enemy_emberling.svg","placeholder":false},
+    {"id":"enemy_lantern_leech","kind":"enemy_visual","runtime_path":"res://assets/runtime/w13/enemy_lantern_leech.svg","placeholder":false},
+    {"id":"boss_drowned_navigator","kind":"boss","runtime_path":"res://assets/runtime/w13/boss_drowned_navigator.svg","placeholder":false},
+    {"id":"ark_lantern_bastion","kind":"ark","runtime_path":"res://assets/runtime/w13/ark_lantern_bastion.svg","placeholder":false},
+    {"id":"hud_lantern_panel","kind":"hud","runtime_path":"res://assets/runtime/w13/hud_lantern_panel.svg","placeholder":false},
+    {"id":"vfx_phase_burst","kind":"vfx","runtime_path":"res://assets/runtime/w13/vfx_phase_burst.svg","placeholder":false}
+  ],
+  "animation_contracts": ["player_idle_breath","enemy_sway","ark_engine_pulse","weapon_impact_burst"],
+  "readability_contract": {"danger_telegraph_above_decoration":true,"low_vfx_preserves_danger_information":true,"baseline":"1280x720"},
+  "visual_review_state": "render_capture_required"
+}

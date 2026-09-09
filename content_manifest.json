@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "status": "foundation",
+  "status": "vertical-slice-representative-art",
   "release_gate": {
     "placeholder_assets_required": 0,
     "license_record_required_for_every_runtime_asset": true
@@ -23,8 +23,27 @@
     "relics": 0,
     "choice_events": 0
   },
+  "representative_art": {
+    "w13": {
+      "status": "runtime-integrated",
+      "region": "twilight_shipyard",
+      "player_visual_identities": 2,
+      "enemy_visual_identities": 8,
+      "boss_visual_identities": 1,
+      "ark_visual_identities": 1,
+      "hud_sets": 1,
+      "vfx_sets": 1,
+      "runtime_asset_count": 15,
+      "runtime_manifest": "res://assets/runtime/w13/art_manifest.json",
+      "source_record": "res://assets/source/w13/ART_DIRECTION.md",
+      "license_record": "res://assets/licenses/W13_ORIGINAL_ART.md",
+      "render_contract": "1280x720 PNG artifact",
+      "human_visual_review": "pending-render-inspection"
+    }
+  },
   "notes": [
     "The foundation shell is not counted as playable content.",
-    "Counts may only advance when an item has a distinct gameplay role and tracked runtime asset/license state."
+    "Counts may only advance when an item has a distinct gameplay role and tracked runtime asset/license state.",
+    "W13 representative visual identities are tracked separately and do not falsely increment production gameplay-content counts."
   ]
 }
