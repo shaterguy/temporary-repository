@@ -227,7 +227,7 @@ static func run() -> Array[String]:
     )
     runtime_player.select_tactical_echo_record(runtime_record)
     var health_before := int(runtime_encounter._pool.state_for(target_id).get("health", 0))
-    var weapon_generation_before := runtime_player.weapon_model.resolution_generation
+    var weapon_generation_before: int = int(runtime_player.weapon_model.resolution_generation)
     runtime_player._advance_tactical_echo(0.06)
     var health_after := int(runtime_encounter._pool.state_for(target_id).get("health", 0))
     if health_after >= health_before:
