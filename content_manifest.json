@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "status": "foundation",
+  "release_gate": {
+    "placeholder_assets_required": 0,
+    "license_record_required_for_every_runtime_asset": true
+  },
+  "planned_distinct_content": {
+    "characters": 6,
+    "regions": 5,
+    "enemy_behaviors": 30,
+    "bosses": 10,
+    "curated_weapons": 18,
+    "relics": 48,
+    "choice_events": 40
+  },
+  "implemented_content": {
+    "characters": 0,
+    "regions": 0,
+    "enemy_behaviors": 0,
+    "bosses": 0,
+    "curated_weapons": 0,
+    "relics": 0,
+    "choice_events": 0
+  },
+  "notes": [
+    "The foundation shell is not counted as playable content.",
+    "Counts may only advance when an item has a distinct gameplay role and tracked runtime asset/license state."
+  ]
+}

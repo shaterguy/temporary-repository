@@ -1,0 +1,63 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://game/ui/main_shell.gd" id="1_shell"]
+
+[node name="MainShell" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_shell")
+
+[node name="Background" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.027, 0.035, 0.055, 1)
+
+[node name="SafeArea" type="MarginContainer" parent="."]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 48
+theme_override_constants/margin_top = 48
+theme_override_constants/margin_right = 48
+theme_override_constants/margin_bottom = 48
+
+[node name="Content" type="VBoxContainer" parent="SafeArea"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="Title" type="Label" parent="SafeArea/Content"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 42
+text = "LANTERNFALL"
+
+[node name="Subtitle" type="Label" parent="SafeArea/Content"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "잔광의 항로"
+
+[node name="Divider" type="HSeparator" parent="SafeArea/Content"]
+layout_mode = 2
+
+[node name="Foundation" type="Label" parent="SafeArea/Content"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+text = "항로 복구 시스템 기반 구축 중"
+
+[node name="Status" type="Label" parent="SafeArea/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "Foundation build"

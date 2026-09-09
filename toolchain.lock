@@ -1,0 +1,29 @@
+{
+  "schema": 1,
+  "engine": {
+    "name": "Godot",
+    "version": "4.7.2-stable",
+    "linux_x86_64_url": "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip",
+    "linux_x86_64_sha256": "cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4",
+    "export_templates_url": "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_export_templates.tpz",
+    "export_templates_sha256": "f298490b8d44d934be425a5a65a51bf15f422428b229a06a6e11d9ffea248011"
+  },
+  "android": {
+    "jdk_major": 17,
+    "min_api": 29,
+    "target_api": 35,
+    "sdk_platform": "android-35",
+    "build_tools": "35.0.1",
+    "primary_abi": "arm64-v8a",
+    "ci_emulator_abi": "x86_64"
+  },
+  "rendering": {
+    "method": "gl_compatibility"
+  },
+  "identity": {
+    "dev_application_id": "com.shaterguy.lanternfall.dev",
+    "prod_application_id": "com.shaterguy.lanternfall",
+    "version_name": "1.0.0-dev1",
+    "version_code": 1
+  }
+}

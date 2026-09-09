@@ -1,0 +1,26 @@
+# Godot generated state
+.godot/
+.import/
+
+# Local build/export output
+build/
+dist/
+export/
+*.apk
+*.aab
+
+# Signing and local secrets
+*.jks
+*.keystore
+*.p12
+*.pem
+*.key
+.env
+.env.*
+!.env.example
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
