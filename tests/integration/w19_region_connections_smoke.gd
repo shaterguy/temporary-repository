@@ -3,6 +3,7 @@ extends SceneTree
 const RegionUnitTestScript = preload("res://tests/unit/test_w19_region_connections.gd")
 const CampaignRuntimeScript = preload("res://game/world/campaign_runtime.gd")
 const SaveStoreScript = preload("res://game/core/save_store.gd")
+const WorldCampaignScript = preload("res://game/world/world_campaign_model.gd")
 const ASH_ROOT: String = "user://ci_w19_ash_railway"
 const FORTRESS_ROOT: String = "user://ci_w19_eclipse_fortress"
 const MAX_ACTION_MILLISECONDS: int = 4000
@@ -30,8 +31,8 @@ func _run_w19() -> void:
         await _finish(null, null, Time.get_ticks_msec() - action_started_ms)
         return
     var ash_campaign: Variant = ash_shell.get("campaign")
-    ash_campaign.world.segment_index = 3
-    ash_campaign.world.state = "POST_FINAL"
+    ash_campaign.world.segment_index = WorldCampaignScript.FINAL_BRANCH_SEGMENT
+    ash_campaign.world.state = WorldCampaignScript.STATE_HUB
     ash_shell.call("_show_hub_prompt")
     if not bool(ash_shell.call("select_world_choice", 0)):
         _failures.append("W19 Ash Railway world connection could not start through the actual shell")
@@ -100,8 +101,8 @@ func _run_w19() -> void:
         _failures.append("W19 Eclipse Fortress main shell could not be created")
     else:
         var fortress_campaign: Variant = fortress_shell.get("campaign")
-        fortress_campaign.world.segment_index = 3
-        fortress_campaign.world.state = "POST_FINAL"
+        fortress_campaign.world.segment_index = WorldCampaignScript.FINAL_BRANCH_SEGMENT
+        fortress_campaign.world.state = WorldCampaignScript.STATE_HUB
         fortress_shell.call("_show_hub_prompt")
         if not bool(fortress_shell.call("select_world_choice", 1)):
             _failures.append("W19 Eclipse Fortress world connection could not start through the actual shell")
