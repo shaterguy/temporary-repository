@@ -39,8 +39,8 @@ static func definition(character_id: String) -> Dictionary:
                 "unlock_text": "기본 해금",
                 "tutorial": "회로 설계자 · 3/4/5로 회로를 완성하면 회로 전하를 얻습니다. 다음 공격 원인에 전하가 소모되어 피해가 증폭됩니다.",
                 "mechanic_text": "회로 완성 시 최대 2 전하, 전하를 소비한 공격 원인 피해 +35%",
-                "representative_art": "res://assets/runtime/w13/player_aurora.svg",
-                "production_art_status": "w13-representative",
+                "representative_art": "res://assets/runtime/w23/characters/aurora.svg",
+                "production_art_status": "w23-production-art-awaiting-human-review",
             }
         ID_CINDER:
             return {
@@ -52,8 +52,8 @@ static func definition(character_id: String) -> Dictionary:
                 "unlock_text": "기본 해금",
                 "tutorial": "근접 호위자 · 방주 220px 안에서 싸우면 주 공격 피해가 증가하고 피격 방어가 붙습니다. 멀어지면 보너스가 사라집니다.",
                 "mechanic_text": "방주 220px 이내 주 공격 +20%, 피격 방어 +3",
-                "representative_art": "res://assets/runtime/w13/player_cinder.svg",
-                "production_art_status": "w13-representative",
+                "representative_art": "res://assets/runtime/w23/characters/cinder.svg",
+                "production_art_status": "w23-production-art-awaiting-human-review",
             }
         ID_RIVET:
             return {
@@ -65,8 +65,8 @@ static func definition(character_id: String) -> Dictionary:
                 "unlock_text": "첫 성공 원정에서 현장 개조를 확보하거나 등대를 수리하면 해금",
                 "tutorial": "방주 정비사 · 방주 300px 안에서 서로 다른 공격 원인을 4회 처리할 때마다 선체 내구도를 8 복구합니다. 파손 상태 자체를 무효화하지는 않습니다.",
                 "mechanic_text": "방주 300px 이내 4번째 공격 원인마다 내구도 +8",
-                "representative_art": "",
-                "production_art_status": "w23-required",
+                "representative_art": "res://assets/runtime/w23/characters/rivet.svg",
+                "production_art_status": "w23-production-art-awaiting-human-review",
             }
         ID_VEIL:
             return {
@@ -78,8 +78,8 @@ static func definition(character_id: String) -> Dictionary:
                 "unlock_text": "위상 닻 또는 보존 항로 확보 시 해금, 세그먼트 2 도달 시 안전 해금",
                 "tutorial": "위상 정찰자 · Q로 유효한 위상 전환을 완료하면 위상 전하 2개를 얻습니다. 이후 서로 다른 공격 원인 2회가 각각 강화됩니다.",
                 "mechanic_text": "유효 위상 전환 시 2 전하, 전하를 소비한 공격 원인 피해 +30%",
-                "representative_art": "",
-                "production_art_status": "w23-required",
+                "representative_art": "res://assets/runtime/w23/characters/veil.svg",
+                "production_art_status": "w23-production-art-awaiting-human-review",
             }
         ID_MNEME:
             return {
@@ -91,8 +91,8 @@ static func definition(character_id: String) -> Dictionary:
                 "unlock_text": "첫 정산으로 전술 잔상을 기록하면 해금",
                 "tutorial": "잔상 기록자 · 이전 원정 기록을 echo_beacon 회로로 재생할 때 잔상 사격 피해가 기본 제한 피해의 1.5배가 됩니다. 인과 무기 재귀는 발생하지 않습니다.",
                 "mechanic_text": "N04 잔상 사격 피해 ×1.50, 인과 체인·보상 경로는 그대로 차단",
-                "representative_art": "",
-                "production_art_status": "w23-required",
+                "representative_art": "res://assets/runtime/w23/characters/mneme.svg",
+                "production_art_status": "w23-production-art-awaiting-human-review",
             }
         ID_VESPER:
             return {
@@ -104,8 +104,8 @@ static func definition(character_id: String) -> Dictionary:
                 "unlock_text": "부두 주민 4명 구조 또는 세그먼트 2 도달 시 해금",
                 "tutorial": "원거리 관측자 · 주 공격 원인마다 720px 안의 다른 표적 하나를 추가 관측해 55% 피해의 비재귀 보조타를 발사합니다.",
                 "mechanic_text": "서로 다른 공격 원인당 최대 1회, 720px 보조 표적에 주 공격 피해의 55%",
-                "representative_art": "",
-                "production_art_status": "w23-required",
+                "representative_art": "res://assets/runtime/w23/characters/vesper.svg",
+                "production_art_status": "w23-production-art-awaiting-human-review",
             }
     return {}
 

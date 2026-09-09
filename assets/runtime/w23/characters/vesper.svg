@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 160">
+<defs>
+  <linearGradient id="coat" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#334f4d"/><stop offset="0.48" stop-color="#263b3d"/><stop offset="1" stop-color="#111b2a"/></linearGradient>
+  <linearGradient id="optic" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#d8fff0"/><stop offset="0.5" stop-color="#6fe0b3"/><stop offset="1" stop-color="#3684a1"/></linearGradient>
+  <linearGradient id="lamp" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff2ad"/><stop offset="0.5" stop-color="#e7bd5c"/><stop offset="1" stop-color="#6fc58f"/></linearGradient>
+</defs>
+<path d="M61 8C44 9 34 20 35 36L21 49 28 62 19 139 45 151 62 120 82 151 109 134 98 62 108 48 91 34C90 19 77 7 61 8Z" fill="url(#coat)" stroke="#080d18" stroke-width="6" stroke-linejoin="round"/>
+<path d="M41 30C44 18 78 15 86 30L82 47H44Z" fill="#c8bba5" stroke="#0c1421" stroke-width="5"/>
+<path d="M35 28L59 17 88 25 95 37 72 33 57 27 41 39Z" fill="#314b4b" stroke="#0a1220" stroke-width="4"/>
+<path d="M70 31L94 29 98 40 79 44Z" fill="#182635" stroke="#0a111b" stroke-width="3"/>
+<circle cx="91" cy="35" r="7" fill="url(#optic)" stroke="#0b1520" stroke-width="3"/>
+<path d="M31 59L93 58 99 96 64 113 25 95Z" fill="#29433f" stroke="#0a1220" stroke-width="5"/>
+<path d="M46 67L78 65 86 83 64 101 40 83Z" fill="url(#lamp)" stroke="#655338" stroke-width="3"/>
+<path d="M25 67L8 91 15 98 35 79Z" fill="#5e777b" stroke="#0a111c" stroke-width="4"/>
+<path d="M98 64L117 21 123 24 109 73Z" fill="#718891" stroke="#09111b" stroke-width="4"/>
+<path d="M115 20L120 8 127 12 123 27Z" fill="url(#optic)" stroke="#234a55" stroke-width="2"/>
+<path d="M28 101L18 139 45 151 62 120 47 106Z" fill="#182e30" stroke="#080d18" stroke-width="4"/>
+<path d="M83 105L62 120 82 151 108 134 99 98Z" fill="#172d31" stroke="#080d18" stroke-width="4"/>
+<path d="M17 119L42 113M88 113L115 119" fill="none" stroke="#65c89d" stroke-width="4" stroke-linecap="round"/>
+<path d="M96 88L122 82 124 91 101 98Z" fill="#506a70" stroke="#09111b" stroke-width="3"/>
+</svg>

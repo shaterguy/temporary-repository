@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "milestone": "W23A",
+  "status": "character-production-art-integrated-partial",
+  "source_record": "res://assets/source/w23/CHARACTER_ART_DIRECTION.md",
+  "license_record": "res://assets/licenses/W23_ORIGINAL_CHARACTER_ART.md",
+  "baseline": "W13 visual grammar",
+  "assets": [
+    {"id":"aurora","kind":"player","role_id":"circuit_architect","runtime_path":"res://assets/runtime/w23/characters/aurora.svg","placeholder":false,"silhouette":"split-circuit-coat"},
+    {"id":"cinder","kind":"player","role_id":"close_escort","runtime_path":"res://assets/runtime/w23/characters/cinder.svg","placeholder":false,"silhouette":"broad-escort-plate"},
+    {"id":"rivet","kind":"player","role_id":"ark_engineer","runtime_path":"res://assets/runtime/w23/characters/rivet.svg","placeholder":false,"silhouette":"asymmetric-tool-rig"},
+    {"id":"veil","kind":"player","role_id":"phase_scout","runtime_path":"res://assets/runtime/w23/characters/veil.svg","placeholder":false,"silhouette":"split-phase-cloak"},
+    {"id":"mneme","kind":"player","role_id":"echo_recorder","runtime_path":"res://assets/runtime/w23/characters/mneme.svg","placeholder":false,"silhouette":"memory-reel-halo"},
+    {"id":"vesper","kind":"player","role_id":"ranged_observer","runtime_path":"res://assets/runtime/w23/characters/vesper.svg","placeholder":false,"silhouette":"tall-optic-rig"}
+  ],
+  "combat_scale_contract":{"width":48,"height":60,"outline_preserved":true,"warm_focal_light":true},
+  "readability_contract":{"distinct_silhouette_per_role":true,"danger_telegraph_above_character_art":true,"health_and_role_rings_outside_sprite":true},
+  "review_contract":{"capture":"res://artifacts/w23/character-review.png","baseline":"1280x720","human_visual_review":"pending-artifact-inspection"},
+  "placeholder_count":0
+}

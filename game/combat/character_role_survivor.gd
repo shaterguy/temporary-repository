@@ -3,11 +3,16 @@ extends "res://game/combat/survivor_controller.gd"
 const CharacterCatalogScript = preload("res://game/data/character_catalog.gd")
 const CharacterRoleModelScript = preload("res://game/combat/character_role_model.gd")
 const ArkRouteModelScript = preload("res://game/world/ark_route_model.gd")
+const W23CombatModelScript = preload("res://game/combat/combat_model.gd")
+const CHARACTER_VISUAL_SIZE := Vector2(48.0, 60.0)
 
 signal character_role_event(event: Dictionary)
 
 var role_model = CharacterRoleModelScript.new()
 var _ark_provider: Node2D
+var _character_texture: Texture2D
+var _character_art_path: String = ""
+var _character_art_status: String = ""
 
 
 func _ready() -> void:
@@ -19,6 +24,8 @@ func configure_character(character_id: String, ark_provider: Node2D = null) -> b
     var definition := CharacterCatalogScript.definition(character_id)
     if definition.is_empty() or not role_model.configure(definition):
         return false
+    if not _load_character_visual(definition):
+        return false
     if is_instance_valid(ark_provider):
         _ark_provider = ark_provider
     queue_redraw()
@@ -26,8 +33,33 @@ func configure_character(character_id: String, ark_provider: Node2D = null) -> b
         "type": "character_configured",
         "character_id": character_id,
         "role_id": str(definition.get("role_id", "")),
+        "art_path": _character_art_path,
     })
     return true
+
+
+func _load_character_visual(definition: Dictionary) -> bool:
+    _character_art_path = str(definition.get("representative_art", ""))
+    _character_art_status = str(definition.get("production_art_status", ""))
+    _character_texture = null
+    if _character_art_path.is_empty():
+        return false
+    var resource: Resource = load(_character_art_path)
+    if not resource is Texture2D:
+        return false
+    _character_texture = resource as Texture2D
+    return true
+
+
+func character_visual_snapshot() -> Dictionary:
+    return {
+        "character_id": role_model.character_id,
+        "role_id": role_model.role_id,
+        "art_path": _character_art_path,
+        "art_status": _character_art_status,
+        "texture_loaded": _character_texture != null,
+        "combat_size": CHARACTER_VISUAL_SIZE,
+    }
 
 
 func set_ark_provider(provider: Node2D) -> void:
@@ -40,6 +72,8 @@ func character_status_snapshot() -> Dictionary:
     snapshot["display_name"] = str(definition.get("display_name", role_model.character_id))
     snapshot["role_name"] = str(definition.get("role_name", role_model.role_id))
     snapshot["near_ark"] = _is_near_ark()
+    snapshot["art_path"] = _character_art_path
+    snapshot["art_status"] = _character_art_status
     return snapshot
 
 
@@ -220,6 +254,27 @@ func _apply_observer_followup(
 
 func _draw() -> void:
     super._draw()
+    if _character_texture != null:
+        draw_texture_rect(
+            _character_texture,
+            Rect2(-CHARACTER_VISUAL_SIZE * 0.5, CHARACTER_VISUAL_SIZE),
+            false
+        )
+        var health_ratio := clampf(
+            float(model.health) / float(W23CombatModelScript.MAX_HEALTH),
+            0.0,
+            1.0
+        )
+        draw_arc(
+            Vector2.ZERO,
+            35.0,
+            -PI * 0.5,
+            -PI * 0.5 + TAU * health_ratio,
+            32,
+            Color(1.0, 0.93, 0.70, 0.95),
+            3.0,
+            true
+        )
     var ring_color := Color(0.78, 0.88, 1.0, 0.88)
     match role_model.role_id:
         CharacterCatalogScript.ROLE_CIRCUIT_ARCHITECT:
@@ -234,4 +289,4 @@ func _draw() -> void:
             ring_color = Color(0.78, 0.48, 0.96, 0.90)
         CharacterCatalogScript.ROLE_RANGED_OBSERVER:
             ring_color = Color(0.46, 0.86, 0.58, 0.90)
-    draw_arc(Vector2.ZERO, 29.0, 0.0, TAU, 24, ring_color, 2.5, true)
+    draw_arc(Vector2.ZERO, 40.0, 0.0, TAU, 32, ring_color, 2.5, true)

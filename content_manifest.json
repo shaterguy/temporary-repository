@@ -85,8 +85,12 @@
       "initially_unlocked": 2,
       "progression_unlocked": 4,
       "w13_visual_identities_mapped": 2,
+      "w23_production_character_art_mapped": 6,
       "production_character_count": 0,
+      "final_character_art_gap": 0,
+      "final_character_audio_gap": 6,
       "final_character_art_audio_gap": 6,
+      "w23_character_art_status": "production-art-integrated-awaiting-human-review-and-audio",
       "integration_test": "res://tests/integration/w16_character_roles_smoke.gd",
       "human_character_balance_review": "pending"
     }
@@ -214,17 +218,34 @@
       "human_boss_balance_review": "pending"
     }
   },
+  "art_finalization": {
+    "w23": {
+      "status": "character-production-art-integrated-partial",
+      "character_asset_count": 6,
+      "placeholder_count": 0,
+      "runtime_manifest": "res://assets/runtime/w23/character_art_manifest.json",
+      "source_record": "res://assets/source/w23/CHARACTER_ART_DIRECTION.md",
+      "license_record": "res://assets/licenses/W23_ORIGINAL_CHARACTER_ART.md",
+      "runtime_bridge": "res://game/combat/character_role_survivor.gd",
+      "showcase_scene": "res://game/presentation/w23_character_showcase.tscn",
+      "focused_ci": ".github/workflows/w23-art-ci.yml",
+      "review_contract": "1280x720 character-review PNG artifact",
+      "human_character_visual_review": "pending-artifact-inspection",
+      "remaining_scope": ["weapon-and-relic-production-art", "enemy-breadth-production-art", "choice-event-illustration", "animation-polish", "full-screen-readability-matrix"]
+    }
+  },
   "notes": [
     "The foundation shell is not counted as playable content.",
     "Counts may only advance when an item has a distinct gameplay role and tracked runtime asset/license state.",
     "W13 representative visual identities and W14 representative audio identities are tracked separately and do not falsely increment production gameplay-content counts.",
     "W15 records main-flow integration and first-expedition onboarding without falsely advancing production content counts or claiming final fun/readability review.",
-    "W16 exposes six runtime-distinct character roles, unlock rules and role tutorials. The two W13 player identities are mapped to Aurora/Cinder, while all six remain excluded from implemented_content until final character-specific production art/audio/provenance and balance gates are complete.",
+    "W16 exposes six runtime-distinct character roles, unlock rules and role tutorials. W23A now maps all six to project-original production SVG art and the actual character-role Survivor render path. implemented_content.characters remains zero until character audio and human visual/balance gates are complete.",
     "W17 expands the retained W09 causal system to 18 validated curated weapon definitions, 48 bounded relic definitions, six representative builds and transparent selection/comparison data. Production weapon/relic counts remain zero until final per-item production asset/provenance and human balance gates are complete.",
     "W18 maps the existing stage-1 and stage-2 campaign destinations into Glass Garden and Flooded Archive runtime regions with four distinct route geometries, two-phase objective gates, twelve deterministic regional entry behaviors and two project-original environment vectors. Production region/enemy-behavior counts remain zero until later boss/audio/full asset breadth and human quality gates are complete.",
     "W19 turns the two existing recoverable post-final world connections into Ash Railway and Eclipse Fortress runtime regions. Each connection has a distinct route, phase rule set, six regional behaviors, persistent world-axis/unlock effects and a project-original environment vector. W19 intentionally preserved the W18 three-segment world schema so W21 could perform an explicit save-compatible topology migration.",
     "W20 adds ten project-original vector boss identities and ten deterministic authored audio timbres covering fifty mechanical presentation cues. These assets are runtime-integrated but implemented_content.bosses intentionally remains zero until human visual, listening and balance gates pass.",
     "W21 promotes the two W19 connections into the segment-3 final regional branch, giving the campaign five parent-region identities while retaining two post-final continuation departures. The inner world snapshot advances from lanternfall-world-v1 to lanternfall-world-v2, but the W12 lanternfall-save-payload-v1 envelope and settlement IDs remain unchanged. Fresh pre-W21 completions enter the new final branch; saves that already completed a W19 connection remain campaign-complete and are not replayed.",
-    "W21 also authors forty choice events: eight per parent region, split into twenty success follow-ups and twenty failure-recovery events. Each event has two visible choices, persistent story flags and one-run next-expedition support/shop/threat/recovery consequences. Final-branch event choices resolve to one of four persistent ending identities while preserving two post-final departures. implemented_content.choice_events remains zero because final per-event production art/audio/provenance and human narrative/AV review are W23-W24/release gates rather than W21 logic counts."
+    "W21 also authors forty choice events: eight per parent region, split into twenty success follow-ups and twenty failure-recovery events. Each event has two visible choices, persistent story flags and one-run next-expedition support/shop/threat/recovery consequences. Final-branch event choices resolve to one of four persistent ending identities while preserving two post-final departures. implemented_content.choice_events remains zero because final per-event production art/audio/provenance and human narrative/AV review are W23-W24/release gates rather than W21 logic counts.",
+    "W23A is intentionally a partial art-finalization checkpoint: character production art, runtime bridge, provenance, focused CI and review capture are included; the remaining W23 art breadth and human acceptance are not claimed complete."
   ]
 }

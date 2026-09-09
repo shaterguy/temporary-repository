@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 160">
+<defs>
+  <linearGradient id="cloak" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#4b4075"/><stop offset="0.5" stop-color="#27294e"/><stop offset="1" stop-color="#11182c"/></linearGradient>
+  <linearGradient id="phase" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#7fe2e3"/><stop offset="0.5" stop-color="#a374ff"/><stop offset="1" stop-color="#e56ed0"/></linearGradient>
+  <linearGradient id="light" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff3b2"/><stop offset="1" stop-color="#db7cc8"/></linearGradient>
+</defs>
+<path d="M67 8C50 7 38 19 39 35L26 47 31 60 18 137 44 150 62 119 80 153 111 135 97 61 106 48 91 34C90 19 81 9 67 8Z" fill="url(#cloak)" stroke="#080d18" stroke-width="6" stroke-linejoin="round"/>
+<path d="M43 30C47 17 80 15 88 30L83 47H46Z" fill="#d1c0ad" stroke="#0c1421" stroke-width="5"/>
+<path d="M41 27L65 18 92 30 82 39 65 31 47 39 33 35Z" fill="#39345e" stroke="#0b1220" stroke-width="4"/>
+<path d="M48 33L82 32 76 46 53 46Z" fill="#171b34" stroke="#0b1020" stroke-width="3"/>
+<path d="M54 37L76 36" fill="none" stroke="url(#phase)" stroke-width="4" stroke-linecap="round"/>
+<path d="M32 59L94 58 100 94 64 113 25 94Z" fill="#2d2d55" stroke="#0a1220" stroke-width="5"/>
+<path d="M47 67L78 65 87 83 64 101 40 82Z" fill="url(#light)" stroke="#6a415d" stroke-width="3"/>
+<path d="M26 66L7 82 12 91 34 78Z" fill="#606a8d" stroke="#0a111c" stroke-width="4"/>
+<path d="M96 65L120 49 124 57 103 78Z" fill="#666f99" stroke="#0a111c" stroke-width="4"/>
+<path d="M28 100L15 139 44 150 62 119 48 105Z" fill="#171d3a" stroke="#080d18" stroke-width="4"/>
+<path d="M83 103L62 119 81 153 111 135 98 96Z" fill="#161b39" stroke="#080d18" stroke-width="4"/>
+<path d="M16 116L35 105 46 118 28 130Z" fill="#7a58bd" fill-opacity="0.42" stroke="#72d0d8" stroke-width="3"/>
+<path d="M90 112L111 101 121 115 99 130Z" fill="#d269c8" fill-opacity="0.34" stroke="#9d7cff" stroke-width="3"/>
+<path d="M18 145C35 133 44 136 53 147M76 147C87 134 100 131 116 142" fill="none" stroke="url(#phase)" stroke-width="4" stroke-linecap="round"/>
+</svg>
