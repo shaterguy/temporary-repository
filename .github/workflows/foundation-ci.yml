@@ -54,6 +54,15 @@ jobs:
           test "$(jq -r '.character_expansion.w16.initially_unlocked' content_manifest.json)" = "2"
           test "$(jq -r '.character_expansion.w16.progression_unlocked' content_manifest.json)" = "4"
           test "$(jq -r '.character_expansion.w16.production_character_count' content_manifest.json)" = "0"
+          test "$(jq -r '.weapon_relic_expansion.w17.status' content_manifest.json)" = "runtime-mechanics-integrated"
+          test "$(jq -r '.weapon_relic_expansion.w17.base_trigger_parts' content_manifest.json)" = "6"
+          test "$(jq -r '.weapon_relic_expansion.w17.base_delivery_parts' content_manifest.json)" = "6"
+          test "$(jq -r '.weapon_relic_expansion.w17.base_transform_parts' content_manifest.json)" = "8"
+          test "$(jq -r '.weapon_relic_expansion.w17.curated_weapon_definitions' content_manifest.json)" = "18"
+          test "$(jq -r '.weapon_relic_expansion.w17.relic_definitions' content_manifest.json)" = "48"
+          test "$(jq -r '.weapon_relic_expansion.w17.representative_builds' content_manifest.json)" = "6"
+          test "$(jq -r '.weapon_relic_expansion.w17.production_weapon_count' content_manifest.json)" = "0"
+          test "$(jq -r '.weapon_relic_expansion.w17.production_relic_count' content_manifest.json)" = "0"
           test "$(jq -r '.assets | length' assets/runtime/w13/art_manifest.json)" = "15"
           test "$(jq '[.assets[] | select(.placeholder == true)] | length' assets/runtime/w13/art_manifest.json)" = "0"
           test "$(jq -r '.assets | length' assets/runtime/w14/audio_manifest.json)" = "7"
@@ -67,6 +76,13 @@ jobs:
           test -f game/ui/character_role_tutorial.gd
           test -f tests/unit/test_character_expansion.gd
           test -f tests/integration/w16_character_roles_smoke.gd
+          test -f game/data/relic_catalog.gd
+          test -f game/data/weapon_build_catalog.gd
+          test -f game/ui/weapon_relic_choice_model.gd
+          test -f game/ui/main_shell_w17.gd
+          test -f tests/unit/test_weapon_relic_expansion.gd
+          test -f tests/integration/w17_weapon_relic_smoke.gd
+          test -f docs/verification/W17_WEAPON_RELIC_EXPANSION.md
           test -z "$(find . -type f \( -name '*.jks' -o -name '*.keystore' -o -name '*.p12' -o -name '*.pem' -o -name '*.key' \) -print -quit)"
 
       - name: Download pinned Godot editor
@@ -113,8 +129,8 @@ jobs:
             echo "::error::Fast-test runner reported a failure"
             exit 1
           fi
-          grep -Fxq 'TEST_CONTRACT=w16-character-expansion-v1' "$test_log"
-          grep -Fxq 'SUITES=17' "$test_log"
+          grep -Fxq 'TEST_CONTRACT=w17-weapon-relic-expansion-v1' "$test_log"
+          grep -Fxq 'SUITES=18' "$test_log"
           grep -Fxq 'RESULT=PASS' "$test_log"
 
       - name: Run W15 actual vertical-slice smoke
@@ -176,6 +192,38 @@ jobs:
           grep -Fxq 'W16_PERSISTED_SELECTION=PASS' "$w16_log"
           grep -Fxq 'W16_CHARACTER_EXPANSION=PASS' "$w16_log"
           action_ms="$(sed -n 's/^W16_CHARACTER_ACTION_MS=//p' "$w16_log" | tail -n 1)"
+          test -n "$action_ms"
+          test "$action_ms" -le 2500
+
+      - name: Run W17 actual weapon-relic smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          w17_log="$(mktemp)"
+          set +e
+          "$GODOT_BIN" --headless --path . --script tests/integration/w17_weapon_relic_smoke.gd 2>&1 | tee "$w17_log"
+          godot_status=${PIPESTATUS[0]}
+          set -e
+          test "$godot_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$w17_log"; then
+            echo "::error::W17 weapon/relic smoke reported script/runtime errors"
+            exit 1
+          fi
+          if grep -Eq 'ObjectDB instances leaked|Resources still in use' "$w17_log"; then
+            echo "::error::W17 weapon/relic smoke leaked runtime objects/resources"
+            exit 1
+          fi
+          if grep -Eq '^W17_FAIL:|^W17_WEAPON_RELIC_EXPANSION=FAIL' "$w17_log"; then
+            echo "::error::W17 weapon/relic smoke contract failed"
+            exit 1
+          fi
+          grep -Fxq 'W17_CURATED_WEAPONS=18' "$w17_log"
+          grep -Fxq 'W17_RELICS=48' "$w17_log"
+          grep -Fxq 'W17_REPRESENTATIVE_BUILDS=6' "$w17_log"
+          grep -Fxq 'W17_SELECTION_UI=PASS' "$w17_log"
+          grep -Fxq 'W17_PERSISTED_BUILD=PASS' "$w17_log"
+          grep -Fxq 'W17_WEAPON_RELIC_EXPANSION=PASS' "$w17_log"
+          action_ms="$(sed -n 's/^W17_WEAPON_RELIC_ACTION_MS=//p' "$w17_log" | tail -n 1)"
           test -n "$action_ms"
           test "$action_ms" -le 2500
 

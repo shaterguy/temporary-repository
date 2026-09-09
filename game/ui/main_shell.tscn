@@ -1,6 +1,6 @@
 [gd_scene load_steps=7 format=3]
 
-[ext_resource type="Script" path="res://game/ui/main_shell_w16.gd" id="1_shell"]
+[ext_resource type="Script" path="res://game/ui/main_shell_w17.gd" id="1_shell"]
 [ext_resource type="Texture2D" path="res://assets/runtime/w13/environment_twilight_shipyard.svg" id="2_w13_environment"]
 [ext_resource type="Script" path="res://game/presentation/representative_art_layer.gd" id="3_w13_art"]
 [ext_resource type="Script" path="res://game/presentation/representative_hud.gd" id="4_w13_hud"]

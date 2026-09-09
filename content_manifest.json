@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "status": "character-expansion-integrated",
+  "status": "weapon-relic-expansion-integrated",
   "release_gate": {
     "placeholder_assets_required": 0,
     "license_record_required_for_every_runtime_asset": true
@@ -91,11 +91,35 @@
       "human_character_balance_review": "pending"
     }
   },
+  "weapon_relic_expansion": {
+    "w17": {
+      "status": "runtime-mechanics-integrated",
+      "weapon_catalog": "res://game/data/weapon_part_catalog.gd",
+      "relic_catalog": "res://game/data/relic_catalog.gd",
+      "representative_build_catalog": "res://game/data/weapon_build_catalog.gd",
+      "choice_model": "res://game/ui/weapon_relic_choice_model.gd",
+      "main_shell_bridge": "res://game/ui/main_shell_w17.gd",
+      "base_trigger_parts": 6,
+      "base_delivery_parts": 6,
+      "base_transform_parts": 8,
+      "curated_weapon_definitions": 18,
+      "relic_definitions": 48,
+      "representative_builds": 6,
+      "max_equipped_relics": 4,
+      "max_causal_chain_depth": 3,
+      "production_weapon_count": 0,
+      "production_relic_count": 0,
+      "unit_test": "res://tests/unit/test_weapon_relic_expansion.gd",
+      "integration_test": "res://tests/integration/w17_weapon_relic_smoke.gd",
+      "human_weapon_relic_balance_review": "pending"
+    }
+  },
   "notes": [
     "The foundation shell is not counted as playable content.",
     "Counts may only advance when an item has a distinct gameplay role and tracked runtime asset/license state.",
     "W13 representative visual identities and W14 representative audio identities are tracked separately and do not falsely increment production gameplay-content counts.",
     "W15 records main-flow integration and first-expedition onboarding without falsely advancing production content counts or claiming final fun/readability review.",
-    "W16 exposes six runtime-distinct character roles, unlock rules and role tutorials. The two W13 player identities are mapped to Aurora/Cinder, while all six remain excluded from implemented_content until final character-specific production art/audio/provenance and balance gates are complete."
+    "W16 exposes six runtime-distinct character roles, unlock rules and role tutorials. The two W13 player identities are mapped to Aurora/Cinder, while all six remain excluded from implemented_content until final character-specific production art/audio/provenance and balance gates are complete.",
+    "W17 expands the retained W09 causal system to 18 validated curated weapon definitions, 48 bounded relic definitions, six representative builds and transparent selection/comparison data. Production weapon/relic counts remain zero until final per-item art/audio/provenance and human balance gates are complete."
   ]
 }
