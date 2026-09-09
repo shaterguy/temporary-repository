@@ -111,6 +111,7 @@ func _checkpoint_runtime(reason: String) -> Dictionary:
     )
     if runtime_state.is_empty():
         return {"ok": false, "status": "RUNTIME_CAPTURE_FAILED"}
+    runtime_state["character_id"] = selected_character_id
     if region_model.is_active():
         runtime_state["w18_region"] = region_model.snapshot()
         runtime_state["w18_region_gate_required"] = _w18_objective_gate_required
