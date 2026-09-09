@@ -50,7 +50,7 @@ static func run() -> Array[String]:
         {"sample_count": 48, "ranged_ratio": 0.72},
         {"doctrine_id": "cover_advance", "response_cap": 0.3}
     )
-    var before_success_salvage := restored.salvage
+    var before_success_salvage: int = int(restored.salvage)
     var settled := restored.settle_expedition(
         "settlement-alpha",
         "success",
@@ -101,7 +101,7 @@ static func run() -> Array[String]:
 
     var failure_campaign = WorldCampaignScript.new()
     failure_campaign.reset(77)
-    var initial_access := failure_campaign.access_rights.duplicate()
+    var initial_access: Array[String] = failure_campaign.access_rights.duplicate()
     var fail_choice := str(failure_campaign.departure_options()[1].get("choice_id", ""))
     failure_campaign.begin_expedition(fail_choice)
     var failed_region := str(failure_campaign.expedition_context().get("region_id", ""))
