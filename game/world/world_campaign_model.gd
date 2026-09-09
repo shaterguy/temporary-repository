@@ -78,12 +78,12 @@ func departure_options() -> Array[Dictionary]:
 
 
 func begin_expedition(choice_id: String) -> Dictionary:
-    if state != STATE_HUB and state != STATE_POST_FINAL:
-        return {"ok": false, "status": "NOT_IN_HUB"}
     if not active_choice_id.is_empty():
         if active_choice_id == choice_id:
             return {"ok": true, "status": "ALREADY_SELECTED", "context": expedition_context()}
         return {"ok": false, "status": "CHOICE_ALREADY_LOCKED"}
+    if state != STATE_HUB and state != STATE_POST_FINAL:
+        return {"ok": false, "status": "NOT_IN_HUB"}
     var config := _choice_config(choice_id)
     if config.is_empty() or not _choice_available_for_stage(config):
         return {"ok": false, "status": "INVALID_CHOICE"}
