@@ -539,7 +539,7 @@ func restore_snapshot(snapshot_state: Dictionary) -> bool:
         access_rights.append("ark_berth")
     if state == STATE_EXPEDITION and active_expedition_id.is_empty():
         return false
-    if ending_id.is_empty() and segment_index >= CAMPAIGN_SEGMENTS:
+    if ending_id.is_empty() and segment_index >= CAMPAIGN_SEGMENTS and pending_event_id.is_empty():
         ending_id = _legacy_ending_id()
         _append_unique(ending_history, ending_id)
     return true
