@@ -9,11 +9,19 @@ on:
       - 'assets/runtime/w23/**'
       - 'assets/source/w23/**'
       - 'assets/licenses/W23_ORIGINAL_CHARACTER_ART.md'
+      - 'assets/licenses/W23_ORIGINAL_WEAPON_RELIC_ART.md'
       - 'game/data/character_catalog.gd'
+      - 'game/data/weapon_part_catalog.gd'
+      - 'game/data/relic_catalog.gd'
       - 'game/combat/character_role_survivor.gd'
+      - 'game/ui/weapon_relic_choice_model.gd'
+      - 'game/ui/main_shell.tscn'
       - 'game/presentation/w23_character_showcase.*'
+      - 'game/presentation/w23_weapon_relic_*'
       - 'tests/integration/w23_character_art_smoke.gd'
+      - 'tests/integration/w23_weapon_relic_art_smoke.gd'
       - 'tests/visual/capture_w23_characters.gd'
+      - 'tests/visual/capture_w23_weapon_relics.gd'
       - 'content_manifest.json'
       - '.github/workflows/w23-art-ci.yml'
   pull_request:
@@ -21,11 +29,19 @@ on:
       - 'assets/runtime/w23/**'
       - 'assets/source/w23/**'
       - 'assets/licenses/W23_ORIGINAL_CHARACTER_ART.md'
+      - 'assets/licenses/W23_ORIGINAL_WEAPON_RELIC_ART.md'
       - 'game/data/character_catalog.gd'
+      - 'game/data/weapon_part_catalog.gd'
+      - 'game/data/relic_catalog.gd'
       - 'game/combat/character_role_survivor.gd'
+      - 'game/ui/weapon_relic_choice_model.gd'
+      - 'game/ui/main_shell.tscn'
       - 'game/presentation/w23_character_showcase.*'
+      - 'game/presentation/w23_weapon_relic_*'
       - 'tests/integration/w23_character_art_smoke.gd'
+      - 'tests/integration/w23_weapon_relic_art_smoke.gd'
       - 'tests/visual/capture_w23_characters.gd'
+      - 'tests/visual/capture_w23_weapon_relics.gd'
       - 'content_manifest.json'
       - '.github/workflows/w23-art-ci.yml'
   workflow_dispatch:
@@ -60,7 +76,8 @@ jobs:
           test "$(jq -r '.placeholder_count' assets/runtime/w23/character_art_manifest.json)" = "0"
           test "$(jq -r '.character_expansion.w16.w23_production_character_art_mapped' content_manifest.json)" = "6"
           test "$(jq -r '.character_expansion.w16.final_character_art_gap' content_manifest.json)" = "0"
-          test "$(jq -r '.art_finalization.w23.status' content_manifest.json)" = "character-production-art-integrated-partial"
+          test "$(jq -r '.art_finalization.w23.character_asset_count' content_manifest.json)" = "6"
+          test "$(jq -r '.art_finalization.w23.placeholder_count' content_manifest.json)" = "0"
           test "$(find assets/runtime/w23/characters -maxdepth 1 -type f -name '*.svg' | wc -l)" = "6"
           test -f assets/source/w23/CHARACTER_ART_DIRECTION.md
           test -f assets/licenses/W23_ORIGINAL_CHARACTER_ART.md
@@ -138,5 +155,115 @@ jobs:
         with:
           name: w23-character-review-${{ github.run_id }}-${{ github.run_attempt }}
           path: artifacts/w23/character-review.png
+          if-no-files-found: error
+          retention-days: 14
+
+  weapon-relic-art-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 16
+    env:
+      GODOT_VERSION: "4.7.2-stable"
+      GODOT_ARCHIVE_SHA256: "cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4"
+      GODOT_ARCHIVE_URL: "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip"
+      GODOT_BIN: "/tmp/godot/Godot_v4.7.2-stable_linux.x86_64"
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Static W23B contract preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(jq -r '.milestone' assets/runtime/w23/weapon_relic_art_manifest.json)" = "W23B"
+          test "$(jq -r '.weapons | length' assets/runtime/w23/weapon_relic_art_manifest.json)" = "18"
+          test "$(jq -r '.relics | length' assets/runtime/w23/weapon_relic_art_manifest.json)" = "48"
+          test "$(jq -r '.placeholder_count' assets/runtime/w23/weapon_relic_art_manifest.json)" = "0"
+          test "$(jq -r '.weapon_relic_expansion.w17.w23_production_weapon_art_mapped' content_manifest.json)" = "18"
+          test "$(jq -r '.weapon_relic_expansion.w17.w23_production_relic_art_mapped' content_manifest.json)" = "48"
+          test "$(jq -r '.weapon_relic_expansion.w17.final_weapon_art_gap' content_manifest.json)" = "0"
+          test "$(jq -r '.weapon_relic_expansion.w17.final_relic_art_gap' content_manifest.json)" = "0"
+          test "$(jq -r '.art_finalization.w23.weapon_asset_count' content_manifest.json)" = "18"
+          test "$(jq -r '.art_finalization.w23.relic_asset_count' content_manifest.json)" = "48"
+          test "$(find assets/runtime/w23/weapons -maxdepth 1 -type f -name '*.svg' | wc -l)" = "18"
+          test "$(find assets/runtime/w23/relics -maxdepth 1 -type f -name '*.svg' | wc -l)" = "48"
+          test -f assets/source/w23/WEAPON_RELIC_ART_DIRECTION.md
+          test -f assets/licenses/W23_ORIGINAL_WEAPON_RELIC_ART.md
+          test -f game/presentation/w23_weapon_relic_art_catalog.gd
+          test -f game/presentation/w23_weapon_relic_hud.gd
+          test -f game/presentation/w23_weapon_relic_showcase.tscn
+          test -f tests/integration/w23_weapon_relic_art_smoke.gd
+          test -f tests/visual/capture_w23_weapon_relics.gd
+          test -z "$(grep -L '<path' assets/runtime/w23/weapons/*.svg assets/runtime/w23/relics/*.svg)"
+          test -z "$(grep -L 'linearGradient' assets/runtime/w23/weapons/*.svg assets/runtime/w23/relics/*.svg)"
+          test "$(sha256sum assets/runtime/w23/weapons/*.svg assets/runtime/w23/relics/*.svg | awk '{print $1}' | sort -u | wc -l)" = "66"
+          test -z "$(find . -type f \( -name '*.jks' -o -name '*.keystore' -o -name '*.p12' -o -name '*.pem' -o -name '*.key' \) -print -quit)"
+
+      - name: Download pinned Godot editor
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/godot
+          curl --fail --location --proto '=https' --tlsv1.2 "$GODOT_ARCHIVE_URL" --output /tmp/godot.zip
+          echo "$GODOT_ARCHIVE_SHA256  /tmp/godot.zip" | sha256sum --check --strict
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x "$GODOT_BIN"
+          "$GODOT_BIN" --version
+
+      - name: Import project headlessly
+        shell: bash
+        run: |
+          set -euo pipefail
+          import_log="$(mktemp)"
+          set +e
+          "$GODOT_BIN" --headless --path . --import 2>&1 | tee "$import_log"
+          godot_status=${PIPESTATUS[0]}
+          set -e
+          test "$godot_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$import_log"; then
+            echo "::error::Godot import reported script compilation errors"
+            exit 1
+          fi
+
+      - name: Run W23B weapon/relic runtime smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          smoke_log="$(mktemp)"
+          set +e
+          "$GODOT_BIN" --headless --path . --script tests/integration/w23_weapon_relic_art_smoke.gd 2>&1 | tee "$smoke_log"
+          godot_status=${PIPESTATUS[0]}
+          set -e
+          test "$godot_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$smoke_log"; then exit 1; fi
+          if grep -Eq '^W23B_FAIL:|^W23_WEAPON_RELIC_ART=FAIL' "$smoke_log"; then exit 1; fi
+          grep -Fxq 'W23_WEAPON_ART_COUNT=18' "$smoke_log"
+          grep -Fxq 'W23_RELIC_ART_COUNT=48' "$smoke_log"
+          grep -Fxq 'W23_WEAPON_RELIC_PLACEHOLDER_COUNT=0' "$smoke_log"
+          grep -Fxq 'W23_WEAPON_RELIC_RUNTIME=PASS' "$smoke_log"
+          grep -Fxq 'W23_WEAPON_RELIC_ART=PASS' "$smoke_log"
+
+      - name: Render W23B weapon/relic review sheet
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v xvfb-run >/dev/null
+          mkdir -p artifacts/w23
+          render_log="$(mktemp)"
+          set +e
+          xvfb-run -a "$GODOT_BIN" --path . --rendering-method gl_compatibility --script tests/visual/capture_w23_weapon_relics.gd 2>&1 | tee "$render_log"
+          godot_status=${PIPESTATUS[0]}
+          set -e
+          test "$godot_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$render_log"; then exit 1; fi
+          grep -Fxq 'W23_WEAPON_RELIC_REVIEW_CAPTURE=PASS' "$render_log"
+          grep -Fxq 'W23_WEAPON_RELIC_REVIEW_SIZE=1280x720' "$render_log"
+          test -s artifacts/w23/weapon-relic-review.png
+          sha256sum artifacts/w23/weapon-relic-review.png
+
+      - name: Upload W23B review evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: w23-weapon-relic-review-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/w23/weapon-relic-review.png
           if-no-files-found: error
           retention-days: 14

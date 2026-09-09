@@ -2,6 +2,7 @@ extends RefCounted
 
 const WeaponPartCatalogScript = preload("res://game/data/weapon_part_catalog.gd")
 const RelicCatalogScript = preload("res://game/data/relic_catalog.gd")
+const W23WeaponRelicArtCatalogScript = preload("res://game/presentation/w23_weapon_relic_art_catalog.gd")
 
 const CHOICE_COUNT: int = 3
 
@@ -18,6 +19,7 @@ static func weapon_choices(current_weapon_id: String, seed_value: int) -> Array[
             continue
         var card: Dictionary = WeaponPartCatalogScript.choice_card(candidate_id)
         card["comparison"] = WeaponPartCatalogScript.comparison(current_weapon_id, candidate_id)
+        card["art_path"] = W23WeaponRelicArtCatalogScript.weapon_path(candidate_id)
         choices.append(card)
         if choices.size() >= CHOICE_COUNT:
             break
@@ -43,6 +45,7 @@ static func relic_choices(equipped_relic_ids: Array[String], seed_value: int) ->
             continue
         var card: Dictionary = RelicCatalogScript.selection_card(candidate_id)
         card["resulting_loadout"] = proposed
+        card["art_path"] = W23WeaponRelicArtCatalogScript.relic_path(candidate_id)
         choices.append(card)
         if choices.size() >= CHOICE_COUNT:
             break

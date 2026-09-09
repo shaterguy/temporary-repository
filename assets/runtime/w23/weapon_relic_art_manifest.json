@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "milestone": "W23B",
+  "status": "weapon-relic-production-art-integrated-partial",
+  "source_record": "res://assets/source/w23/WEAPON_RELIC_ART_DIRECTION.md",
+  "license_record": "res://assets/licenses/W23_ORIGINAL_WEAPON_RELIC_ART.md",
+  "baseline": "W13 visual grammar + W17 causal content IDs",
+  "weapons": {
+    "sunwake_lance":"res://assets/runtime/w23/weapons/sunwake_lance.svg",
+    "shade_halo":"res://assets/runtime/w23/weapons/shade_halo.svg",
+    "arklight_arc":"res://assets/runtime/w23/weapons/arklight_arc.svg",
+    "ember_bolt":"res://assets/runtime/w23/weapons/ember_bolt.svg",
+    "scatter_ricochet":"res://assets/runtime/w23/weapons/scatter_ricochet.svg",
+    "circuit_pulse":"res://assets/runtime/w23/weapons/circuit_pulse.svg",
+    "snare_chain":"res://assets/runtime/w23/weapons/snare_chain.svg",
+    "ward_halo":"res://assets/runtime/w23/weapons/ward_halo.svg",
+    "phase_lance":"res://assets/runtime/w23/weapons/phase_lance.svg",
+    "dusk_bolt":"res://assets/runtime/w23/weapons/dusk_bolt.svg",
+    "phase_halo":"res://assets/runtime/w23/weapons/phase_halo.svg",
+    "pressure_fan":"res://assets/runtime/w23/weapons/pressure_fan.svg",
+    "pressure_chain":"res://assets/runtime/w23/weapons/pressure_chain.svg",
+    "confirmed_bolt":"res://assets/runtime/w23/weapons/confirmed_bolt.svg",
+    "confirmed_chain":"res://assets/runtime/w23/weapons/confirmed_chain.svg",
+    "confirmed_fan":"res://assets/runtime/w23/weapons/confirmed_fan.svg",
+    "dodge_fan":"res://assets/runtime/w23/weapons/dodge_fan.svg",
+    "dodge_bolt":"res://assets/runtime/w23/weapons/dodge_bolt.svg"
+  },
+  "relics": {
+    "wake_edge":"res://assets/runtime/w23/relics/wake_edge.svg","wake_nail":"res://assets/runtime/w23/relics/wake_nail.svg","wake_fork":"res://assets/runtime/w23/relics/wake_fork.svg","wake_ward":"res://assets/runtime/w23/relics/wake_ward.svg","wake_lens":"res://assets/runtime/w23/relics/wake_lens.svg","wake_pulse":"res://assets/runtime/w23/relics/wake_pulse.svg",
+    "shadow_edge":"res://assets/runtime/w23/relics/shadow_edge.svg","shadow_nail":"res://assets/runtime/w23/relics/shadow_nail.svg","shadow_fork":"res://assets/runtime/w23/relics/shadow_fork.svg","shadow_ward":"res://assets/runtime/w23/relics/shadow_ward.svg","shadow_lens":"res://assets/runtime/w23/relics/shadow_lens.svg","shadow_pulse":"res://assets/runtime/w23/relics/shadow_pulse.svg",
+    "circuit_edge":"res://assets/runtime/w23/relics/circuit_edge.svg","circuit_nail":"res://assets/runtime/w23/relics/circuit_nail.svg","circuit_fork":"res://assets/runtime/w23/relics/circuit_fork.svg","circuit_ward":"res://assets/runtime/w23/relics/circuit_ward.svg","circuit_lens":"res://assets/runtime/w23/relics/circuit_lens.svg","circuit_pulse":"res://assets/runtime/w23/relics/circuit_pulse.svg",
+    "ark_edge":"res://assets/runtime/w23/relics/ark_edge.svg","ark_nail":"res://assets/runtime/w23/relics/ark_nail.svg","ark_fork":"res://assets/runtime/w23/relics/ark_fork.svg","ark_ward":"res://assets/runtime/w23/relics/ark_ward.svg","ark_lens":"res://assets/runtime/w23/relics/ark_lens.svg","ark_pulse":"res://assets/runtime/w23/relics/ark_pulse.svg",
+    "phase_edge":"res://assets/runtime/w23/relics/phase_edge.svg","phase_nail":"res://assets/runtime/w23/relics/phase_nail.svg","phase_fork":"res://assets/runtime/w23/relics/phase_fork.svg","phase_ward":"res://assets/runtime/w23/relics/phase_ward.svg","phase_lens":"res://assets/runtime/w23/relics/phase_lens.svg","phase_pulse":"res://assets/runtime/w23/relics/phase_pulse.svg",
+    "chain_edge":"res://assets/runtime/w23/relics/chain_edge.svg","chain_nail":"res://assets/runtime/w23/relics/chain_nail.svg","chain_fork":"res://assets/runtime/w23/relics/chain_fork.svg","chain_ward":"res://assets/runtime/w23/relics/chain_ward.svg","chain_lens":"res://assets/runtime/w23/relics/chain_lens.svg","chain_pulse":"res://assets/runtime/w23/relics/chain_pulse.svg",
+    "mark_edge":"res://assets/runtime/w23/relics/mark_edge.svg","mark_nail":"res://assets/runtime/w23/relics/mark_nail.svg","mark_fork":"res://assets/runtime/w23/relics/mark_fork.svg","mark_ward":"res://assets/runtime/w23/relics/mark_ward.svg","mark_lens":"res://assets/runtime/w23/relics/mark_lens.svg","mark_pulse":"res://assets/runtime/w23/relics/mark_pulse.svg",
+    "navigation_edge":"res://assets/runtime/w23/relics/navigation_edge.svg","navigation_nail":"res://assets/runtime/w23/relics/navigation_nail.svg","navigation_fork":"res://assets/runtime/w23/relics/navigation_fork.svg","navigation_ward":"res://assets/runtime/w23/relics/navigation_ward.svg","navigation_lens":"res://assets/runtime/w23/relics/navigation_lens.svg","navigation_pulse":"res://assets/runtime/w23/relics/navigation_pulse.svg"
+  },
+  "runtime_mapping": {
+    "art_catalog":"res://game/presentation/w23_weapon_relic_art_catalog.gd",
+    "choice_model":"res://game/ui/weapon_relic_choice_model.gd",
+    "live_hud":"res://game/presentation/w23_weapon_relic_hud.gd",
+    "main_scene":"res://game/ui/main_shell.tscn"
+  },
+  "readability_contract":{"weapon_choice_size":48,"weapon_hud_size":56,"relic_choice_size":48,"relic_hud_size":34,"geometry_redundant_with_color":true},
+  "review_contract":{"capture":"res://artifacts/w23/weapon-relic-review.png","baseline":"1280x720","human_visual_review":"pending-artifact-inspection"},
+  "placeholder_count": 0
+}
