@@ -6,12 +6,19 @@ const WorldCampaignScript = preload("res://game/world/world_campaign_model.gd")
 
 static func run() -> Array[String]:
     var failures: Array[String] = []
+    print("W21_STORY_UNIT_PROGRESS=catalog")
     _verify_catalog(failures)
+    print("W21_STORY_UNIT_PROGRESS=no_repeat")
     _verify_no_repeat_selection(failures)
+    print("W21_STORY_UNIT_PROGRESS=success_consequence")
     _verify_success_choice_changes_next_expedition(failures)
+    print("W21_STORY_UNIT_PROGRESS=failure_recovery")
     _verify_failure_recovery_choice(failures)
+    print("W21_STORY_UNIT_PROGRESS=save_restore")
     _verify_story_save_restore(failures)
+    print("W21_STORY_UNIT_PROGRESS=endings")
     _verify_multiple_endings(failures)
+    print("W21_STORY_UNIT_PROGRESS=complete")
     return failures
 
 
