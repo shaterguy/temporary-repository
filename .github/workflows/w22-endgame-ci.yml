@@ -54,7 +54,20 @@ jobs:
           grep -Fq 'const SCHEMA: String = "lanternfall-endgame-v1"' game/world/endgame_progression_model.gd
           grep -Fq 'extends "res://game/world/world_campaign_model.gd"' game/world/world_campaign_model_w22.gd
           grep -Fq 'extends "res://game/world/campaign_runtime.gd"' game/world/campaign_runtime_w22.gd
-          grep -Fq 'res://game/ui/main_shell_w22.gd' game/ui/main_shell.tscn
+          shell_path="$(sed -n 's/^\[ext_resource type="Script" path="\(res:\/\/game\/ui\/main_shell_w[0-9][0-9]*\.gd\)" id="1_shell"\]$/\1/p' game/ui/main_shell.tscn | head -n 1)"
+          test -n "$shell_path"
+          w22_lineage=false
+          for _ in $(seq 1 16); do
+            if [ "$shell_path" = "res://game/ui/main_shell_w22.gd" ]; then
+              w22_lineage=true
+              break
+            fi
+            shell_file="${shell_path#res://}"
+            test -f "$shell_file"
+            shell_path="$(sed -n 's/^extends "\(res:\/\/game\/ui\/main_shell_w[0-9][0-9]*\.gd\)"$/\1/p' "$shell_file" | head -n 1)"
+            test -n "$shell_path"
+          done
+          test "$w22_lineage" = "true"
           grep -Fq 'lanternfall-save-payload-v1' game/world/world_campaign_model.gd
           test -f tests/unit/test_w22_endgame_progression.gd
           test -f tests/integration/w22_endgame_progression_smoke.gd

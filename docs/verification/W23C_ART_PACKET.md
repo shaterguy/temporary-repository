@@ -21,3 +21,9 @@ Scope: W23C only — 30 tracked general-enemy visual roles, 40 choice-event illu
 ## Focused verification
 
 `w23c-world-event-art-ci` must validate exact 30/40/5 manifest counts, zero placeholders, 24 authored W18/W19 enemy atlas frames, 40 event atlas frames, Godot SVG import, one-to-one canonical ID coverage, exact live `behavior_id` binding for newly spawned regional enemies, main-scene event-HUD mounting, and both 1280×720 review captures. Foundation CI and the existing W23A/B workflow remain valid regression gates because this packet preserves their asserted counts and contracts.
+
+## W22 regression compatibility correction
+
+The first W23C candidate exposed a stale W22 static assertion that required `game/ui/main_shell.tscn` to reference `main_shell_w22.gd` literally. That file-name assertion was not the W22 behavioral contract: the W22 smoke already instantiates the actual main scene and validates endgame seed routing, same-seed retry, horizontal mastery and save reload. W23C legitimately advances the active shell to `main_shell_w23.gd`, which inherits `main_shell_w22.gd`.
+
+The W22 preflight therefore validates W22 presence in the active main-shell inheritance chain instead of freezing the root script filename. This keeps W22 mechanics guarded while allowing later presentation shells to extend the same runtime. The correction is a real regression-contract repair, not a CI trigger/no-op change, and W23C focused verification is rerun on the resulting exact SHA because this document participates in the W23C path filter.
