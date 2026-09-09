@@ -33,6 +33,24 @@ func _ready() -> void:
     get_tree().node_added.connect(_on_node_added)
     call_deferred("_bind_existing_nodes")
 
+func _exit_tree() -> void:
+    var tree := get_tree()
+    if tree != null and tree.node_added.is_connected(_on_node_added):
+        tree.node_added.disconnect(_on_node_added)
+    for player in [_region_player, _tension_player, _boss_player]:
+        if is_instance_valid(player):
+            player.stop()
+            player.stream = null
+    for player in _sfx_players:
+        if is_instance_valid(player):
+            player.stop()
+            player.stream = null
+    _stream_cache.clear()
+    _cooldowns.clear()
+    _voice_state.clear()
+    _sfx_players.clear()
+    _encounter = null
+
 func _process(delta: float) -> void:
     _clock += maxf(0.0, delta)
     for key in _cooldowns.keys():
