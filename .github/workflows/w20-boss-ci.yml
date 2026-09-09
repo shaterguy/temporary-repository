@@ -52,7 +52,11 @@ jobs:
           test -f game/combat/region_spawn_director.gd
           test -f game/combat/region_swarm_encounter.gd
           test -f game/presentation/boss_art_catalog.gd
+          test -f game/presentation/w20_boss_showcase.gd
+          test -f game/presentation/w20_boss_showcase.tscn
           test -f game/audio/boss_audio_catalog.gd
+          test -f tests/visual/capture_w20_bosses.gd
+          test -f tests/audio/render_w20_boss_review.gd
           test -f assets/source/w20/BOSS_AV_DIRECTION.md
           test -f assets/licenses/W20_ORIGINAL_BOSS_AV.md
           test -f tests/unit/test_boss_expansion.gd
@@ -128,3 +132,54 @@ jobs:
           action_ms="$(sed -n 's/^W20_BOSS_ACTION_MS=//p' "$w20_log" | tail -n 1)"
           test -n "$action_ms"
           test "$action_ms" -le 3500
+
+      - name: Render W20 ten-boss contact sheet
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v xvfb-run >/dev/null
+          mkdir -p artifacts/w20
+          visual_log="$(mktemp)"
+          set +e
+          xvfb-run -a "$GODOT_BIN" --path . --rendering-method gl_compatibility --script tests/visual/capture_w20_bosses.gd 2>&1 | tee "$visual_log"
+          godot_status=${PIPESTATUS[0]}
+          set -e
+          test "$godot_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$visual_log"; then exit 1; fi
+          grep -Fxq 'W20_VISUAL_CONTACT_SHEET=PASS' "$visual_log"
+          grep -Fxq 'W20_VISUAL_CONTACT_SHEET_SIZE=1280x720' "$visual_log"
+          grep -Fxq 'W20_HUMAN_VISUAL_REVIEW=PENDING' "$visual_log"
+          test -s artifacts/w20/boss-contact-sheet.png
+          sha256sum artifacts/w20/boss-contact-sheet.png
+
+      - name: Render W20 audio and measured balance review evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          review_log="$(mktemp)"
+          set +e
+          "$GODOT_BIN" --headless --path . --script tests/audio/render_w20_boss_review.gd 2>&1 | tee "$review_log"
+          godot_status=${PIPESTATUS[0]}
+          set -e
+          test "$godot_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$review_log"; then exit 1; fi
+          grep -Fxq 'W20_AUDIO_REVIEW_MIX=PASS' "$review_log"
+          grep -Fxq 'W20_AUDIO_REVIEW_RATE=32000' "$review_log"
+          grep -Fxq 'W20_AUDIO_REVIEW_CUES=50' "$review_log"
+          grep -Fxq 'W20_BALANCE_MEASURED=PASS_SANITY_ONLY' "$review_log"
+          grep -Fxq 'W20_HUMAN_LISTENING=PENDING' "$review_log"
+          grep -Fxq 'W20_HUMAN_BALANCE=PENDING' "$review_log"
+          test -s artifacts/w20/boss-review-mix.wav
+          test -s artifacts/w20/boss-review-metrics.json
+          sha256sum artifacts/w20/boss-review-mix.wav artifacts/w20/boss-review-metrics.json
+
+      - name: Upload W20 review evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: w20-boss-review-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            artifacts/w20/boss-contact-sheet.png
+            artifacts/w20/boss-review-mix.wav
+            artifacts/w20/boss-review-metrics.json
+          if-no-files-found: error
+          retention-days: 14
