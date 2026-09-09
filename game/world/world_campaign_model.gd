@@ -1,6 +1,8 @@
 class_name WorldCampaignModel
 extends RefCounted
 
+const CampaignStoryEventCatalogScript = preload("res://game/data/campaign_story_event_catalog.gd")
+
 const SCHEMA: String = "lanternfall-world-v2"
 const PRE_W21_SCHEMA: String = "lanternfall-world-v1"
 const LEGACY_SCHEMA: String = "lanternfall-world-v0"
@@ -12,6 +14,7 @@ const PRE_W21_CAMPAIGN_SEGMENTS: int = 3
 const FINAL_BRANCH_SEGMENT: int = 3
 const CAMPAIGN_SEGMENTS: int = 4
 const MAX_SETTLEMENT_IDS: int = 128
+const MAX_EVENT_HISTORY: int = 128
 const STARTING_SALVAGE: int = 40
 
 var campaign_seed: int = 1
@@ -34,6 +37,18 @@ var completed_choices: Array[String] = []
 var applied_settlement_ids: Array[String] = []
 var suspended_expedition: Dictionary = {}
 var cross_run_state: Dictionary = {}
+var event_sequence: int = 0
+var pending_event_id: String = ""
+var pending_event_parent_region_id: String = ""
+var pending_event_region_id: String = ""
+var pending_event_outcome: String = ""
+var resolved_event_ids: Array[String] = []
+var event_choice_history: Array[Dictionary] = []
+var story_flags: Array[String] = []
+var next_expedition_modifier: Dictionary = {}
+var active_expedition_modifier: Dictionary = {}
+var ending_id: String = ""
+var ending_history: Array[String] = []
 
 
 func _init() -> void:
@@ -65,6 +80,18 @@ func reset(seed: int = 1) -> void:
         "doctrine_observation_summary": {},
         "doctrine_plan": {},
     }
+    event_sequence = 0
+    pending_event_id = ""
+    pending_event_parent_region_id = ""
+    pending_event_region_id = ""
+    pending_event_outcome = ""
+    resolved_event_ids = []
+    event_choice_history = []
+    story_flags = []
+    next_expedition_modifier = {}
+    active_expedition_modifier = {}
+    ending_id = ""
+    ending_history = []
 
 
 static func campaign_parent_region_ids() -> Array[String]:
@@ -90,6 +117,9 @@ func campaign_topology_snapshot() -> Dictionary:
         "active_region_id": active_region_id,
         "active_parent_region_id": str(active_config.get("parent_region_id", "")),
         "post_final": segment_index >= CAMPAIGN_SEGMENTS,
+        "pending_story_event_id": pending_event_id,
+        "resolved_story_event_count": resolved_event_ids.size(),
+        "ending_id": ending_id,
     }
 
 
@@ -118,6 +148,8 @@ func begin_expedition(choice_id: String) -> Dictionary:
         return {"ok": false, "status": "INVALID_CHOICE"}
     active_choice_id = choice_id
     active_region_id = str(config.get("next_region", ""))
+    active_expedition_modifier = next_expedition_modifier.duplicate(true)
+    next_expedition_modifier = {}
     expedition_attempt += 1
     active_expedition_id = "exp-%d-%d-%d-%s" % [
         campaign_seed,
@@ -137,18 +169,23 @@ func expedition_context() -> Dictionary:
     if config.is_empty():
         return {}
     var region_tension := int(tension.get(active_region_id, 0))
+    var support_id := str(active_expedition_modifier.get("support_id", config.get("support_id", "")))
+    var shop_modifier := str(active_expedition_modifier.get("shop_modifier", config.get("shop_modifier", "standard")))
+    var threat_route := str(active_expedition_modifier.get("threat_route", config.get("threat_route", "standard")))
+    var recovery_delta := int(active_expedition_modifier.get("recovery_assist_delta", 0))
     return {
         "expedition_id": active_expedition_id,
         "choice_id": active_choice_id,
         "region_id": active_region_id,
         "parent_region_id": str(config.get("parent_region_id", "")),
         "route_id": str(config.get("route_id", "risk_channel")),
-        "support_id": str(config.get("support_id", "")),
-        "shop_modifier": str(config.get("shop_modifier", "standard")),
-        "threat_route": str(config.get("threat_route", "standard")),
+        "support_id": support_id,
+        "shop_modifier": shop_modifier,
+        "threat_route": threat_route,
         "horizontal_unlock": str(config.get("horizontal_unlock", "")),
         "region_tension": region_tension,
-        "recovery_assist": mini(failure_count, 3),
+        "recovery_assist": clampi(mini(failure_count, 3) + recovery_delta, 0, 5),
+        "story_modifier_id": str(active_expedition_modifier.get("modifier_id", "")),
         "post_final": segment_index >= CAMPAIGN_SEGMENTS,
     }
 
@@ -180,6 +217,7 @@ func settle_expedition(
         return {"ok": false, "status": "INVALID_ACTIVE_CHOICE"}
     var settled_choice := active_choice_id
     var settled_region := active_region_id
+    var settled_parent_region := str(config.get("parent_region_id", ""))
     var before_salvage := salvage
     var before_segment := segment_index
 
@@ -202,8 +240,10 @@ func settle_expedition(
     active_choice_id = ""
     active_region_id = ""
     active_expedition_id = ""
+    active_expedition_modifier = {}
     suspended_expedition = {}
     state = STATE_POST_FINAL if segment_index >= CAMPAIGN_SEGMENTS else STATE_HUB
+    _schedule_story_event(settled_parent_region, settled_region, outcome)
 
     return {
         "ok": true,
@@ -211,12 +251,104 @@ func settle_expedition(
         "applied": true,
         "choice_id": settled_choice,
         "region_id": settled_region,
+        "parent_region_id": settled_parent_region,
         "segment_before": before_segment,
         "segment_index": segment_index,
         "salvage_delta": salvage - before_salvage,
         "salvage": salvage,
         "campaign_complete": is_campaign_complete(),
         "progress_path_available": has_progress_path(),
+        "pending_story_event_id": pending_event_id,
+        "ending_id": ending_id,
+    }
+
+
+func has_pending_story_event() -> bool:
+    return not pending_event_id.is_empty()
+
+
+func pending_story_event() -> Dictionary:
+    if pending_event_id.is_empty():
+        return {}
+    var event := CampaignStoryEventCatalogScript.event_by_id(pending_event_id)
+    if event.is_empty():
+        return {}
+    event["source_region_id"] = pending_event_region_id
+    event["source_outcome"] = pending_event_outcome
+    event["sequence"] = event_sequence
+    return event
+
+
+func resolve_pending_story_event(option_index: int) -> Dictionary:
+    if pending_event_id.is_empty():
+        return {"ok": false, "status": "NO_PENDING_EVENT"}
+    var event := CampaignStoryEventCatalogScript.event_by_id(pending_event_id)
+    if event.is_empty():
+        return {"ok": false, "status": "INVALID_PENDING_EVENT"}
+    var options: Array = event.get("options", [])
+    if option_index < 0 or option_index >= options.size():
+        return {"ok": false, "status": "INVALID_EVENT_OPTION"}
+    var option: Dictionary = options[option_index]
+    var resolved_id := pending_event_id
+    var resolved_parent := pending_event_parent_region_id
+    var resolved_region := pending_event_region_id
+    var source_outcome := pending_event_outcome
+    var before_salvage := salvage
+
+    salvage = maxi(0, salvage + int(option.get("salvage_delta", 0)))
+    if not resolved_region.is_empty():
+        tension[resolved_region] = maxi(0, int(tension.get(resolved_region, 0)) + int(option.get("tension_delta", 0)))
+    _apply_story_world_axis(str(option.get("world_axis", "")), int(option.get("world_amount", 0)))
+    _append_unique(story_flags, str(option.get("story_flag", "")))
+    _append_unique(horizontal_unlocks, "event_path:%s" % str(option.get("profile_id", "")))
+    _append_unique(resolved_event_ids, resolved_id)
+    event_choice_history.append({
+        "event_id": resolved_id,
+        "option_id": str(option.get("option_id", "")),
+        "profile_id": str(option.get("profile_id", "")),
+        "parent_region_id": resolved_parent,
+        "source_region_id": resolved_region,
+        "source_outcome": source_outcome,
+        "sequence": event_sequence,
+    })
+    while event_choice_history.size() > MAX_EVENT_HISTORY:
+        event_choice_history.pop_front()
+    next_expedition_modifier = option.get("next_modifier", {}).duplicate(true)
+
+    var ending_bias := str(option.get("ending_bias", "witness"))
+    pending_event_id = ""
+    pending_event_parent_region_id = ""
+    pending_event_region_id = ""
+    pending_event_outcome = ""
+    if is_campaign_complete() and ending_id.is_empty() and source_outcome == "success":
+        ending_id = _ending_for_bias(ending_bias, resolved_parent)
+        _append_unique(ending_history, ending_id)
+
+    return {
+        "ok": true,
+        "status": "EVENT_RESOLVED",
+        "event_id": resolved_id,
+        "option_id": str(option.get("option_id", "")),
+        "profile_id": str(option.get("profile_id", "")),
+        "salvage_delta": salvage - before_salvage,
+        "salvage": salvage,
+        "next_modifier": next_expedition_modifier.duplicate(true),
+        "ending_id": ending_id,
+        "progress_path_available": has_progress_path(),
+    }
+
+
+func campaign_epilogue_snapshot() -> Dictionary:
+    return {
+        "campaign_complete": is_campaign_complete(),
+        "ending_id": ending_id,
+        "ending_history": ending_history.duplicate(),
+        "story_flags": story_flags.duplicate(),
+        "resolved_event_count": resolved_event_ids.size(),
+        "event_choice_count": event_choice_history.size(),
+        "rescued_residents": rescued_residents,
+        "repaired_lighthouses": repaired_lighthouses,
+        "preserved_routes": preserved_routes,
     }
 
 
@@ -288,6 +420,18 @@ func snapshot() -> Dictionary:
         "applied_settlement_ids": applied_settlement_ids.duplicate(),
         "suspended_expedition": suspended_expedition.duplicate(true),
         "cross_run_state": cross_run_state.duplicate(true),
+        "event_sequence": event_sequence,
+        "pending_event_id": pending_event_id,
+        "pending_event_parent_region_id": pending_event_parent_region_id,
+        "pending_event_region_id": pending_event_region_id,
+        "pending_event_outcome": pending_event_outcome,
+        "resolved_event_ids": resolved_event_ids.duplicate(),
+        "event_choice_history": event_choice_history.duplicate(true),
+        "story_flags": story_flags.duplicate(),
+        "next_expedition_modifier": next_expedition_modifier.duplicate(true),
+        "active_expedition_modifier": active_expedition_modifier.duplicate(true),
+        "ending_id": ending_id,
+        "ending_history": ending_history.duplicate(),
     }
 
 
@@ -351,6 +495,13 @@ func restore_snapshot(snapshot_state: Dictionary) -> bool:
         return false
     if restored_state == STATE_POST_FINAL and restored_segment < CAMPAIGN_SEGMENTS:
         return false
+    var restored_pending_event_id := str(candidate.get("pending_event_id", ""))
+    if not restored_pending_event_id.is_empty():
+        var restored_event := CampaignStoryEventCatalogScript.event_by_id(restored_pending_event_id)
+        if restored_event.is_empty():
+            return false
+        if str(restored_event.get("parent_region_id", "")) != str(candidate.get("pending_event_parent_region_id", "")):
+            return false
 
     campaign_seed = maxi(1, absi(int(candidate.get("campaign_seed", 1))))
     segment_index = restored_segment
@@ -372,10 +523,25 @@ func restore_snapshot(snapshot_state: Dictionary) -> bool:
     applied_settlement_ids = _string_array(candidate.get("applied_settlement_ids", []))
     suspended_expedition = candidate.get("suspended_expedition", {}).duplicate(true)
     cross_run_state = candidate.get("cross_run_state", {}).duplicate(true)
+    event_sequence = maxi(0, int(candidate.get("event_sequence", 0)))
+    pending_event_id = restored_pending_event_id
+    pending_event_parent_region_id = str(candidate.get("pending_event_parent_region_id", ""))
+    pending_event_region_id = str(candidate.get("pending_event_region_id", ""))
+    pending_event_outcome = str(candidate.get("pending_event_outcome", ""))
+    resolved_event_ids = _string_array(candidate.get("resolved_event_ids", []))
+    event_choice_history = _dictionary_array(candidate.get("event_choice_history", []))
+    story_flags = _string_array(candidate.get("story_flags", []))
+    next_expedition_modifier = candidate.get("next_expedition_modifier", {}).duplicate(true)
+    active_expedition_modifier = candidate.get("active_expedition_modifier", {}).duplicate(true)
+    ending_id = str(candidate.get("ending_id", ""))
+    ending_history = _string_array(candidate.get("ending_history", []))
     if not access_rights.has("ark_berth"):
         access_rights.append("ark_berth")
     if state == STATE_EXPEDITION and active_expedition_id.is_empty():
         return false
+    if ending_id.is_empty() and segment_index >= CAMPAIGN_SEGMENTS:
+        ending_id = _legacy_ending_id()
+        _append_unique(ending_history, ending_id)
     return true
 
 
@@ -562,6 +728,61 @@ func _apply_success_effect(config: Dictionary) -> void:
     _append_unique(access_rights, str(config.get("access_right", "")))
 
 
+func _schedule_story_event(parent_region_id: String, region_id: String, outcome: String) -> void:
+    if not pending_event_id.is_empty():
+        return
+    var event_id: String = CampaignStoryEventCatalogScript.select_event_id(
+        parent_region_id,
+        outcome,
+        campaign_seed,
+        event_sequence,
+        resolved_event_ids
+    )
+    if event_id.is_empty():
+        return
+    event_sequence += 1
+    pending_event_id = event_id
+    pending_event_parent_region_id = parent_region_id
+    pending_event_region_id = region_id
+    pending_event_outcome = outcome
+
+
+func _apply_story_world_axis(world_axis: String, amount: int) -> void:
+    var safe_amount := maxi(0, amount)
+    match world_axis:
+        "residents":
+            rescued_residents += safe_amount
+        "lighthouse":
+            repaired_lighthouses += safe_amount
+        "route":
+            preserved_routes += safe_amount
+
+
+func _ending_for_bias(ending_bias: String, parent_region_id: String) -> String:
+    match ending_bias:
+        "shelter":
+            return "harbor_of_many"
+        "frontier":
+            return "road_beyond_eclipse"
+        "signal":
+            return "constellation_compact"
+        "witness":
+            return "archive_of_dawn"
+    if parent_region_id == "ash_railway":
+        return "harbor_of_many"
+    if parent_region_id == "eclipse_fortress":
+        return "constellation_compact"
+    return "archive_of_dawn"
+
+
+func _legacy_ending_id() -> String:
+    if completed_choices.has("deep_rescue_patrol") or horizontal_unlocks.has("rescue_network"):
+        return "harbor_of_many"
+    if completed_choices.has("lighthouse_survey") or horizontal_unlocks.has("survey_beacon"):
+        return "constellation_compact"
+    return "archive_of_dawn"
+
+
 func _remember_settlement(settlement_id: String) -> void:
     _append_unique(applied_settlement_ids, settlement_id)
     while applied_settlement_ids.size() > MAX_SETTLEMENT_IDS:
@@ -586,4 +807,14 @@ static func _string_array_static(source: Variant) -> Array[String]:
         var normalized := str(value)
         if not normalized.is_empty() and not result.has(normalized):
             result.append(normalized)
+    return result
+
+
+static func _dictionary_array(source: Variant) -> Array[Dictionary]:
+    var result: Array[Dictionary] = []
+    if typeof(source) != TYPE_ARRAY:
+        return result
+    for value in source:
+        if value is Dictionary:
+            result.append(value.duplicate(true))
     return result
