@@ -138,7 +138,7 @@ func _cap_boss_damage_to_next_phase(state: Dictionary, damage: int) -> int:
         return resolved_damage
     var current_health := int(state.get("health", 0))
     var max_health := int(state.get("max_health", 1))
-    var phase_floor := maxi(1, int(ceil(float(max_health) * float(thresholds[phase_index]))))
+    var phase_floor := maxi(1, int(floor(float(max_health) * float(thresholds[phase_index]))))
     if current_health - resolved_damage < phase_floor:
         return maxi(0, current_health - phase_floor)
     return resolved_damage
