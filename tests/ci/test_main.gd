@@ -4,6 +4,7 @@ const TEST_SUITES := [
     preload("res://tests/unit/test_save_store.gd"),
     preload("res://tests/unit/test_safe_area.gd"),
     preload("res://tests/unit/test_combat_model.gd"),
+    preload("res://tests/unit/test_swarm_foundation.gd"),
 ]
 
 func _initialize() -> void:
@@ -15,7 +16,7 @@ func _run_tests() -> void:
     for suite in TEST_SUITES:
         failures.append_array(suite.run())
 
-    print("TEST_CONTRACT=w04-core-v1")
+    print("TEST_CONTRACT=w05-swarm-v1")
     print("SUITES=%d" % TEST_SUITES.size())
     if failures.is_empty():
         print("RESULT=PASS")

@@ -14,6 +14,7 @@ var _virtual_dodge_queued: bool = false
 var _keyboard_dodge_down: bool = false
 var _feedback_remaining: float = 0.0
 var _camera: Camera2D
+var _target_provider: Node
 
 
 func _ready() -> void:
@@ -73,6 +74,10 @@ func _process(delta: float) -> void:
     _feedback_remaining = maxf(0.0, _feedback_remaining - delta)
     if _feedback_remaining <= 0.0:
         modulate = Color.WHITE
+
+
+func set_target_provider(provider: Node) -> void:
+    _target_provider = provider
 
 
 func set_virtual_input(movement: Vector2, dodge_pressed: bool) -> void:
@@ -136,6 +141,14 @@ func _consume_keyboard_dodge_edge() -> bool:
 
 func _snapshot_targets() -> Array[Dictionary]:
     var targets: Array[Dictionary] = []
+    if is_instance_valid(_target_provider) and _target_provider.has_method("combat_target_snapshot"):
+        var provided: Variant = _target_provider.call("combat_target_snapshot")
+        if provided is Array:
+            for item in provided:
+                if item is Dictionary:
+                    targets.append(item)
+            return targets
+
     var tree := get_tree()
     if tree == null:
         return targets
@@ -162,10 +175,16 @@ func _resolve_events(events: Array[Dictionary]) -> void:
         var target_id := int(event.get("target_id", -1))
         var damage := int(event.get("damage", 0))
         var direction: Vector2 = event.get("direction", Vector2.ZERO)
-        var target_object := instance_from_id(target_id)
-        if target_object != null and is_instance_valid(target_object):
-            if target_object.has_method("take_damage"):
-                target_object.call("take_damage", damage)
+        var handled := false
+
+        if is_instance_valid(_target_provider) and _target_provider.has_method("apply_target_damage"):
+            handled = bool(_target_provider.call("apply_target_damage", target_id, damage))
+
+        if not handled:
+            var target_object := instance_from_id(target_id)
+            if target_object != null and is_instance_valid(target_object):
+                if target_object.has_method("take_damage"):
+                    target_object.call("take_damage", damage)
         auto_attack.emit(target_id, damage, direction)
 
 

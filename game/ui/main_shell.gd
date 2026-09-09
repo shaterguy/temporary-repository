@@ -3,7 +3,7 @@ extends Control
 const BuildIdentityScript = preload("res://game/core/build_identity.gd")
 const SafeAreaScript = preload("res://platform/android/safe_area.gd")
 const SurvivorControllerScript = preload("res://game/combat/survivor_controller.gd")
-const TrainingTargetScript = preload("res://game/combat/training_target.gd")
+const SwarmEncounterScript = preload("res://game/combat/swarm_encounter.gd")
 const BASE_MARGIN: int = 48
 
 @onready var safe_area: MarginContainer = %SafeArea
@@ -14,13 +14,14 @@ var dodge_pressed: bool = false
 var phase_pressed: bool = false
 var transient_input_generation: int = 0
 var combat_preview: Node2D
+var encounter_preview: Node2D
 
 
 func _ready() -> void:
     get_viewport().size_changed.connect(_apply_safe_area)
     _apply_safe_area()
-    _mount_w04_combat_preview()
-    status_label.text = "W04 core combat · %s · WASD/방향키 이동 · Space 회피 · Esc 일시정지" % BuildIdentityScript.VERSION_NAME
+    _mount_w05_combat_preview()
+    status_label.text = "W05 swarm foundation · %s · WASD/방향키 이동 · Space 회피 · Esc 일시정지" % BuildIdentityScript.VERSION_NAME
 
 
 func _notification(what: int) -> void:
@@ -47,25 +48,20 @@ func _clear_transient_input() -> void:
         combat_preview.call("clear_transient_input")
 
 
-func _mount_w04_combat_preview() -> void:
+func _mount_w05_combat_preview() -> void:
     combat_preview = SurvivorControllerScript.new()
-    combat_preview.name = "W04SurvivorPreview"
+    combat_preview.name = "W05SurvivorPreview"
     combat_preview.set("camera_enabled", false)
     combat_preview.position = Vector2(640.0, 360.0)
     add_child(combat_preview)
     move_child(combat_preview, 1)
 
-    var target_positions := [
-        Vector2(420.0, 300.0),
-        Vector2(820.0, 330.0),
-        Vector2(650.0, 540.0),
-    ]
-    for index in target_positions.size():
-        var target := TrainingTargetScript.new()
-        target.name = "TrainingTarget%d" % (index + 1)
-        target.position = target_positions[index]
-        add_child(target)
-        move_child(target, 1)
+    encounter_preview = SwarmEncounterScript.new()
+    encounter_preview.name = "W05SwarmPreview"
+    add_child(encounter_preview)
+    move_child(encounter_preview, 1)
+    if encounter_preview.has_method("configure_player"):
+        encounter_preview.call("configure_player", combat_preview)
 
 
 func _apply_safe_area() -> void:
