@@ -15,11 +15,12 @@ static func run() -> Array[String]:
 
     var serialized := JSON.stringify(envelope, "", true)
     var round_trip_variant = JSON.parse_string(serialized)
+    var persisted_envelope: Dictionary = {}
     if typeof(round_trip_variant) != TYPE_DICTIONARY:
         failures.append("serialized envelope did not parse as a dictionary")
     else:
-        var round_tripped: Dictionary = round_trip_variant
-        if not SaveStoreScript.validate_envelope(round_tripped):
+        persisted_envelope = round_trip_variant
+        if not SaveStoreScript.validate_envelope(persisted_envelope):
             failures.append("JSON round-trip changed checksum validation")
 
     var tampered := envelope.duplicate(true)
@@ -42,8 +43,8 @@ static func run() -> Array[String]:
         var read_result := SaveStoreScript.read_slot(2, TEST_ROOT)
         if not bool(read_result.get("ok", false)):
             failures.append("slot readback failed: %s" % read_result.get("status", "UNKNOWN"))
-        elif read_result.get("envelope", {}) != envelope:
-            failures.append("slot readback did not match the written envelope")
+        elif not persisted_envelope.is_empty() and read_result.get("envelope", {}) != persisted_envelope:
+            failures.append("slot readback did not match the JSON-persisted envelope")
     SaveStoreScript.clear_slot(2, TEST_ROOT)
 
     var clamped := SaveStoreScript.make_envelope({}, -3)
