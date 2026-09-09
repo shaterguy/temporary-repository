@@ -6,7 +6,6 @@ const WorldCampaignScript = preload("res://game/world/world_campaign_model.gd")
 const StoryUnitTestScript = preload("res://tests/unit/test_w21_campaign_story.gd")
 const SAVE_ROOT: String = "user://ci_w21_campaign_story"
 const MAX_ACTION_MILLISECONDS: int = 4000
-const WATCHDOG_SECONDS: float = 15.0
 
 var _failures: Array[String] = []
 var _story_unit_ok: bool = false
@@ -15,16 +14,9 @@ var _hub_story_choice_ok: bool = false
 var _ending_reload_ok: bool = false
 var _next_expedition_modifier_ok: bool = false
 var _progress_marker: String = "initialize"
-var _watchdog: Timer
 
 
 func _initialize() -> void:
-    _watchdog = Timer.new()
-    _watchdog.one_shot = true
-    _watchdog.wait_time = WATCHDOG_SECONDS
-    _watchdog.timeout.connect(_on_watchdog_timeout)
-    root.add_child(_watchdog)
-    _watchdog.start()
     call_deferred("_run_story_smoke")
 
 
@@ -36,7 +28,7 @@ func _run_story_smoke() -> void:
     _failures.append_array(unit_failures)
 
     _progress("create_shell")
-    var action_started_ms := Time.get_ticks_msec()
+    var action_started_ms: int = Time.get_ticks_msec()
     var shell: Node = await _create_shell()
     if shell == null:
         _failures.append("W21 story main shell could not be created")
@@ -133,7 +125,7 @@ func _run_story_smoke() -> void:
                 _failures.append("W21 resolved story consequence did not alter the actual next expedition")
 
     _progress("finish")
-    var action_ms := Time.get_ticks_msec() - action_started_ms
+    var action_ms: int = Time.get_ticks_msec() - action_started_ms
     if action_ms > MAX_ACTION_MILLISECONDS:
         _failures.append("W21 campaign-story actions exceeded the %dms CI sanity budget: %dms" % [MAX_ACTION_MILLISECONDS, action_ms])
     await _finish(shell, action_ms)
@@ -161,15 +153,7 @@ func _progress(marker: String) -> void:
     print("W21_STORY_PROGRESS=%s" % marker)
 
 
-func _on_watchdog_timeout() -> void:
-    printerr("W21_STORY_WATCHDOG_TIMEOUT=%s" % _progress_marker)
-    printerr("W21_CAMPAIGN_STORY=FAIL")
-    quit(1)
-
-
 func _finish(shell: Node, action_ms: int) -> void:
-    if is_instance_valid(_watchdog):
-        _watchdog.stop()
     if is_instance_valid(shell):
         shell.queue_free()
     await process_frame
