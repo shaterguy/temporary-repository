@@ -1,10 +1,13 @@
 extends RefCounted
 
+const DisclosedDoctrineModelScript = preload("res://game/systems/doctrine/disclosed_doctrine_model.gd")
+
 const TIMER_EPSILON: float = 0.0001
 const FIRST_SPAWN_TIME: float = 0.90
 const TELEGRAPH_LEAD: float = 0.65
 const BOSS_TIME: float = 24.0
 const BOSS_WARNING_LEAD: float = 2.0
+const DOCTRINE_WARNING_TIME: float = 0.15
 
 var elapsed_time: float = 0.0
 var _seed: int = 1
@@ -14,6 +17,8 @@ var _pending: Array[Dictionary] = []
 var _boss_scheduled: bool = false
 var _entry_direction: Vector2 = Vector2.ZERO
 var _threat_level: int = 1
+var _doctrine_plan: Dictionary = DisclosedDoctrineModelScript.neutral_plan()
+var _doctrine_warning_emitted: bool = false
 
 
 func reset(seed: int = 1) -> void:
@@ -25,11 +30,30 @@ func reset(seed: int = 1) -> void:
     _boss_scheduled = false
     _entry_direction = Vector2.ZERO
     _threat_level = 1
+    _doctrine_warning_emitted = false
 
 
 func set_route_context(entry_direction: Vector2, threat_level: int) -> void:
     _entry_direction = Vector2.ZERO if entry_direction.is_zero_approx() else entry_direction.normalized()
     _threat_level = clampi(threat_level, 1, 3)
+
+
+func configure_doctrine(plan: Dictionary) -> bool:
+    if not DisclosedDoctrineModelScript.validate_plan(plan):
+        return false
+    _doctrine_plan = plan.duplicate(true)
+    _doctrine_warning_emitted = false
+    return true
+
+
+func doctrine_disclosure() -> Dictionary:
+    var disclosure = _doctrine_plan.get("disclosure", {})
+    if disclosure is Dictionary:
+        var result: Dictionary = disclosure.duplicate(true)
+        result["active"] = bool(_doctrine_plan.get("active", false))
+        result["doctrine_id"] = str(_doctrine_plan.get("doctrine_id", "none"))
+        return result
+    return {}
 
 
 func step(delta: float, origin: Vector2) -> Array[Dictionary]:
@@ -38,17 +62,39 @@ func step(delta: float, origin: Vector2) -> Array[Dictionary]:
         return events
 
     elapsed_time += delta
+    if (
+        bool(_doctrine_plan.get("active", false))
+        and not _doctrine_warning_emitted
+        and elapsed_time + TIMER_EPSILON >= DOCTRINE_WARNING_TIME
+    ):
+        _doctrine_warning_emitted = true
+        var disclosure := doctrine_disclosure()
+        var counterplay = disclosure.get("counterplay", [])
+        events.append({
+            "type": "doctrine_warning",
+            "doctrine_id": str(_doctrine_plan.get("doctrine_id", "none")),
+            "title": str(disclosure.get("title", "")),
+            "summary": str(disclosure.get("summary", "")),
+            "formation": str(_doctrine_plan.get("formation", "baseline")),
+            "response_cap": float(_doctrine_plan.get("response_cap", 0.0)),
+            "counterplay": counterplay.duplicate(true) if counterplay is Array else [],
+            "segment_index": int(_doctrine_plan.get("segment_index", 0)),
+        })
 
     while elapsed_time + TIMER_EPSILON >= _next_regular_time:
         var scheduled_at := _next_regular_time
         var spawn_count := mini(4, 1 + int(floor(scheduled_at / 10.0)) + (_threat_level - 1))
         for _index in spawn_count:
+            var doctrine_response := _is_doctrine_response(_sequence)
+            var base_archetype := _regular_archetype(_sequence)
             _queue_spawn(
-                _regular_archetype(_sequence),
+                _doctrine_archetype(base_archetype, doctrine_response),
                 origin,
                 scheduled_at,
                 TELEGRAPH_LEAD,
-                events
+                events,
+                doctrine_response,
+                _doctrine_formation(doctrine_response)
             )
         _next_regular_time += _regular_interval(scheduled_at)
 
@@ -87,10 +133,14 @@ func _queue_spawn(
     origin: Vector2,
     scheduled_at: float,
     warning_lead: float,
-    events: Array[Dictionary]
+    events: Array[Dictionary],
+    doctrine_response: bool = false,
+    formation: String = "baseline"
 ) -> void:
     var spawn_id := "w05-%06d" % _sequence
     var spawn_position := _spawn_position(_sequence, origin)
+    if doctrine_response:
+        spawn_position = _doctrine_spawn_position(_sequence, origin)
     var pending := {
         "spawn_id": spawn_id,
         "archetype": archetype,
@@ -98,6 +148,9 @@ func _queue_spawn(
         "scheduled_at": scheduled_at,
         "spawn_at": scheduled_at + warning_lead,
         "telegraph_duration": warning_lead,
+        "doctrine_response": doctrine_response,
+        "doctrine_id": str(_doctrine_plan.get("doctrine_id", "none")) if doctrine_response else "",
+        "formation": formation,
     }
     _pending.append(pending)
 
@@ -123,6 +176,44 @@ func _spawn_position(sequence: int, origin: Vector2) -> Vector2:
         return origin + Vector2.RIGHT.rotated(angle) * distance
     var spread := (_sample01(sequence, 73) - 0.5) * PI * 0.70
     return origin + _entry_direction.rotated(spread) * distance
+
+
+func _is_doctrine_response(sequence: int) -> bool:
+    if not bool(_doctrine_plan.get("active", false)):
+        return false
+    var stride := int(_doctrine_plan.get("response_stride", 0))
+    return stride > 0 and (sequence + 1) % stride == 0
+
+
+func _doctrine_archetype(base_archetype: String, doctrine_response: bool) -> String:
+    if not doctrine_response:
+        return base_archetype
+    var response_archetype := str(_doctrine_plan.get("response_archetype", ""))
+    return base_archetype if response_archetype.is_empty() else response_archetype
+
+
+func _doctrine_formation(doctrine_response: bool) -> String:
+    if not doctrine_response:
+        return "baseline"
+    return str(_doctrine_plan.get("formation", "baseline"))
+
+
+func _doctrine_spawn_position(sequence: int, origin: Vector2) -> Vector2:
+    var axis := _entry_direction
+    if axis.is_zero_approx():
+        axis = Vector2.RIGHT.rotated(_sample01(sequence, 157) * TAU)
+    var distance := 390.0 + _sample01(sequence, 181) * 90.0
+    match str(_doctrine_plan.get("doctrine_id", "")):
+        "cover_advance":
+            var tangent := Vector2(-axis.y, axis.x)
+            var side := -1.0 if _sample01(sequence, 211) < 0.5 else 1.0
+            var lateral := 58.0 + _sample01(sequence, 227) * 52.0
+            return origin + axis * distance + tangent * lateral * side
+        "dispersed_ambush":
+            var side := -1.0 if _sample01(sequence, 233) < 0.5 else 1.0
+            var angle := side * (0.90 + _sample01(sequence, 251) * 0.45)
+            return origin + axis.rotated(angle) * distance
+    return _spawn_position(sequence, origin)
 
 
 func _sample01(sequence: int, salt: int) -> float:
