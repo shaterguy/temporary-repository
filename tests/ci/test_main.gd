@@ -7,15 +7,29 @@ const TEST_SUITES := [
     preload("res://tests/unit/test_swarm_foundation.gd"),
     preload("res://tests/unit/test_ark_route.gd"),
 ]
+const TEST_SUITE_NAMES := [
+    "save_store",
+    "safe_area",
+    "combat_model",
+    "swarm_foundation",
+    "ark_route",
+]
+const FAST_TEST_WATCHDOG_SECONDS: float = 30.0
 
 func _initialize() -> void:
+    var watchdog := create_timer(FAST_TEST_WATCHDOG_SECONDS, true)
+    watchdog.timeout.connect(_on_watchdog_timeout)
     call_deferred("_run_tests")
 
 
 func _run_tests() -> void:
     var failures: Array[String] = []
-    for suite in TEST_SUITES:
+    for index in range(TEST_SUITES.size()):
+        var suite = TEST_SUITES[index]
+        var suite_name := str(TEST_SUITE_NAMES[index])
+        print("SUITE_START=%s" % suite_name)
         failures.append_array(suite.run())
+        print("SUITE_DONE=%s" % suite_name)
 
     print("TEST_CONTRACT=w06-ark-route-v1")
     print("SUITES=%d" % TEST_SUITES.size())
@@ -28,3 +42,8 @@ func _run_tests() -> void:
         printerr("FAIL: %s" % failure)
     printerr("RESULT=FAIL")
     quit(1)
+
+
+func _on_watchdog_timeout() -> void:
+    printerr("RESULT=FAIL_FAST_TEST_WATCHDOG")
+    quit(2)
