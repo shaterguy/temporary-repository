@@ -207,6 +207,16 @@ func region_expansion_snapshot() -> Dictionary:
     }
 
 
+func campaign_topology_snapshot() -> Dictionary:
+    var topology := campaign.world.campaign_topology_snapshot()
+    var regional := region_expansion_snapshot()
+    topology["runtime_region_active"] = bool(regional.get("active", false))
+    topology["runtime_region_id"] = str(regional.get("region_id", ""))
+    topology["runtime_parent_region_id"] = str(regional.get("parent_region_id", ""))
+    topology["runtime_background_asset"] = str(regional.get("background_asset", ""))
+    return topology
+
+
 func _apply_region_background() -> void:
     _w18_background_path = W18_DEFAULT_BACKGROUND
     if region_model.is_active():
