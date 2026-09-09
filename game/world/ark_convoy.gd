@@ -21,6 +21,11 @@ func configure_seed(seed: int) -> void:
     route_state_changed.emit(model.status, model.selected_route_id)
 
 
+func configure_expedition(seed: int, route_id: String) -> bool:
+    configure_seed(seed)
+    return choose_route(route_id)
+
+
 func set_circuit_provider(provider: Object) -> void:
     _circuit_provider = provider
 
@@ -32,6 +37,15 @@ func choose_route(route_id: String) -> bool:
         queue_redraw()
         route_state_changed.emit(model.status, model.selected_route_id)
     return changed
+
+
+func resume_after_rest() -> bool:
+    var resumed := model.resume_after_rest()
+    if resumed:
+        position = _origin_position + model.position
+        queue_redraw()
+        route_state_changed.emit(model.status, model.selected_route_id)
+    return resumed
 
 
 func route_preview(route_id: String) -> Dictionary:
@@ -93,7 +107,6 @@ func restore_state(snapshot_state: Dictionary) -> bool:
         return false
     position = _origin_position + model.position
     queue_redraw()
-    route_state_changed.emit(model.status, model.selected_route_id)
     return true
 
 

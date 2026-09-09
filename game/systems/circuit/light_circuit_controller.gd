@@ -19,6 +19,11 @@ func configure(player: Node2D, ark: Node2D) -> void:
     queue_redraw()
 
 
+func reset_for_expedition() -> void:
+    model.reset()
+    queue_redraw()
+
+
 func select_module(module_id: String) -> bool:
     var selected := model.select_module(module_id)
     if selected:

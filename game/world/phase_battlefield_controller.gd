@@ -35,6 +35,12 @@ func configure(player: Node2D, encounter: Node2D, circuit: Node2D) -> void:
     queue_redraw()
 
 
+func reset_for_expedition() -> void:
+    model.reset()
+    _sync_runtime_phase()
+    queue_redraw()
+
+
 func request_phase_switch(cancelled: bool = false) -> bool:
     if not is_instance_valid(_player):
         phase_rejected.emit("missing_player")
@@ -70,7 +76,9 @@ func transition_preview() -> Dictionary:
 
 
 func state_snapshot() -> Dictionary:
-    return model.snapshot()
+    var snapshot := model.snapshot()
+    snapshot["current_phase"] = model.current_phase
+    return snapshot
 
 
 func restore_state(snapshot_state: Dictionary) -> bool:
