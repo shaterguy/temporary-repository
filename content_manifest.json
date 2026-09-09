@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "status": "campaign-topology-integrated",
+  "status": "campaign-narrative-integrated",
   "release_gate": {
     "placeholder_assets_required": 0,
     "license_record_required_for_every_runtime_asset": true
@@ -163,20 +163,33 @@
       "human_region_balance_review": "pending"
     },
     "w21": {
-      "status": "campaign-topology-integrated",
+      "status": "campaign-narrative-integrated",
       "world_campaign_model": "res://game/world/world_campaign_model.gd",
+      "story_event_catalog": "res://game/data/campaign_story_event_catalog.gd",
       "main_shell_bridge": "res://game/ui/main_shell_w18.gd",
       "campaign_parent_regions": 5,
       "campaign_segments": 4,
       "final_branch_parent_regions": 2,
       "post_final_departures": 2,
+      "choice_event_definitions": 40,
+      "choice_options": 80,
+      "success_events": 20,
+      "failure_recovery_events": 20,
+      "recurring_character_arcs": 11,
+      "persistent_story_choices": true,
+      "next_expedition_consequences": true,
+      "persistent_ending_variants": 4,
       "pre_w21_world_schema": "lanternfall-world-v1",
       "current_world_schema": "lanternfall-world-v2",
       "save_payload_schema": "lanternfall-save-payload-v1",
       "production_region_count": 0,
+      "production_choice_event_count": 0,
       "focused_ci": ".github/workflows/w21-campaign-topology-ci.yml",
-      "unit_test": "res://tests/unit/test_w21_campaign_topology.gd",
-      "integration_test": "res://tests/integration/w21_campaign_topology_smoke.gd",
+      "topology_unit_test": "res://tests/unit/test_w21_campaign_topology.gd",
+      "story_unit_test": "res://tests/unit/test_w21_campaign_story.gd",
+      "topology_integration_test": "res://tests/integration/w21_campaign_topology_smoke.gd",
+      "story_integration_test": "res://tests/integration/w21_campaign_story_smoke.gd",
+      "human_narrative_review": "pending",
       "human_region_quality_review": "pending"
     }
   },
@@ -211,6 +224,7 @@
     "W18 maps the existing stage-1 and stage-2 campaign destinations into Glass Garden and Flooded Archive runtime regions with four distinct route geometries, two-phase objective gates, twelve deterministic regional entry behaviors and two project-original environment vectors. Production region/enemy-behavior counts remain zero until later boss/audio/full asset breadth and human quality gates are complete.",
     "W19 turns the two existing recoverable post-final world connections into Ash Railway and Eclipse Fortress runtime regions. Each connection has a distinct route, phase rule set, six regional behaviors, persistent world-axis/unlock effects and a project-original environment vector. W19 intentionally preserved the W18 three-segment world schema so W21 could perform an explicit save-compatible topology migration.",
     "W20 adds ten project-original vector boss identities and ten deterministic authored audio timbres covering fifty mechanical presentation cues. These assets are runtime-integrated but implemented_content.bosses intentionally remains zero until human visual, listening and balance gates pass.",
-    "W21 promotes the two W19 connections into the segment-3 final regional branch, giving the campaign five parent-region identities while retaining two post-final continuation departures. The inner world snapshot advances from lanternfall-world-v1 to lanternfall-world-v2, but the W12 lanternfall-save-payload-v1 envelope and settlement IDs remain unchanged. Fresh pre-W21 completions enter the new final branch; saves that already completed a W19 connection remain campaign-complete and are not replayed. Production region counts remain zero pending human quality and later release gates."
+    "W21 promotes the two W19 connections into the segment-3 final regional branch, giving the campaign five parent-region identities while retaining two post-final continuation departures. The inner world snapshot advances from lanternfall-world-v1 to lanternfall-world-v2, but the W12 lanternfall-save-payload-v1 envelope and settlement IDs remain unchanged. Fresh pre-W21 completions enter the new final branch; saves that already completed a W19 connection remain campaign-complete and are not replayed.",
+    "W21 also authors forty choice events: eight per parent region, split into twenty success follow-ups and twenty failure-recovery events. Each event has two visible choices, persistent story flags and one-run next-expedition support/shop/threat/recovery consequences. Final-branch event choices resolve to one of four persistent ending identities while preserving two post-final departures. implemented_content.choice_events remains zero because final per-event production art/audio/provenance and human narrative/AV review are W23-W24/release gates rather than W21 logic counts."
   ]
 }
