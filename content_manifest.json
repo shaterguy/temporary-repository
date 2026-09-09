@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "status": "vertical-slice-integrated",
+  "status": "character-expansion-integrated",
   "release_gate": {
     "placeholder_assets_required": 0,
     "license_record_required_for_every_runtime_asset": true
@@ -72,10 +72,30 @@
       "human_readability_review": "pending"
     }
   },
+  "character_expansion": {
+    "w16": {
+      "status": "runtime-mechanics-integrated",
+      "catalog": "res://game/data/character_catalog.gd",
+      "role_model": "res://game/combat/character_role_model.gd",
+      "role_runtime": "res://game/combat/character_role_survivor.gd",
+      "main_shell_bridge": "res://game/ui/main_shell_w16.gd",
+      "tutorial": "res://game/ui/character_role_tutorial.gd",
+      "playable_role_definitions": 6,
+      "mechanically_distinct_roles": 6,
+      "initially_unlocked": 2,
+      "progression_unlocked": 4,
+      "w13_visual_identities_mapped": 2,
+      "production_character_count": 0,
+      "final_character_art_audio_gap": 6,
+      "integration_test": "res://tests/integration/w16_character_roles_smoke.gd",
+      "human_character_balance_review": "pending"
+    }
+  },
   "notes": [
     "The foundation shell is not counted as playable content.",
     "Counts may only advance when an item has a distinct gameplay role and tracked runtime asset/license state.",
     "W13 representative visual identities and W14 representative audio identities are tracked separately and do not falsely increment production gameplay-content counts.",
-    "W15 records main-flow integration and first-expedition onboarding without falsely advancing production content counts or claiming final fun/readability review."
+    "W15 records main-flow integration and first-expedition onboarding without falsely advancing production content counts or claiming final fun/readability review.",
+    "W16 exposes six runtime-distinct character roles, unlock rules and role tutorials. The two W13 player identities are mapped to Aurora/Cinder, while all six remain excluded from implemented_content until final character-specific production art/audio/provenance and balance gates are complete."
   ]
 }

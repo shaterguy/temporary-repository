@@ -1,10 +1,11 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
-[ext_resource type="Script" path="res://game/ui/main_shell.gd" id="1_shell"]
+[ext_resource type="Script" path="res://game/ui/main_shell_w16.gd" id="1_shell"]
 [ext_resource type="Texture2D" path="res://assets/runtime/w13/environment_twilight_shipyard.svg" id="2_w13_environment"]
 [ext_resource type="Script" path="res://game/presentation/representative_art_layer.gd" id="3_w13_art"]
 [ext_resource type="Script" path="res://game/presentation/representative_hud.gd" id="4_w13_hud"]
 [ext_resource type="Script" path="res://game/ui/first_expedition_tutorial.gd" id="5_w15_tutorial"]
+[ext_resource type="Script" path="res://game/ui/character_role_tutorial.gd" id="6_w16_character_tutorial"]
 
 [node name="MainShell" type="Control"]
 layout_mode = 3
@@ -109,3 +110,15 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 script = ExtResource("5_w15_tutorial")
+
+[node name="W16CharacterTutorial" type="Control" parent="."]
+unique_name_in_owner = true
+z_index = 51
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("6_w16_character_tutorial")
