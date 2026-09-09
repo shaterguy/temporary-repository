@@ -57,6 +57,55 @@ func _mount_runtime_preview() -> void:
     phase_preview.connect("phase_rejected", Callable(self, "_on_phase_rejected"))
 
 
+func select_world_choice(option_index: int) -> bool:
+    if shell_mode == MODE_HUB and campaign != null and campaign.world.has_pending_story_event():
+        var event_result: Dictionary = campaign.resolve_story_event(option_index)
+        if not bool(event_result.get("ok", false)):
+            status_label.text = "W21 사건 선택 실패: %s" % str(event_result.get("status", "UNKNOWN"))
+            return false
+        _show_hub_prompt()
+        return true
+    return super.select_world_choice(option_index)
+
+
+func _show_hub_prompt() -> void:
+    if campaign != null and campaign.world.has_pending_story_event():
+        var event: Dictionary = campaign.current_story_event()
+        var options: Array = event.get("options", [])
+        if event.is_empty() or options.size() != 2:
+            status_label.text = "W21 사건 데이터 복원 실패 · 저장 상태는 유지됨"
+            return
+        status_label.text = "W21 사건 · %s · %s: %s · 1 %s / 2 %s" % [
+            str(event.get("title", "이름 없는 사건")),
+            str(event.get("speaker_id", "unknown")),
+            str(event.get("body", "")),
+            str((options[0] as Dictionary).get("label", "선택 A")),
+            str((options[1] as Dictionary).get("label", "선택 B")),
+        ]
+        return
+    super._show_hub_prompt()
+    if campaign == null:
+        return
+    var epilogue: Dictionary = campaign.world.campaign_epilogue_snapshot()
+    var current_ending := str(epilogue.get("ending_id", ""))
+    if not current_ending.is_empty():
+        status_label.text += " · W21 결말 %s · 사건선택 %d" % [
+            current_ending,
+            int(epilogue.get("event_choice_count", 0)),
+        ]
+
+
+func campaign_story_snapshot() -> Dictionary:
+    if campaign == null:
+        return {}
+    return {
+        "pending_event": campaign.current_story_event(),
+        "epilogue": campaign.world.campaign_epilogue_snapshot(),
+        "next_expedition_modifier": campaign.world.next_expedition_modifier.duplicate(true),
+        "active_expedition_modifier": campaign.world.active_expedition_modifier.duplicate(true),
+    }
+
+
 func _prepare_expedition(context: Dictionary) -> bool:
     _w18_objective_gate_required = true
     var has_w18_region := region_model.configure(context)
