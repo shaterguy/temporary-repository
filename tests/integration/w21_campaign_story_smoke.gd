@@ -45,8 +45,8 @@ func _run_story_smoke() -> void:
         _failures.append("W21 story settlement did not persist a pending final event")
         await _finish(shell, Time.get_ticks_msec() - action_started_ms)
         return
-    var pending_id := campaign.world.pending_event_id
-    var pending_sequence := campaign.sequence
+    var pending_id: String = str(campaign.world.pending_event_id)
+    var pending_sequence: int = int(campaign.sequence)
 
     var pending_reload = CampaignRuntimeScript.new(SAVE_ROOT)
     var pending_loaded: Dictionary = pending_reload.load_slot(0)
@@ -82,8 +82,8 @@ func _run_story_smoke() -> void:
         if not _hub_story_choice_ok:
             _failures.append("W21 actual hub story choice did not finalize the campaign epilogue")
 
-    var ending_id := pending_reload.world.ending_id
-    var event_sequence := pending_reload.sequence
+    var ending_id: String = str(pending_reload.world.ending_id)
+    var event_sequence: int = int(pending_reload.sequence)
     var ending_reload = CampaignRuntimeScript.new(SAVE_ROOT)
     var ending_loaded: Dictionary = ending_reload.load_slot(0)
     _ending_reload_ok = (
