@@ -87,7 +87,7 @@ func _render() -> void:
             var telegraph := float(phase.get("telegraph_duration", 0.0))
             var interval := float(phase.get("attack_interval", 0.0))
             var damage := int(phase.get("attack_damage", 0))
-            var radius := float(phase.get("attack_radius", 0.0))
+            var radius := float(phase.get("radius", 0.0))
             var pressure := float(damage) / maxf(interval, 0.001)
             if telegraph < 0.45 or interval < 1.25 or damage <= 0 or damage > 40 or radius <= 0.0 or pressure > 26.0:
                 printerr("W20_REVIEW_EVIDENCE=FAIL_PHASE_ENVELOPE_%s_%s" % [boss_id, str(phase.get("phase_id", ""))])
