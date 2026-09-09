@@ -22,12 +22,12 @@ func _initialize() -> void:
 func _run_w21() -> void:
     _clear_save_root(ASH_ROOT)
     _clear_save_root(ECLIPSE_ROOT)
-    var unit_failures := W21UnitTestScript.run()
+    var unit_failures: Array[String] = W21UnitTestScript.run()
     _failures.append_array(unit_failures)
     _migration_ok = unit_failures.is_empty()
-    var action_started_ms := Time.get_ticks_msec()
+    var action_started_ms: int = Time.get_ticks_msec()
 
-    var ash_shell := await _create_shell(ASH_ROOT)
+    var ash_shell: Node = await _create_shell(ASH_ROOT)
     if ash_shell == null:
         _failures.append("W21 Ash Railway main shell could not be created")
         await _finish(null, null, Time.get_ticks_msec() - action_started_ms)
@@ -58,10 +58,10 @@ func _run_w21() -> void:
         if not bool(checkpoint.get("ok", false)):
             _failures.append("W21 final-branch checkpoint could not be persisted")
         else:
-            var reloaded = CampaignRuntimeScript.new(ASH_ROOT)
-            var loaded := reloaded.load_slot(0)
+            var reloaded: Variant = CampaignRuntimeScript.new(ASH_ROOT)
+            var loaded: Dictionary = reloaded.load_slot(0)
             if bool(loaded.get("ok", false)):
-                var resume := reloaded.world.resume_payload()
+                var resume: Dictionary = reloaded.world.resume_payload()
                 var runtime_state: Dictionary = resume.get("runtime_state", {})
                 var region_state: Dictionary = runtime_state.get("w18_region", {})
                 _checkpoint_ok = (
@@ -73,7 +73,7 @@ func _run_w21() -> void:
             if not _checkpoint_ok:
                 _failures.append("W21 final-branch checkpoint did not retain world/region alignment after reload")
 
-    var eclipse_shell := await _create_shell(ECLIPSE_ROOT)
+    var eclipse_shell: Node = await _create_shell(ECLIPSE_ROOT)
     if eclipse_shell == null:
         _failures.append("W21 Eclipse Fortress main shell could not be created")
     else:
@@ -96,7 +96,7 @@ func _run_w21() -> void:
             if not _eclipse_final_branch_ok:
                 _failures.append("W21 Eclipse Fortress final branch did not align world topology with the actual regional runtime")
 
-    var action_ms := Time.get_ticks_msec() - action_started_ms
+    var action_ms: int = Time.get_ticks_msec() - action_started_ms
     if action_ms > MAX_ACTION_MILLISECONDS:
         _failures.append("W21 campaign-topology actions exceeded the %dms CI sanity budget: %dms" % [MAX_ACTION_MILLISECONDS, action_ms])
     await _finish(ash_shell, eclipse_shell, action_ms)
