@@ -1,0 +1,24 @@
+{
+  "schema": "lanternfall-endgame-manifest-v1",
+  "status": "runtime-mechanics-integrated",
+  "variant_profile_count": 4,
+  "challenge_definition_count": 6,
+  "mastery_policy": "horizontal_only",
+  "same_seed_retry": true,
+  "failure_world_rollback": false,
+  "save_payload_schema": "lanternfall-save-payload-v1",
+  "world_schema_baseline": "lanternfall-world-v2",
+  "production_content_count_delta": 0,
+  "runtime": {
+    "progression_model": "res://game/world/endgame_progression_model.gd",
+    "world_bridge": "res://game/world/world_campaign_model_w22.gd",
+    "save_runtime": "res://game/world/campaign_runtime_w22.gd",
+    "main_shell_bridge": "res://game/ui/main_shell_w22.gd"
+  },
+  "verification": {
+    "unit_test": "res://tests/unit/test_w22_endgame_progression.gd",
+    "integration_test": "res://tests/integration/w22_endgame_progression_smoke.gd",
+    "focused_ci": ".github/workflows/w22-endgame-ci.yml",
+    "requirement_mapping": ["AC-09", "AC-11", "AC-12", "NR-03"]
+  }
+}

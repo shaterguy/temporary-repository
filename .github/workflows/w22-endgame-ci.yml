@@ -1,0 +1,124 @@
+name: w22-endgame-ci
+
+on:
+  push:
+    branches:
+      - 'v*-dev*'
+      - 'v*-rc*'
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: w22-endgame-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  w22-endgame-regression:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      GODOT_VERSION: "4.7.2-stable"
+      GODOT_ARCHIVE_SHA256: "cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4"
+      GODOT_ARCHIVE_URL: "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip"
+      GODOT_BIN: "/tmp/godot/Godot_v4.7.2-stable_linux.x86_64"
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: W22 static contract preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(jq -r '.engine.version' toolchain.lock)" = "$GODOT_VERSION"
+          test "$(jq -r '.engine.linux_x86_64_sha256' toolchain.lock)" = "$GODOT_ARCHIVE_SHA256"
+          test "$(jq -r '.identity.version_name' toolchain.lock)" = "1.0.0-dev1"
+          test "$(jq -r '.identity.version_code' toolchain.lock)" = "1"
+          test "$(jq -r '.schema' game/data/endgame_progression_manifest.json)" = "lanternfall-endgame-manifest-v1"
+          test "$(jq -r '.variant_profile_count' game/data/endgame_progression_manifest.json)" = "4"
+          test "$(jq -r '.challenge_definition_count' game/data/endgame_progression_manifest.json)" = "6"
+          test "$(jq -r '.mastery_policy' game/data/endgame_progression_manifest.json)" = "horizontal_only"
+          test "$(jq -r '.same_seed_retry' game/data/endgame_progression_manifest.json)" = "true"
+          test "$(jq -r '.failure_world_rollback' game/data/endgame_progression_manifest.json)" = "false"
+          test "$(jq -r '.save_payload_schema' game/data/endgame_progression_manifest.json)" = "lanternfall-save-payload-v1"
+          test "$(jq -r '.production_content_count_delta' game/data/endgame_progression_manifest.json)" = "0"
+          test "$(jq -r '.implemented_content.characters' content_manifest.json)" = "0"
+          test "$(jq -r '.implemented_content.regions' content_manifest.json)" = "0"
+          test "$(jq -r '.implemented_content.enemy_behaviors' content_manifest.json)" = "0"
+          test "$(jq -r '.implemented_content.bosses' content_manifest.json)" = "0"
+          test "$(jq -r '.implemented_content.curated_weapons' content_manifest.json)" = "0"
+          test "$(jq -r '.implemented_content.relics' content_manifest.json)" = "0"
+          test "$(jq -r '.implemented_content.choice_events' content_manifest.json)" = "0"
+          grep -Fq 'const SCHEMA: String = "lanternfall-endgame-v1"' game/world/endgame_progression_model.gd
+          grep -Fq 'extends "res://game/world/world_campaign_model.gd"' game/world/world_campaign_model_w22.gd
+          grep -Fq 'extends "res://game/world/campaign_runtime.gd"' game/world/campaign_runtime_w22.gd
+          grep -Fq 'res://game/ui/main_shell_w22.gd' game/ui/main_shell.tscn
+          grep -Fq 'lanternfall-save-payload-v1' game/world/world_campaign_model.gd
+          test -f tests/unit/test_w22_endgame_progression.gd
+          test -f tests/integration/w22_endgame_progression_smoke.gd
+          test -f docs/verification/W22_ENDGAME_PROGRESSION.md
+          test -z "$(find . -type f \( -name '*.jks' -o -name '*.keystore' -o -name '*.p12' -o -name '*.pem' -o -name '*.key' \) -print -quit)"
+
+      - name: Download pinned Godot editor
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/godot
+          curl --fail --location --proto '=https' --tlsv1.2 "$GODOT_ARCHIVE_URL" --output /tmp/godot.zip
+          echo "$GODOT_ARCHIVE_SHA256  /tmp/godot.zip" | sha256sum --check --strict
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x "$GODOT_BIN"
+          "$GODOT_BIN" --version
+
+      - name: Import W22 candidate headlessly
+        shell: bash
+        run: |
+          set -euo pipefail
+          import_log="$(mktemp)"
+          set +e
+          "$GODOT_BIN" --headless --path . --import 2>&1 | tee "$import_log"
+          godot_status=${PIPESTATUS[0]}
+          set -e
+          test "$godot_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$import_log"; then
+            echo "::error::W22 import reported script compilation errors"
+            exit 1
+          fi
+
+      - name: Run W22 endgame progression smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          w22_log="$(mktemp)"
+          set +e
+          timeout --signal=TERM --kill-after=2s 30s "$GODOT_BIN" --headless --path . --script tests/integration/w22_endgame_progression_smoke.gd 2>&1 | tee "$w22_log"
+          godot_status=${PIPESTATUS[0]}
+          set -e
+          if [ "$godot_status" -eq 124 ] || [ "$godot_status" -eq 137 ]; then
+            echo "::error::W22 endgame smoke exceeded the 30s process budget"
+            exit 1
+          fi
+          test "$godot_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$w22_log"; then
+            echo "::error::W22 endgame smoke reported script/runtime errors"
+            exit 1
+          fi
+          if grep -Eq 'ObjectDB instances leaked|Resources still in use' "$w22_log"; then
+            echo "::error::W22 endgame smoke leaked runtime objects/resources"
+            exit 1
+          fi
+          if grep -Eq '^W22_FAIL:|^W22_ENDGAME_PROGRESSION=FAIL' "$w22_log"; then
+            echo "::error::W22 endgame contract failed"
+            exit 1
+          fi
+          grep -Fxq 'W22_UNIT=PASS' "$w22_log"
+          grep -Fxq 'W22_VARIANT_SEED=PASS' "$w22_log"
+          grep -Fxq 'W22_SAME_SEED_RETRY=PASS' "$w22_log"
+          grep -Fxq 'W22_MASTERY_HORIZONTAL=PASS' "$w22_log"
+          grep -Fxq 'W22_SAVE_RELOAD=PASS' "$w22_log"
+          grep -Fxq 'W22_ENDGAME_PROGRESSION=PASS' "$w22_log"
+          action_ms="$(sed -n 's/^W22_ENDGAME_ACTION_MS=//p' "$w22_log" | tail -n 1)"
+          test -n "$action_ms"
+          test "$action_ms" -le 4000
