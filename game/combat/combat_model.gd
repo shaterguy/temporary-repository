@@ -8,6 +8,7 @@ const ATTACK_INTERVAL: float = 0.55
 const ATTACK_RANGE: float = 460.0
 const ATTACK_DAMAGE: int = 12
 const MAX_HEALTH: int = 100
+const TIMER_EPSILON: float = 0.0001
 
 var position: Vector2 = Vector2.ZERO
 var health: int = MAX_HEALTH
@@ -49,8 +50,8 @@ func step(
         return events
 
     movement_input = requested_movement.limit_length(1.0)
-    dodge_cooldown_remaining = maxf(0.0, dodge_cooldown_remaining - delta)
-    attack_cooldown_remaining = maxf(0.0, attack_cooldown_remaining - delta)
+    dodge_cooldown_remaining = _advance_timer(dodge_cooldown_remaining, delta)
+    attack_cooldown_remaining = _advance_timer(attack_cooldown_remaining, delta)
 
     if (
         dodge_requested
@@ -69,7 +70,7 @@ func step(
     var movement_velocity := movement_input * MOVE_SPEED
     if dodge_remaining > 0.0:
         movement_velocity = dodge_direction * DODGE_SPEED
-        dodge_remaining = maxf(0.0, dodge_remaining - delta)
+        dodge_remaining = _advance_timer(dodge_remaining, delta)
     position += movement_velocity * delta
 
     if attack_cooldown_remaining <= 0.0:
@@ -118,6 +119,11 @@ func _damage_result(applied_damage: int, blocked: bool) -> Dictionary:
     }
 
 
+static func _advance_timer(value: float, delta: float) -> float:
+    var remaining := maxf(0.0, value - delta)
+    return 0.0 if remaining <= TIMER_EPSILON else remaining
+
+
 static func select_nearest_target(
     origin: Vector2,
     candidates: Array[Dictionary],
@@ -146,12 +152,12 @@ static func select_nearest_target(
 
         var candidate_position: Vector2 = position_value
         var distance_squared := origin.distance_squared_to(candidate_position)
-        if distance_squared > best_distance_squared + 0.0001:
+        if distance_squared > best_distance_squared + TIMER_EPSILON:
             continue
 
         if (
             best_target.is_empty()
-            or distance_squared < best_distance_squared - 0.0001
+            or distance_squared < best_distance_squared - TIMER_EPSILON
             or (is_equal_approx(distance_squared, best_distance_squared) and candidate_id < best_id)
         ):
             best_target = candidate
