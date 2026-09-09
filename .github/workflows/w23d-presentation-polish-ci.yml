@@ -1,0 +1,134 @@
+name: w23d-presentation-polish-ci
+
+on:
+  push:
+    branches:
+      - 'v*-dev*'
+      - 'v*-rc*'
+    paths:
+      - 'game/presentation/w23_weapon_relic_hud.gd'
+      - 'game/presentation/w23_world_event_hud.gd'
+      - 'tests/integration/w23_presentation_polish_smoke.gd'
+      - 'tests/visual/capture_w23_readability.gd'
+      - 'docs/verification/W23D_PRESENTATION_POLISH.md'
+      - '.github/workflows/w23d-presentation-polish-ci.yml'
+  pull_request:
+    paths:
+      - 'game/presentation/w23_weapon_relic_hud.gd'
+      - 'game/presentation/w23_world_event_hud.gd'
+      - 'tests/integration/w23_presentation_polish_smoke.gd'
+      - 'tests/visual/capture_w23_readability.gd'
+      - 'docs/verification/W23D_PRESENTATION_POLISH.md'
+      - '.github/workflows/w23d-presentation-polish-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: w23d-presentation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  presentation-polish-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    env:
+      GODOT_VERSION: "4.7.2-stable"
+      GODOT_ARCHIVE_SHA256: "cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4"
+      GODOT_ARCHIVE_URL: "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip"
+      GODOT_BIN: "/tmp/godot/Godot_v4.7.2-stable_linux.x86_64"
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Static W23D contract preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f game/presentation/w23_weapon_relic_hud.gd
+          test -f game/presentation/w23_world_event_hud.gd
+          test -f tests/integration/w23_presentation_polish_smoke.gd
+          test -f tests/visual/capture_w23_readability.gd
+          test -f docs/verification/W23D_PRESENTATION_POLISH.md
+          grep -Fq 'static func layout_for(viewport_size: Vector2, expedition: bool)' game/presentation/w23_weapon_relic_hud.gd
+          grep -Fq 'static func layout_for(viewport_size: Vector2)' game/presentation/w23_world_event_hud.gd
+          grep -Fq 'static func transition_profile()' game/presentation/w23_world_event_hud.gd
+          grep -Fq 'W23D_READABILITY_MATRIX=1280x720,1920x1080,2340x1080,2640x1080' tests/integration/w23_presentation_polish_smoke.gd
+          grep -Fq 'W23D_CAPTURE=PASS' tests/visual/capture_w23_readability.gd
+          test -z "$(find . -type f \( -name '*.jks' -o -name '*.keystore' -o -name '*.p12' -o -name '*.pem' -o -name '*.key' \) -print -quit)"
+
+      - name: Download pinned Godot editor
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/godot
+          curl --fail --location --proto '=https' --tlsv1.2 "$GODOT_ARCHIVE_URL" --output /tmp/godot.zip
+          echo "$GODOT_ARCHIVE_SHA256  /tmp/godot.zip" | sha256sum --check --strict
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x "$GODOT_BIN"
+          "$GODOT_BIN" --version
+
+      - name: Import project headlessly
+        shell: bash
+        run: |
+          set -euo pipefail
+          import_log="$(mktemp)"
+          set +e
+          "$GODOT_BIN" --headless --path . --import 2>&1 | tee "$import_log"
+          godot_status=${PIPESTATUS[0]}
+          set -e
+          test "$godot_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$import_log"; then
+            echo "::error::Godot import reported script compilation errors"
+            exit 1
+          fi
+
+      - name: Run W23D readability smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          smoke_log="$(mktemp)"
+          set +e
+          "$GODOT_BIN" --headless --path . --script tests/integration/w23_presentation_polish_smoke.gd 2>&1 | tee "$smoke_log"
+          godot_status=${PIPESTATUS[0]}
+          set -e
+          test "$godot_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$smoke_log"; then exit 1; fi
+          if grep -Eq '^W23D_FAIL:|^W23D_PRESENTATION_POLISH=FAIL' "$smoke_log"; then exit 1; fi
+          grep -Fxq 'W23D_READABILITY_MATRIX=1280x720,1920x1080,2340x1080,2640x1080' "$smoke_log"
+          grep -Fxq 'W23D_ANIMATION_PROFILE=PRESENTATION_ONLY' "$smoke_log"
+          grep -Fxq 'W23D_HUD_COLLISION=PASS' "$smoke_log"
+          grep -Fxq 'W23D_STORY_CARD_BOUNDS=PASS' "$smoke_log"
+          grep -Fxq 'W23D_PRESENTATION_POLISH=PASS' "$smoke_log"
+
+      - name: Render W23D readability matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v xvfb-run >/dev/null
+          mkdir -p artifacts/w23d
+          render_log="$(mktemp)"
+          set +e
+          xvfb-run -a "$GODOT_BIN" --path . --rendering-method gl_compatibility --script tests/visual/capture_w23_readability.gd 2>&1 | tee "$render_log"
+          godot_status=${PIPESTATUS[0]}
+          set -e
+          test "$godot_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$render_log"; then exit 1; fi
+          grep -Fxq 'W23D_CAPTURE_1280x720=PASS' "$render_log"
+          grep -Fxq 'W23D_CAPTURE_1920x1080=PASS' "$render_log"
+          grep -Fxq 'W23D_CAPTURE_2340x1080=PASS' "$render_log"
+          grep -Fxq 'W23D_CAPTURE_2640x1080=PASS' "$render_log"
+          grep -Fxq 'W23D_COMBAT_REVIEW_COUNT=4' "$render_log"
+          grep -Fxq 'W23D_STORY_REVIEW_COUNT=4' "$render_log"
+          grep -Fxq 'W23D_CAPTURE=PASS' "$render_log"
+          test "$(find artifacts/w23d -maxdepth 1 -type f -name '*.png' | wc -l)" = "8"
+          sha256sum artifacts/w23d/*.png
+
+      - name: Upload W23D review evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: w23d-presentation-review-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/w23d/*.png
+          if-no-files-found: error
+          retention-days: 14
