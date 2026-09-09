@@ -351,6 +351,7 @@ func step_replay(
                 and position_resolver.has_method("resolve_player_position")
             ):
                 resolved_position = position_resolver.call(
+                    "resolve_player_position",
                     replay_position,
                     requested_position
                 )
