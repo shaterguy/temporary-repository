@@ -275,10 +275,10 @@ static func _restore_encounter(encounter: Node2D, snapshot: Dictionary) -> bool:
         id_map[old_id] = new_id
         phases[new_id] = str(enemy.get("phase", world_phase))
 
-    var telegraphs := _decode_event_array(snapshot.get("telegraphs", []), {})
+    var telegraphs: Variant = _decode_event_array(snapshot.get("telegraphs", []), {})
     if telegraphs == null:
         return false
-    var cross_attacks := _decode_event_array(snapshot.get("cross_phase_attacks", []), id_map)
+    var cross_attacks: Variant = _decode_event_array(snapshot.get("cross_phase_attacks", []), id_map)
     if cross_attacks == null:
         return false
     var rebuilt_cooldowns: Dictionary = {}
@@ -330,7 +330,7 @@ static func _restore_director(director: Variant, snapshot: Dictionary) -> bool:
     var plan: Variant = snapshot.get("doctrine_plan", null)
     if seed <= 0 or elapsed < 0.0 or sequence < 0 or next_regular < 0.0 or threat < 1 or threat > 3 or not plan is Dictionary:
         return false
-    var pending := _decode_event_array(snapshot.get("pending", []), {})
+    var pending: Variant = _decode_event_array(snapshot.get("pending", []), {})
     if pending == null:
         return false
     director.call("reset", seed)
