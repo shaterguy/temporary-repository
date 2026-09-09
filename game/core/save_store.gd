@@ -8,11 +8,14 @@ const SLOT_COUNT: int = 3
 static func checksum_for(envelope: Dictionary) -> String:
     var normalized := envelope.duplicate(true)
     normalized.erase("checksum")
+    var canonicalized = JSON.parse_string(JSON.stringify(normalized, "", true))
+    if typeof(canonicalized) != TYPE_DICTIONARY:
+        return ""
     var context := HashingContext.new()
     var start_error := context.start(HashingContext.HASH_SHA256)
     if start_error != OK:
         return ""
-    context.update(JSON.stringify(normalized, "", true).to_utf8_buffer())
+    context.update(JSON.stringify(canonicalized, "", true).to_utf8_buffer())
     return context.finish().hex_encode()
 
 

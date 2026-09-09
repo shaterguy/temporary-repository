@@ -13,6 +13,15 @@ static func run() -> Array[String]:
     if not SaveStoreScript.validate_envelope(envelope):
         failures.append("valid save envelope was rejected")
 
+    var serialized := JSON.stringify(envelope, "", true)
+    var round_trip_variant = JSON.parse_string(serialized)
+    if typeof(round_trip_variant) != TYPE_DICTIONARY:
+        failures.append("serialized envelope did not parse as a dictionary")
+    else:
+        var round_tripped: Dictionary = round_trip_variant
+        if not SaveStoreScript.validate_envelope(round_tripped):
+            failures.append("JSON round-trip changed checksum validation")
+
     var tampered := envelope.duplicate(true)
     var tampered_payload: Dictionary = tampered["payload"]
     tampered_payload["credits"] = 99
