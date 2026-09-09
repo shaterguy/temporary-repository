@@ -89,8 +89,8 @@ static func run() -> Array[String]:
                     var settled_envelope: Dictionary = settled_read.get("envelope", {})
                     if str(settled_envelope.get("settlement_id", "")).is_empty():
                         failures.append("settlement save did not carry an idempotency key")
-                    var settled_salvage := mirror.world.salvage
-                    var settled_segment := mirror.world.segment_index
+                    var settled_salvage: int = int(mirror.world.salvage)
+                    var settled_segment: int = int(mirror.world.segment_index)
                     var reloaded = CampaignRuntimeScript.new(TEST_ROOT)
                     if not bool(reloaded.load_slot(0).get("ok", false)):
                         failures.append("committed settlement did not reload")
