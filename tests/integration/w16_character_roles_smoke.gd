@@ -10,6 +10,7 @@ var _failures: Array[String] = []
 var _initial_unlock_count: int = 0
 var _post_first_unlock_count: int = 0
 var _persisted_selection_ok: bool = false
+var _w21_story_compat_ok: bool = false
 
 
 func _initialize() -> void:
@@ -99,6 +100,17 @@ func _run_character_expansion() -> void:
         _failures.append("W16 first rescue settlement should expose 5 unlocked characters on its branch")
     if not bool(shell.call("select_character", CharacterCatalogScript.ID_RIVET)):
         _failures.append("W16 newly unlocked Ark engineer could not be selected in the actual hub")
+
+    if world.has_pending_story_event():
+        if not bool(shell.call("select_world_choice", 0)):
+            _failures.append("W16/W21 compatibility fixture could not resolve the new post-settlement story choice")
+        elif world.has_pending_story_event():
+            _failures.append("W16/W21 compatibility story choice remained pending after resolution")
+        else:
+            _w21_story_compat_ok = true
+    else:
+        _failures.append("W16/W21 compatibility fixture did not expose the expected post-settlement story choice")
+
     if not bool(shell.call("select_world_choice", 0)):
         _failures.append("W16 fixture could not depart with the newly unlocked Ark engineer")
         _finish(shell, Time.get_ticks_msec() - action_started_ms)
@@ -144,6 +156,8 @@ func _finish(shell: Node, action_ms: int) -> void:
     print("W16_CHARACTER_COUNT=6")
     print("W16_INITIAL_UNLOCKS=%d" % _initial_unlock_count)
     print("W16_POST_FIRST_UNLOCKS=%d" % _post_first_unlock_count)
+    if _w21_story_compat_ok:
+        print("W16_W21_STORY_COMPAT=PASS")
     if _persisted_selection_ok:
         print("W16_PERSISTED_SELECTION=PASS")
     if _failures.is_empty():
