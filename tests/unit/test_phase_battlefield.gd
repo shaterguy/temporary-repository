@@ -22,7 +22,7 @@ static func run() -> Array[String]:
     if not terrain.is_position_walkable(PhaseBattlefieldModelScript.PHASE_MATERIAL, shadow_blocked):
         failures.append("same coordinate did not remain walkable in the material battlefield")
 
-    var blocked_generation := terrain.transition_generation
+    var blocked_generation: int = int(terrain.transition_generation)
     var blocked := terrain.request_transition(shadow_blocked, 2, false, false)
     if bool(blocked.get("accepted", false)) or str(blocked.get("reason", "")) != "blocked_destination":
         failures.append("phase transition accepted a blocked destination")
@@ -75,9 +75,9 @@ static func run() -> Array[String]:
     if not traveling_ark.choose_route(ArkRouteModelScript.JUNCTION_ID, "risk_channel"):
         failures.append("ark route setup failed before phase-transition integration check")
     traveling_ark.step(1.0)
-    var route_status_before := traveling_ark.status
-    var route_distance_before := traveling_ark.distance_travelled
-    var route_supply_before := traveling_ark.supply
+    var route_status_before: String = str(traveling_ark.status)
+    var route_distance_before: float = float(traveling_ark.distance_travelled)
+    var route_supply_before: int = int(traveling_ark.supply)
     var route_phase = PhaseBattlefieldModelScript.new()
     var route_switch := route_phase.request_transition(valid_position, 1, false, false)
     if not bool(route_switch.get("accepted", false)):
@@ -124,8 +124,8 @@ static func run() -> Array[String]:
     var filtered_encounter = SwarmEncounterScript.new()
     filtered_encounter.configure_player(filter_player)
     filtered_encounter.configure_phase_provider(phase_filter)
-    var material_enemy := filtered_encounter._pool.acquire("swarm", Vector2(430.0, 360.0), 24, 80.0, 13.0, 8)
-    var shadow_enemy := filtered_encounter._pool.acquire("runner", Vector2(450.0, 360.0), 32, 100.0, 12.0, 10)
+    var material_enemy: Dictionary = filtered_encounter._pool.acquire("swarm", Vector2(430.0, 360.0), 24, 80.0, 13.0, 8)
+    var shadow_enemy: Dictionary = filtered_encounter._pool.acquire("runner", Vector2(450.0, 360.0), 32, 100.0, 12.0, 10)
     var material_id := int(material_enemy.get("id", -1))
     var shadow_id := int(shadow_enemy.get("id", -1))
     var material_targets := filtered_encounter.combat_target_snapshot()
@@ -145,7 +145,7 @@ static func run() -> Array[String]:
     var cross_encounter = SwarmEncounterScript.new()
     cross_encounter.configure_player(cross_player)
     cross_encounter.configure_phase_provider(cross_phase)
-    var boss := cross_encounter._pool.acquire("boss", Vector2(620.0, 360.0), 540, 52.0, 36.0, 18)
+    var boss: Dictionary = cross_encounter._pool.acquire("boss", Vector2(620.0, 360.0), 540, 52.0, 36.0, 18)
     var boss_id := int(boss.get("id", -1))
     cross_encounter._enemy_phases[boss_id] = PhaseBattlefieldModelScript.PHASE_SHADOW
     var health_before := int(cross_player.model.health)
