@@ -13,6 +13,7 @@ var _spatial = SpatialHashScript.new(96.0)
 var _pool = EnemyPoolScript.new()
 var _director = SpawnDirectorScript.new()
 var _player: Node2D
+var _escort_target: Node2D
 var _telegraphs: Array[Dictionary] = []
 
 
@@ -25,6 +26,11 @@ func configure_player(controller: Node2D) -> void:
     _player = controller
     if is_instance_valid(_player) and _player.has_method("set_target_provider"):
         _player.call("set_target_provider", self)
+
+
+func configure_escort_target(target: Node2D) -> void:
+    _escort_target = target
+    _sync_route_context()
 
 
 func combat_target_snapshot() -> Array[Dictionary]:
@@ -58,6 +64,7 @@ func _physics_process(delta: float) -> void:
     if delta <= 0.0 or not is_instance_valid(_player):
         return
 
+    _sync_route_context()
     var director_events := _director.step(delta, _player.global_position)
     for event in director_events:
         _consume_director_event(event)
@@ -66,6 +73,17 @@ func _physics_process(delta: float) -> void:
     _rebuild_spatial()
     _advance_swarm(delta)
     queue_redraw()
+
+
+func _sync_route_context() -> void:
+    if not is_instance_valid(_escort_target) or not _escort_target.has_method("route_combat_context"):
+        _director.set_route_context(Vector2.ZERO, 1)
+        return
+    var context: Dictionary = _escort_target.call("route_combat_context")
+    _director.set_route_context(
+        context.get("entry_direction", Vector2.ZERO),
+        int(context.get("threat_level", 1))
+    )
 
 
 func _consume_director_event(event: Dictionary) -> void:
@@ -130,8 +148,16 @@ func _advance_swarm(delta: float) -> void:
         var enemy_position: Vector2 = state.get("position", Vector2.ZERO)
         var speed := float(state.get("speed", 0.0))
         var archetype := str(state.get("archetype", "swarm"))
-        var to_player := player_position - enemy_position
-        var pursuit := Vector2.ZERO if to_player.is_zero_approx() else to_player.normalized()
+        var pursue_escort := (
+            is_instance_valid(_escort_target)
+            and (archetype == "boss" or entity_id % 3 == 0)
+            and _escort_target.has_method("objective_global_position")
+        )
+        var pursuit_target := player_position
+        if pursue_escort:
+            pursuit_target = _escort_target.call("objective_global_position")
+        var to_target := pursuit_target - enemy_position
+        var pursuit := Vector2.ZERO if to_target.is_zero_approx() else to_target.normalized()
         var separation := _separation_vector(entity_id, enemy_position)
         var velocity := pursuit * speed + separation * speed * 0.95
 
@@ -144,12 +170,20 @@ func _advance_swarm(delta: float) -> void:
         _pool.set_position(entity_id, next_position)
 
         var contact_remaining := _pool.advance_contact_timer(entity_id, delta)
-        var collision_radius := float(state.get("radius", 12.0)) + PLAYER_RADIUS
+        var target_radius := PLAYER_RADIUS
+        if pursue_escort and _escort_target.has_method("objective_radius"):
+            target_radius = float(_escort_target.call("objective_radius"))
+        var collision_radius := float(state.get("radius", 12.0)) + target_radius
         if (
-            next_position.distance_squared_to(player_position) <= collision_radius * collision_radius
+            next_position.distance_squared_to(pursuit_target) <= collision_radius * collision_radius
             and contact_remaining <= 0.0
         ):
-            if _player.has_method("take_damage"):
+            if pursue_escort and _escort_target.has_method("apply_objective_damage"):
+                var warning_visible := true
+                if _escort_target.has_method("is_objective_visible"):
+                    warning_visible = bool(_escort_target.call("is_objective_visible"))
+                _escort_target.call("apply_objective_damage", int(state.get("contact_damage", 0)), warning_visible)
+            elif _player.has_method("take_damage"):
                 _player.call("take_damage", int(state.get("contact_damage", 0)))
             _pool.arm_contact_cooldown(
                 entity_id,

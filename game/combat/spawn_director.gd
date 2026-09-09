@@ -12,6 +12,8 @@ var _sequence: int = 0
 var _next_regular_time: float = FIRST_SPAWN_TIME
 var _pending: Array[Dictionary] = []
 var _boss_scheduled: bool = false
+var _entry_direction: Vector2 = Vector2.ZERO
+var _threat_level: int = 1
 
 
 func reset(seed: int = 1) -> void:
@@ -21,6 +23,13 @@ func reset(seed: int = 1) -> void:
     _next_regular_time = FIRST_SPAWN_TIME
     _pending.clear()
     _boss_scheduled = false
+    _entry_direction = Vector2.ZERO
+    _threat_level = 1
+
+
+func set_route_context(entry_direction: Vector2, threat_level: int) -> void:
+    _entry_direction = Vector2.ZERO if entry_direction.is_zero_approx() else entry_direction.normalized()
+    _threat_level = clampi(threat_level, 1, 3)
 
 
 func step(delta: float, origin: Vector2) -> Array[Dictionary]:
@@ -32,7 +41,7 @@ func step(delta: float, origin: Vector2) -> Array[Dictionary]:
 
     while elapsed_time + TIMER_EPSILON >= _next_regular_time:
         var scheduled_at := _next_regular_time
-        var spawn_count := mini(3, 1 + int(floor(scheduled_at / 10.0)))
+        var spawn_count := mini(4, 1 + int(floor(scheduled_at / 10.0)) + (_threat_level - 1))
         for _index in spawn_count:
             _queue_spawn(
                 _regular_archetype(_sequence),
@@ -103,13 +112,17 @@ func _regular_archetype(sequence: int) -> String:
 
 
 func _regular_interval(scheduled_at: float) -> float:
-    return maxf(0.55, 1.15 - minf(0.45, scheduled_at * 0.012))
+    var baseline := maxf(0.55, 1.15 - minf(0.45, scheduled_at * 0.012))
+    return baseline / (1.0 + float(_threat_level - 1) * 0.16)
 
 
 func _spawn_position(sequence: int, origin: Vector2) -> Vector2:
-    var angle := _sample01(sequence, 17) * TAU
     var distance := 360.0 + _sample01(sequence, 43) * 160.0
-    return origin + Vector2.RIGHT.rotated(angle) * distance
+    if _entry_direction.is_zero_approx():
+        var angle := _sample01(sequence, 17) * TAU
+        return origin + Vector2.RIGHT.rotated(angle) * distance
+    var spread := (_sample01(sequence, 73) - 0.5) * PI * 0.70
+    return origin + _entry_direction.rotated(spread) * distance
 
 
 func _sample01(sequence: int, salt: int) -> float:

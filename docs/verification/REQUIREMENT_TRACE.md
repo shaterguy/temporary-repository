@@ -1,4 +1,4 @@
-# Requirement trace — W05 checkpoint
+# Requirement trace — W06 checkpoint
 
 Task: `SR-20260909-150106-PPO12Y`
 Branch target: `v1.0.0-dev1`
@@ -9,19 +9,19 @@ Status terms: `PARTIAL`, `BLOCKED`, `NOT_IMPLEMENTED`. No row in this checkpoint
 | --- | --- | --- | --- |
 | AC-01 | Android install→combat→settlement→hub→next run | NOT_IMPLEMENTED | No user-installable APK or complete expedition loop yet. |
 | AC-02 | First user APK durable non-debug signing/update lineage | BLOCKED | Signing contract recorded; protected secret injection/key creation unavailable in current connector. No debug fallback. |
-| AC-03 | Survivor core loop | PARTIAL | W04 movement/dodge/auto-attack/damage remains; W05 adds spatial neighbor partitioning, reusable enemy-state pooling, deterministic spawn warnings, escalating swarm pursuit/separation, contact damage cadence, and a warned base-boss spawn. Combat growth and later production integration remain. |
-| AC-04 | N01 mobile fortress/routes | NOT_IMPLEMENTED | W06. |
+| AC-03 | Survivor core loop | PARTIAL | W04 movement/dodge/auto-attack/damage remains; W05 spatial pooling, deterministic warnings, route-compatible swarm pressure, contact damage, and a base-boss primitive remain connected. Combat growth and production integration remain. |
+| AC-04 | N01 mobile fortress/routes | PARTIAL | W06 adds deterministic risk/supply route previews and idempotent junction choice, distinct movement/supply/threat/defend-target outcomes, route-aware enemy entry pressure, visible-objective damage gating, separate ark durability, rest/arrival states, recoverable ark failure, and save-ready route checkpoint restore. Final campaign/save UI and production presentation remain later. |
 | AC-05 | N02 movement-drawn circuits | NOT_IMPLEMENTED | W07. |
 | AC-06 | N03 causal modular weapons | NOT_IMPLEMENTED | W09. |
 | AC-07 | N04 prior-run tactical echo | NOT_IMPLEMENTED | W10. |
 | AC-08 | N05 disclosed enemy doctrine | NOT_IMPLEMENTED | W11. |
 | AC-09 | N06 persistent world graph | NOT_IMPLEMENTED | W12. |
 | AC-10 | N07 dual-phase battlefield | NOT_IMPLEMENTED | W08. |
-| AC-11 | Campaign/hub/save/retry/post-final loop | PARTIAL | Versioned checksum save envelope + primary/backup primitive only; world/campaign/migration still absent. |
-| AC-12 | Distinct content manifest + no release placeholders | PARTIAL | Manifest holds the full planned counts and release gate; implemented production content remains 0. W04 training geometry and W05 procedural swarm preview are development instrumentation, not counted content. |
-| AC-13 | Actual art/animation/audio/readability review | NOT_IMPLEMENTED | W04/W05 procedural preview geometry is development instrumentation, not presentation acceptance evidence. |
-| AC-14 | Aspect ratio/multitouch/accessibility/lifecycle/save failures | PARTIAL | Safe-area scaling, pause/focus transient-input reset, virtual-input bridge and pause primitive exist; full touch/accessibility/platform matrix remains later. |
-| AC-15 | Device performance/memory/soak/16KB | NOT_IMPLEMENTED | W05 introduces spatial partition and state reuse foundations, but no device/runtime performance evidence exists. |
+| AC-11 | Campaign/hub/save/retry/post-final loop | PARTIAL | Versioned checksum save envelope + primary/backup primitive and W06 route snapshot/restore exist; world/campaign/settlement migration still absent. |
+| AC-12 | Distinct content manifest + no release placeholders | PARTIAL | Manifest holds the full planned counts and release gate; implemented production content remains 0. W04 training geometry, W05 swarm preview, and W06 ark geometry are development instrumentation, not counted content. |
+| AC-13 | Actual art/animation/audio/readability review | NOT_IMPLEMENTED | W04/W05/W06 procedural preview geometry is development instrumentation, not presentation acceptance evidence. |
+| AC-14 | Aspect ratio/multitouch/accessibility/lifecycle/save failures | PARTIAL | Safe-area scaling, pause/focus transient-input reset, virtual-input bridge, pause primitive and W06 route pause/checkpoint primitives exist; full touch/accessibility/platform matrix remains later. |
+| AC-15 | Device performance/memory/soak/16KB | NOT_IMPLEMENTED | W05 spatial partition/state reuse foundations exist, but no device/runtime performance evidence exists. |
 | AC-16 | Licenses/signing provenance/direct APK | PARTIAL | Asset provenance policy + pinned engine source; signing/APK delivery remain unresolved. |
 
 ## W04 retained fast-test contract
@@ -33,15 +33,26 @@ Status terms: `PARTIAL`, `BLOCKED`, `NOT_IMPLEMENTED`. No row in this checkpoint
 - Auto targeting ignores inactive/out-of-range targets and uses target ID as a deterministic tie-break.
 - Auto attack fires at the configured cadence and emits target/damage/direction without requiring presentation code to settle damage rules.
 
-## W05 fast-test contract
+## W05 retained fast-test contract
 
 - Spatial neighbor queries return in-radius entities and exclude out-of-radius entities across cell boundaries.
 - Released enemy-state slots are reused without reusing a live target identity; slot generation advances and lethal recycle is single-application.
 - Contact cooldown state advances deterministically inside the pooled enemy state.
-- For the same seed and origin, the spawn director produces the same spawn identity and warning position.
+- With default route context, the same seed and origin produce the same spawn identity and warning position as the prior W05 contract.
 - A regular enemy spawn is preceded by its configured telegraph and resolves after the warning lead time.
 - The base boss receives a longer dedicated warning, resolves into the scheduled boss exactly once per director lifecycle, and remains a development combat primitive rather than completed boss content.
 - Runtime swarm management consumes the same pooled states, rebuilds a spatial hash before local separation, routes W04 auto-attack damage through a target-provider adapter, and keeps the prior scene-group target path as fallback.
+
+## W06 fast-test contract
+
+- Risk and supply routes expose different threat, supply, enemy-entry and defended-objective previews before selection.
+- Selecting the same route at the same junction is idempotent; a consumed junction cannot be switched to a conflicting route or charged twice.
+- With the same seed and equal simulation time, the two routes produce different movement and combat-entry positions, then each reaches an explicit rest/destination state.
+- Route completion applies its supply result exactly once, and the rest segment transitions explicitly to arrived rather than silently retargeting the destination.
+- Ark durability is separate from player health; damage without visible objective exposure is rejected, destruction enters a recoverable failure state, and recovery consumes supply before resuming.
+- The supply route changes the defended objective to a supply pod whose loss has a route-specific supply penalty exactly once.
+- Pausing freezes route progress, and a save-ready primitive checkpoint restores route choice, progress, supply, durability and deterministic continuation without duplicate completion effects.
+- Runtime swarm pressure consumes route threat and entry direction while retaining W04 player-target and W05 pooled-target integration.
 
 ## Non-regression and safety
 
