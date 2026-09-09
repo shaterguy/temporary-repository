@@ -13,7 +13,6 @@ const CIRCUIT: String = "light_circuit_activation"
 const WARNING: String = "cross_phase_warning"
 const REWARD: String = "salvage_reward"
 
-const IDS := PackedStringArray([REGION, TENSION, BOSS, COMBAT, CIRCUIT, WARNING, REWARD])
 const SPECS := {
     REGION: {"category":"region","bus":"Music","duration":4.0,"loop":true,"priority":10,"cooldown":0.0,"gain_db":-7.0},
     TENSION: {"category":"combat_music","bus":"Music","duration":4.0,"loop":true,"priority":20,"cooldown":0.0,"gain_db":-9.0},
@@ -25,7 +24,7 @@ const SPECS := {
 }
 
 static func cue_ids() -> PackedStringArray:
-    return IDS
+    return PackedStringArray([REGION, TENSION, BOSS, COMBAT, CIRCUIT, WARNING, REWARD])
 
 static func cue_spec(cue_id: String) -> Dictionary:
     var value = SPECS.get(cue_id, {})
