@@ -159,7 +159,7 @@ func select_world_choice(option_index: int) -> bool:
         return false
 
     shell_mode = MODE_EXPEDITION
-    var context := campaign.world.expedition_context()
+    var context: Dictionary = campaign.world.expedition_context()
     if not _prepare_expedition(context):
         shell_mode = MODE_RECOVERY_BLOCKED
         _set_expedition_processing(false)
@@ -288,14 +288,14 @@ func _prepare_expedition(context: Dictionary) -> bool:
 
 func _resume_saved_expedition() -> bool:
     shell_mode = MODE_EXPEDITION
-    var context := campaign.world.expedition_context()
+    var context: Dictionary = campaign.world.expedition_context()
     if context.is_empty() or not _prepare_expedition(context):
         shell_mode = MODE_RECOVERY_BLOCKED
         _set_expedition_processing(false)
         status_label.text = "W12 저장 원정 기본 런타임 복원 실패"
         return false
 
-    var resume := campaign.world.resume_payload()
+    var resume: Dictionary = campaign.world.resume_payload()
     var runtime_state: Dictionary = resume.get("runtime_state", {})
     if not runtime_state.is_empty():
         var restored := RuntimeStateCodecScript.restore_runtime(
@@ -413,7 +413,7 @@ func _show_hub_prompt() -> void:
 
 
 func _show_expedition_status(prefix: String) -> void:
-    var context := campaign.world.expedition_context()
+    var context: Dictionary = campaign.world.expedition_context()
     var doctrine := campaign.current_doctrine_plan()
     status_label.text = "W12 %s · %s · %s · 교리 %s · 3/4/5 회로 · Q 위상 · Enter 휴식종료 · R 복구/F 철수" % [
         prefix,
