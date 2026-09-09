@@ -237,9 +237,9 @@ func _weapon_context(event: Dictionary, targets: Array[Dictionary]) -> Dictionar
         if phase_value != null and not str(phase_value).is_empty():
             phase_id = str(phase_value)
 
-    var primary_position := model.position
+    var primary_position: Vector2 = model.position
     var primary_id := int(event.get("target_id", -1))
-    var nearest_distance_squared := 1.0e30
+    var nearest_distance_squared: float = 1.0e30
     var nearest_target_id: int = 9223372036854775807
     for target in targets:
         if not bool(target.get("active", true)):
@@ -250,7 +250,7 @@ func _weapon_context(event: Dictionary, targets: Array[Dictionary]) -> Dictionar
             primary_position = target_position
             break
         if primary_id < 0:
-            var distance_squared := model.position.distance_squared_to(target_position)
+            var distance_squared: float = model.position.distance_squared_to(target_position)
             if (
                 distance_squared < nearest_distance_squared
                 or (

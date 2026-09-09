@@ -58,10 +58,35 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          "$GODOT_BIN" --headless --path . --import
+          import_log="$(mktemp)"
+          set +e
+          "$GODOT_BIN" --headless --path . --import 2>&1 | tee "$import_log"
+          godot_status=${PIPESTATUS[0]}
+          set -e
+          test "$godot_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$import_log"; then
+            echo "::error::Godot import reported script compilation errors"
+            exit 1
+          fi
 
       - name: Run foundation fast tests
         shell: bash
         run: |
           set -euo pipefail
-          "$GODOT_BIN" --headless --path . --script tests/ci/test_main.gd
+          test_log="$(mktemp)"
+          set +e
+          "$GODOT_BIN" --headless --path . --script tests/ci/test_main.gd 2>&1 | tee "$test_log"
+          godot_status=${PIPESTATUS[0]}
+          set -e
+          test "$godot_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$test_log"; then
+            echo "::error::Godot fast tests reported script/runtime errors"
+            exit 1
+          fi
+          if grep -Eq '^FAIL:|^RESULT=FAIL' "$test_log"; then
+            echo "::error::Fast-test runner reported a failure"
+            exit 1
+          fi
+          grep -Eq '^TEST_CONTRACT=[A-Za-z0-9._-]+$' "$test_log"
+          grep -Eq '^SUITES=[1-9][0-9]*$' "$test_log"
+          grep -Fxq 'RESULT=PASS' "$test_log"

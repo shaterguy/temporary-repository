@@ -265,5 +265,5 @@ func _remember_cause(cause_key: String) -> void:
     _consumed_causes[cause_key] = true
     _cause_order.append(cause_key)
     while _cause_order.size() > RECENT_CAUSE_LIMIT:
-        var expired := _cause_order.pop_front()
+        var expired: String = str(_cause_order.pop_front())
         _consumed_causes.erase(expired)
