@@ -28,6 +28,7 @@ static func _verify_catalog(failures: Array[String]) -> void:
     var event_ids: Array[String] = []
     var option_ids: Array[String] = []
     var titles: Array[String] = []
+    var ending_biases: Array[String] = []
     var parent_counts: Dictionary = counts.get("per_parent", {})
     for parent_region_id: String in StoryCatalogScript.parent_region_ids():
         if int(parent_counts.get(parent_region_id, 0)) != StoryCatalogScript.EXPECTED_EVENTS_PER_PARENT:
@@ -70,6 +71,12 @@ static func _verify_catalog(failures: Array[String]) -> void:
                 failures.append("W21 story option %s omitted a next-expedition modifier" % option_id)
             if option.has("remove_access") or option.has("remove_unlock"):
                 failures.append("W21 story option %s could delete core access and create a dead end" % option_id)
+            var ending_bias := str(option.get("ending_bias", ""))
+            if not ending_bias.is_empty() and not ending_biases.has(ending_bias):
+                ending_biases.append(ending_bias)
+    ending_biases.sort()
+    if ending_biases != ["frontier", "shelter", "signal", "witness"]:
+        failures.append("W21 story catalog did not expose all four persistent ending biases")
 
 
 static func _verify_no_repeat_selection(failures: Array[String]) -> void:
@@ -176,31 +183,41 @@ static func _verify_story_save_restore(failures: Array[String]) -> void:
 
 
 static func _verify_multiple_endings(failures: Array[String]) -> void:
-    var ending_ids: Array[String] = []
-    for fixture: Dictionary in [
-        {"choice_id": "deep_rescue_patrol", "option_index": 0},
-        {"choice_id": "lighthouse_survey", "option_index": 1},
-    ]:
-        var model = WorldCampaignScript.new()
-        model.segment_index = WorldCampaignScript.FINAL_BRANCH_SEGMENT
-        model.state = WorldCampaignScript.STATE_HUB
-        var start := model.begin_expedition(str(fixture.get("choice_id", "")))
-        if not bool(start.get("ok", false)):
-            failures.append("W21 ending fixture could not begin %s" % str(fixture.get("choice_id", "")))
-            continue
-        var settled := model.settle_expedition("w21-ending-%s" % str(fixture.get("choice_id", "")), "success")
-        if not bool(settled.get("ok", false)) or not model.is_campaign_complete() or not model.has_pending_story_event():
-            failures.append("W21 final branch did not reach a pending epilogue choice")
-            continue
-        if not model.ending_id.is_empty():
-            failures.append("W21 ending was finalized before the player resolved the final story choice")
-        var resolved := model.resolve_pending_story_event(int(fixture.get("option_index", 0)))
-        if not bool(resolved.get("ok", false)) or model.ending_id.is_empty():
-            failures.append("W21 final story choice did not produce a persistent ending")
-            continue
-        if not ending_ids.has(model.ending_id):
-            ending_ids.append(model.ending_id)
-        if model.departure_options().size() != 2 or not model.has_progress_path():
-            failures.append("W21 ending removed the post-final continuation paths")
-    if ending_ids.size() < 2:
-        failures.append("W21 final branches did not expose at least two distinct persistent endings")
+    var mapping_model = WorldCampaignScript.new()
+    var mapped_endings: Array[String] = []
+    for bias: String in ["shelter", "frontier", "signal", "witness"]:
+        var mapped := str(mapping_model._ending_for_bias(bias, "eclipse_fortress"))
+        if not mapped_endings.has(mapped):
+            mapped_endings.append(mapped)
+    if mapped_endings.size() != 4:
+        failures.append("W21 four authored ending biases did not map to four distinct ending identities")
+
+    var model = WorldCampaignScript.new()
+    model.segment_index = WorldCampaignScript.FINAL_BRANCH_SEGMENT
+    model.state = WorldCampaignScript.STATE_HUB
+    var start := model.begin_expedition("lighthouse_survey")
+    if not bool(start.get("ok", false)):
+        failures.append("W21 ending fixture could not begin the final branch")
+        return
+    var settled := model.settle_expedition("w21-ending-final", "success")
+    if not bool(settled.get("ok", false)) or not model.is_campaign_complete() or not model.has_pending_story_event():
+        failures.append("W21 final branch did not reach a pending epilogue choice")
+        return
+    if not model.ending_id.is_empty():
+        failures.append("W21 ending was finalized before the player resolved the final story choice")
+
+    var pending_snapshot := model.snapshot()
+    var restored_pending = WorldCampaignScript.new()
+    if not restored_pending.restore_snapshot(pending_snapshot):
+        failures.append("W21 pending final story choice could not survive save/reload")
+        return
+    if not restored_pending.ending_id.is_empty():
+        failures.append("W21 save migration finalized a legacy ending while a final story choice was still pending")
+    var resolved := restored_pending.resolve_pending_story_event(0)
+    if not bool(resolved.get("ok", false)) or restored_pending.ending_id.is_empty():
+        failures.append("W21 final story choice did not produce a persistent ending")
+        return
+    if not mapped_endings.has(restored_pending.ending_id):
+        failures.append("W21 final story choice produced an unregistered ending identity")
+    if restored_pending.departure_options().size() != 2 or not restored_pending.has_progress_path():
+        failures.append("W21 ending removed the post-final continuation paths")
