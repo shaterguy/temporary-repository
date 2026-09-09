@@ -11,18 +11,19 @@ func _initialize() -> void:
 
 func _capture() -> void:
     root.size = EXPECTED_SIZE
-    var packed := load("res://game/presentation/w13_showcase.tscn")
-    if not packed is PackedScene:
+    var packed_resource: Resource = load("res://game/presentation/w13_showcase.tscn")
+    if not packed_resource is PackedScene:
         printerr("W13_RENDER=FAIL_SCENE")
         quit(2)
         return
-    var scene := packed.instantiate()
+    var packed_scene: PackedScene = packed_resource as PackedScene
+    var scene: Node = packed_scene.instantiate()
     root.add_child(scene)
     await process_frame
     await process_frame
     await process_frame
     await process_frame
-    var image := root.get_texture().get_image()
+    var image: Image = root.get_texture().get_image()
     if image == null or image.get_width() != EXPECTED_SIZE.x or image.get_height() != EXPECTED_SIZE.y:
         printerr("W13_RENDER=FAIL_SIZE")
         quit(3)
