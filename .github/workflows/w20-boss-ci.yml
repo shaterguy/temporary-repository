@@ -1,0 +1,111 @@
+name: w20-boss-ci
+
+on:
+  push:
+    branches:
+      - 'v*-dev*'
+      - 'v*-rc*'
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: w20-boss-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  w20-boss-mechanics:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      GODOT_VERSION: "4.7.2-stable"
+      GODOT_ARCHIVE_SHA256: "cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4"
+      GODOT_ARCHIVE_URL: "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip"
+      GODOT_BIN: "/tmp/godot/Godot_v4.7.2-stable_linux.x86_64"
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: W20 mechanical contract preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(jq -r '.engine.version' toolchain.lock)" = "$GODOT_VERSION"
+          test "$(jq -r '.engine.linux_x86_64_sha256' toolchain.lock)" = "$GODOT_ARCHIVE_SHA256"
+          test "$(jq -r '.identity.version_name' toolchain.lock)" = "1.0.0-dev1"
+          test "$(jq -r '.identity.version_code' toolchain.lock)" = "1"
+          test "$(jq -r '.planned_distinct_content.bosses' content_manifest.json)" = "10"
+          test "$(jq -r '.implemented_content.bosses' content_manifest.json)" = "0"
+          test -f game/data/boss_catalog.gd
+          test -f game/combat/boss_encounter_model.gd
+          test -f game/combat/region_spawn_director.gd
+          test -f game/combat/region_swarm_encounter.gd
+          test -f tests/unit/test_boss_expansion.gd
+          test -f tests/integration/w20_boss_mechanics_smoke.gd
+          test -f docs/verification/W20_BOSS_MECHANICS.md
+          grep -Fq '"drowned_navigator"' game/data/boss_catalog.gd
+          grep -Fq '"black_sun_reliquary"' game/data/boss_catalog.gd
+          grep -Fq 'func configure_boss_id' game/combat/region_spawn_director.gd
+          test -z "$(find . -type f \( -name '*.jks' -o -name '*.keystore' -o -name '*.p12' -o -name '*.pem' -o -name '*.key' \) -print -quit)"
+
+      - name: Download pinned Godot editor
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/godot
+          curl --fail --location --proto '=https' --tlsv1.2 "$GODOT_ARCHIVE_URL" --output /tmp/godot.zip
+          echo "$GODOT_ARCHIVE_SHA256  /tmp/godot.zip" | sha256sum --check --strict
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x "$GODOT_BIN"
+          "$GODOT_BIN" --version
+
+      - name: Import W20 candidate headlessly
+        shell: bash
+        run: |
+          set -euo pipefail
+          import_log="$(mktemp)"
+          set +e
+          "$GODOT_BIN" --headless --path . --import 2>&1 | tee "$import_log"
+          godot_status=${PIPESTATUS[0]}
+          set -e
+          test "$godot_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$import_log"; then
+            echo "::error::W20 import reported script compilation errors"
+            exit 1
+          fi
+
+      - name: Run W20 actual boss-mechanics smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          w20_log="$(mktemp)"
+          set +e
+          "$GODOT_BIN" --headless --path . --script tests/integration/w20_boss_mechanics_smoke.gd 2>&1 | tee "$w20_log"
+          godot_status=${PIPESTATUS[0]}
+          set -e
+          test "$godot_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$w20_log"; then
+            echo "::error::W20 boss smoke reported script/runtime errors"
+            exit 1
+          fi
+          if grep -Eq 'ObjectDB instances leaked|Resources still in use' "$w20_log"; then
+            echo "::error::W20 boss smoke leaked runtime objects/resources"
+            exit 1
+          fi
+          if grep -Eq '^W20_FAIL:|^W20_BOSS_MECHANICS=FAIL' "$w20_log"; then
+            echo "::error::W20 boss mechanics contract failed"
+            exit 1
+          fi
+          grep -Fxq 'W20_BOSS_COUNT=10' "$w20_log"
+          grep -Fxq 'W20_PARENT_REGIONS=5' "$w20_log"
+          grep -Fxq 'W20_BOSSES_PER_REGION=2' "$w20_log"
+          grep -Fxq 'W20_DISTINCT_PATTERN_SHAPES=10' "$w20_log"
+          grep -Fxq 'W20_RUNTIME_TELEGRAPH=PASS' "$w20_log"
+          grep -Fxq 'W20_PHASE_TRANSITION=PASS' "$w20_log"
+          grep -Fxq 'W20_REWARD_ONCE=PASS' "$w20_log"
+          grep -Fxq 'W20_BOSS_MECHANICS=PASS' "$w20_log"
+          action_ms="$(sed -n 's/^W20_BOSS_ACTION_MS=//p' "$w20_log" | tail -n 1)"
+          test -n "$action_ms"
+          test "$action_ms" -le 3500
