@@ -1,13 +1,13 @@
-# Requirement trace — W15 checkpoint
+# Requirement trace — W20 checkpoint
 
 Task: `SR-20260909-150106-PPO12Y`
 Branch target: `v1.0.0-dev1`
 
 Status terms: `PARTIAL`, `BLOCKED`, `NOT_IMPLEMENTED`. No row in this checkpoint is a final game PASS.
 
-W14/W15 checkpoint deltas below extend the cumulative AC evidence in the table. They do not convert headless/CI evidence into human visual, listening, fun, Android-device, signing, or release acceptance.
+The AC table below is the retained W15 baseline and remains verbatim evidence for W04-W15. Authoritative W16-W20 deltas follow after the W15 contract; read both together for the current checkpoint. Neither retained nor new automated/headless evidence converts into human visual, listening, fun, Android-device, signing, or release acceptance.
 
-| ID | Requirement | Current state | Evidence / next dependency |
+| ID | Requirement | W15 retained state | Evidence / next dependency |
 | --- | --- | --- | --- |
 | AC-01 | Android install→combat→settlement→hub→next run | NOT_IMPLEMENTED | W12 now supplies the actual runtime hub→choice→expedition→settlement→hub→next-expedition loop and persistent restart path, but no user-installable production-signed APK/device end-to-end evidence exists yet. |
 | AC-02 | First user APK durable non-debug signing/update lineage | BLOCKED | Signing contract recorded; protected secret injection/key creation unavailable in current connector. No debug fallback. |
@@ -164,6 +164,73 @@ W14/W15 checkpoint deltas below extend the cumulative AC evidence in the table. 
 - AC mapping: W15 adds direct integrated evidence to AC-03∼AC-11 and preserves AC-12∼AC-14 presentation/save boundaries. It does not satisfy AC-01/AC-02 because no production-signed Android APK/device path exists, and it does not satisfy AC-15 because headless timing is not device performance.
 - Human visual inspection, W14 listening review, first-slice fun/readability review, and actual Android performance remain residual verification. W15 mechanical integration success must not be presented as final AAA, sellable-quality, or release acceptance.
 
+## W16-W20 cumulative acceptance delta
+
+- AC-01 remains `NOT_IMPLEMENTED`: W16-W20 add runtime/content systems but still do not provide a production-signed Android APK installed on a device through the full install→combat→settlement→hub→next-run path.
+- AC-02 remains `BLOCKED`: no debug-signing fallback is accepted, and durable protected production-key injection/update-lineage evidence remains a later release gate.
+- AC-03 remains `PARTIAL`: W16 adds six mechanically distinct selectable survivor roles with live combat effects; W17 expands actual causal loadouts to 18 curated weapon definitions and 48 bounded relic definitions while retaining duplicate-cause and chain-depth constraints; W20 replaces the boss primitive with ten data-driven boss profiles. Human fun/balance and final production presentation remain open.
+- AC-04 remains `PARTIAL`: W16 Close Escort/Ark Engineer consume actual Ark state; W18 adds four route profiles across Glass Garden/Flooded Archive; W19 adds Ash Railway/Eclipse Fortress runtime connections while preserving W06 route semantics and recoverable failure. Final five-region campaign topology remains W21-owned.
+- AC-05 remains `PARTIAL`: W16 Circuit Architect grants bounded charges only from actual circuit activations; retained W07/W09/W10 circuit semantics remain authoritative. Final content presentation/balance remains open.
+- AC-06 remains `PARTIAL`: W17 now exposes exactly 18 curated weapon definitions and 48 relic definitions, deterministic choices/comparison data, representative builds, persistent relic loadouts and the same causal chain-depth limit. `implemented_content.curated_weapons` and `implemented_content.relics` remain 0 until per-item production asset/provenance and human balance gates close.
+- AC-07 remains `PARTIAL`: W16 Echo Recorder modifies only the already-limited replay-damage path and still does not re-enter N03 causal resolution, rewards or circuit generation. Final echo presentation/balance remains open.
+- AC-08 remains `PARTIAL`: W18/W19 add region-specific deterministic enemy-entry behavior definitions while explicitly preserving W11 ownership of doctrine-response placement/counterplay. Production enemy-behavior counts remain 0 pending final content/human gates.
+- AC-09 remains `PARTIAL`: W18 materializes Glass Garden/Flooded Archive and W19 materializes Ash Railway/Eclipse Fortress on existing persistent destination IDs; W21 still owns the final five-region campaign topology and save-compatible campaign breadth.
+- AC-10 remains `PARTIAL`: W16 Phase Scout consumes accepted live phase transitions for bounded attack charges; W18/W19 give each new parent region distinct material/shadow hazard rules and actual phase-dependent objective state. Final maps/readability/device acceptance remain open.
+- AC-11 remains `PARTIAL`: W16 selected character, W17 weapon/relic build, W18 regional objective extension and W19 horizontal unlock/access outcomes all use the retained W12 checkpoint/save path without schema inflation. W21 topology and Android lifecycle/device verification remain open.
+- AC-12 remains `PARTIAL`: W16 adds six gameplay-role definitions; W17 adds 18 weapon/48 relic definitions; W18/W19 add four non-placeholder environment identities plus 24 regional entry-behavior definitions; W20 adds ten authored boss visual identities and ten boss audio identities. Production `implemented_content` counts for characters, curated weapons, relics, regions, enemy behaviors and bosses remain intentionally uninflated until their explicit final gates close.
+- AC-13 remains `PARTIAL`: W20 produces a 1280×720 ten-boss contact sheet and deterministic 50-cue review mix. Static contact-sheet inspection is preliminarily clean, but live visual readability, human listening/mix and actual gameplay/fun/balance are still pending and automated evidence is not promoted to human PASS.
+- AC-14 remains `PARTIAL`: W16 character identity, W17 loadout, W18 regional state and W19 inherited state are checkpointed through the retained runtime path. The full aspect-ratio/multitouch/accessibility/Android lifecycle/device matrix remains later.
+- AC-15 remains `NOT_IMPLEMENTED`: final c508 regressions are headless/CI evidence only; no Android-device frame-time, memory, soak or 16KB-page-size acceptance exists yet.
+- AC-16 remains `PARTIAL`: W18/W19 environment art and W20 boss audiovisual identities carry project-original source/provenance records, but final all-asset audit, protected signing, production APK and update-path evidence remain unresolved.
+
+## W16 retained character-expansion contract
+
+- The selectable roster contains exactly six mechanically distinct roles; Aurora and Cinder are initially available and four additional roles have explicit horizontal/fallback unlock paths so world-choice branches cannot dead-end the roster.
+- Role mechanics are event/state coupled rather than stat-only duplicates: Circuit Architect consumes real circuit activations, Close Escort and Ark Engineer consume Ark state, Phase Scout consumes accepted phase transitions, Echo Recorder stays on the limited replay path, and Ranged Observer applies one bounded non-recursive follow-up per distinct primary cause.
+- Role-state consumption is cause-idempotent and bounded. Ark repair cannot revive an already failed Ark; echo modifiers remain outside the causal resolver; phase/circuit charges are finite.
+- The actual main scene rejects locked selection, exercises live role effects, progresses unlocks, checkpoints an expedition and reloads the selected character through persistent save state.
+- `implemented_content.characters` remains 0 because W16 proves mechanics/selection/unlocks/save integration, not final unique character art/audio/provenance, human readability/fun or balance.
+
+## W17 retained weapon/relic expansion contract
+
+- The retained N03 catalog still contains exactly 6 trigger, 6 delivery and 8 transform parts with the same compatibility/energy validator and maximum causal chain depth 3.
+- Exactly 18 curated weapon definitions exist; every curated recipe validates under the same compatibility/energy rules and has a unique trigger/delivery/transform signature.
+- Exactly 48 relic definitions exist as 8 gameplay families × 6 bounded variants. A loadout is capped at 4 relics and one relic per family; relics do not change cause identity or causal chain depth.
+- Six representative builds pass the same runtime validators. Selection data provides deterministic weapon/relic choices, comparison deltas, conditions, magnitudes, tradeoffs and hard limits.
+- Runtime resolution retains trigger→delivery→transform order, applies relic effects afterward, rejects duplicate cause IDs, rejects paused causal resolution and terminates at the same chain-depth limit.
+- Versioned weapon state persists relic loadout and consumed causes while retained W09 v1/v0 snapshots remain migratable without replaying consumed causes.
+- Actual-main-shell smoke persists/reloads the selected representative build through the W12 save path and retains W15/W16 actual-scene non-regression.
+- Production weapon/relic counts remain 0 until item-specific final art/audio/provenance and human balance/readability gates close.
+
+## W18 retained region-expansion contract
+
+- Exactly two parent regions are introduced: `glass_garden` and `flooded_archive`, mapped from existing campaign destination IDs instead of rewriting the save schema.
+- Exactly four W18 route profiles supply distinct route geometry/travel pressure/runtime environment assets while preserving W06 route choice, supply, threat, objective and recovery semantics.
+- Both parent regions expose distinct material/shadow hazard rule records; the mechanical region objective requires actual phase/circuit/rest-state observations before the Ark may leave the rest gate.
+- Regional objective state snapshots/restores as optional `w18_region` state without changing the W12 required runtime schema.
+- Exactly 12 deterministic regional enemy-entry behavior definitions exist, six per parent region, while doctrine-response placement remains owned by the W11 path.
+- Stage-0 Twilight Shipyard remains the inherited W15-W17 path; W18 does not inflate production region/enemy counts or alter version/package/signing identity.
+
+## W19 retained region-connection contract
+
+- `afterglow_frontier` maps to Ash Railway through `deep_rescue_patrol`; `far_lantern_chain` maps to Eclipse Fortress through `lighthouse_survey` without rewriting W18 campaign/save topology.
+- Each added parent region has distinct route geometry, material/shadow hazards, six deterministic regional behavior IDs and one original runtime environment vector.
+- Existing `WorldCampaignModel` settlement semantics remain authoritative for residents/lighthouse, horizontal unlocks, access rights, support/shop/threat metadata and recoverable failure.
+- Successful settlement persists the corresponding horizontal unlock/access right; failed settlement remains recoverable and retains a valid departure path.
+- The W18 checkpoint schema remains unchanged and preserves inherited `character_id` plus regional objective state. W21 remains the owner of final five-region campaign topology.
+- Production region/enemy counts remain 0 by design pending bosses, complete regional audiovisual coverage and human quality gates.
+
+## W20 retained boss mechanics/presentation contract
+
+- Five parent-region identities expose exactly ten unique boss profiles, two per region. Every boss owns a unique pattern family, three health-gated phases, explicit pre-hit dodge guidance, attack cadence/radius/damage parameters, exactly-once reward/unlock IDs and presentation cue identities.
+- `RegionSpawnDirector` preserves the retained W05 dedicated boss warning/once-per-director spawn timing while selecting W20 boss identity; `RegionSwarmEncounter` emits timed attack telegraphs before damage, advances phases from actual pooled health loss and queues reward/unlock exactly once on defeat.
+- All ten boss IDs resolve one-to-one to non-placeholder project-authored SVG identities with runtime motion; danger telegraphs remain drawn after decorative boss art and retain information priority.
+- Ten boss audio identities resolve five mechanical presentation cues each for exactly 50 deterministic PCM16/32kHz cues. `AudioDirector` resolves presentation cues without becoming combat authority.
+- `w20-boss-ci` produces attempt-unique `w20-boss-review-<run_id>-<run_attempt>` evidence containing a 1280×720 contact sheet, deterministic 50-cue review WAV and machine-readable parameter/audio metrics.
+- Final candidate `c508a49b087f6d48bf6122abfb58b78adde4ce50` passed the W20, W19, W18 and foundation push regressions. W20 run `34379024390` produced artifact `10115068634`; the reviewed ZIP SHA-256 is `9c2cbb0975ead50f0687905c4c7e6e852ceaf3e5c65f6a6305e69e2c50c7c983`.
+- Automated W20 balance evidence is `PASS_SANITY_ONLY`. Static contact-sheet inspection is preliminary only; human live visual readability, listening/mix/timbral separation and gameplay/fun/difficulty balance remain pending.
+- `implemented_content.bosses` remains 0 until those human gates explicitly pass. W20 does not change W21-owned campaign topology, app version/package identity, signing lineage, permissions or external trust boundaries.
+
 ## Non-regression and safety
 
 - NR-01: no repository/application outside `shaterguy/temporary-repository` is mutated by this implementation.
@@ -172,3 +239,5 @@ W14/W15 checkpoint deltas below extend the cumulative AC evidence in the table. 
 - NR-04: after first distribution, each package/certificate/storage/version lineage must remain update-compatible; no first distribution has occurred yet.
 - NR-05: do not add payments, accounts, runtime networking, broad permissions, or untrusted signing paths without explicit review.
 - NR-06: W13/W14/W15 presentation may read runtime state but must not become authoritative for combat, world, save, doctrine, circuit, phase, weapon or echo semantics.
+- NR-07: W16-W20 mechanics/presentation must preserve the same authority split: role/UI/art/audio layers may consume authoritative state but may not bypass retained combat/world/save/circuit/phase/weapon/echo/doctrine invariants.
+- NR-08: W16-W20 definition or audiovisual counts must not be copied into production `implemented_content` counts before their explicit production/human gates pass.
