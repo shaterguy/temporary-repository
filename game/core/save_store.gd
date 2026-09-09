@@ -250,11 +250,12 @@ static func _read_json(path: String) -> Dictionary:
     var file := FileAccess.open(path, FileAccess.READ)
     if file == null:
         return {}
-    var parsed = JSON.parse_string(file.get_as_text())
+    var json := JSON.new()
+    var parse_error := json.parse(file.get_as_text())
     file.close()
-    if typeof(parsed) != TYPE_DICTIONARY:
+    if parse_error != OK or typeof(json.data) != TYPE_DICTIONARY:
         return {}
-    return parsed
+    return json.data
 
 
 static func _remove_if_exists(path: String) -> void:
