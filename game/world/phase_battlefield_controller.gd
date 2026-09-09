@@ -22,6 +22,13 @@ func configure(player: Node2D, encounter: Node2D, circuit: Node2D) -> void:
     _circuit = circuit
     if is_instance_valid(_player) and _player.has_method("set_phase_provider"):
         _player.call("set_phase_provider", model)
+    if (
+        is_instance_valid(_player)
+        and is_instance_valid(_circuit)
+        and _player.has_method("set_circuit_provider")
+        and _circuit.has_method("effect_provider")
+    ):
+        _player.call("set_circuit_provider", _circuit.call("effect_provider"))
     if is_instance_valid(_encounter) and _encounter.has_method("configure_phase_provider"):
         _encounter.call("configure_phase_provider", model)
     _sync_runtime_phase()
