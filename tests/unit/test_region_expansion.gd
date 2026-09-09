@@ -19,6 +19,7 @@ static func run() -> Array[String]:
         failures.append("W18 catalog did not expose exactly twelve regional enemy behavior definitions")
 
     var behavior_ids: Array[String] = []
+    var checked_behavior_parents: Array[String] = []
     var route_signatures: Array[String] = []
     for region_id: String in RegionCatalogScript.region_ids():
         var profile := RegionCatalogScript.profile_for_region(region_id)
@@ -36,15 +37,21 @@ static func run() -> Array[String]:
         var shadow_rule: Dictionary = phase_rules.get("shadow", {})
         if str(material_rule.get("hazard_id", "")) == str(shadow_rule.get("hazard_id", "")):
             failures.append("W18 region phases did not expose distinct hazard rules: %s" % region_id)
-        for raw_behavior: Variant in profile.get("enemy_behaviors", []):
-            if not raw_behavior is Dictionary:
-                failures.append("W18 behavior entry was not a dictionary: %s" % region_id)
-                continue
-            var behavior_id := str(raw_behavior.get("behavior_id", ""))
-            if behavior_id.is_empty() or behavior_ids.has(behavior_id):
-                failures.append("W18 enemy behavior ID was empty or duplicated: %s" % behavior_id)
-            else:
-                behavior_ids.append(behavior_id)
+
+        var parent_region_id := str(profile.get("parent_region_id", ""))
+        if not checked_behavior_parents.has(parent_region_id):
+            checked_behavior_parents.append(parent_region_id)
+            for raw_behavior: Variant in profile.get("enemy_behaviors", []):
+                if not raw_behavior is Dictionary:
+                    failures.append("W18 behavior entry was not a dictionary: %s" % region_id)
+                    continue
+                var behavior_id := str(raw_behavior.get("behavior_id", ""))
+                if behavior_id.is_empty() or behavior_ids.has(behavior_id):
+                    failures.append("W18 enemy behavior ID was empty or duplicated: %s" % behavior_id)
+                else:
+                    behavior_ids.append(behavior_id)
+    if checked_behavior_parents.size() != 2:
+        failures.append("W18 behavior catalog was not checked once per parent region")
     if behavior_ids.size() != 12:
         failures.append("W18 unique behavior set size changed from twelve")
 
