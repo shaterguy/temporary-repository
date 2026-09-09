@@ -159,7 +159,10 @@ static func write_slot(slot: int, envelope: Dictionary, root: String = SAVE_ROOT
     temporary_file.close()
 
     var temporary_readback := _read_json(temporary)
-    if not validate_envelope(temporary_readback) or temporary_readback != envelope:
+    if (
+        not validate_envelope(temporary_readback)
+        or str(temporary_readback.get("checksum", "")) != str(envelope.get("checksum", ""))
+    ):
         _remove_if_exists(temporary)
         return {"ok": false, "status": "TEMP_READBACK_FAILED"}
 
@@ -193,7 +196,10 @@ static func write_slot(slot: int, envelope: Dictionary, root: String = SAVE_ROOT
         return {"ok": false, "status": "PROMOTE_TEMP_FAILED", "error": promote_error}
 
     var promoted := _read_json(primary)
-    if not validate_envelope(promoted) or promoted != envelope:
+    if (
+        not validate_envelope(promoted)
+        or str(promoted.get("checksum", "")) != str(envelope.get("checksum", ""))
+    ):
         if FileAccess.file_exists(backup):
             _remove_if_exists(primary)
             DirAccess.rename_absolute(
