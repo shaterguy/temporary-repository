@@ -2,9 +2,11 @@ extends CharacterBody2D
 
 const CombatModelScript = preload("res://game/combat/combat_model.gd")
 const CausalWeaponModelScript = preload("res://game/combat/causal_weapon_model.gd")
+const TacticalEchoModelScript = preload("res://game/systems/echo/tactical_echo_model.gd")
 
 signal auto_attack(target_id: int, damage: int, direction: Vector2)
 signal weapon_action(action: Dictionary)
+signal tactical_echo_event(event: Dictionary)
 signal hit_feedback(applied_damage: int, remaining_health: int, generation: int)
 signal pause_changed(paused: bool)
 
@@ -12,6 +14,7 @@ signal pause_changed(paused: bool)
 
 var model = CombatModelScript.new()
 var weapon_model = CausalWeaponModelScript.new()
+var echo_model = TacticalEchoModelScript.new()
 var _virtual_movement: Vector2 = Vector2.ZERO
 var _virtual_dodge_queued: bool = false
 var _keyboard_dodge_down: bool = false
@@ -27,6 +30,7 @@ func _ready() -> void:
     process_mode = Node.PROCESS_MODE_ALWAYS
     model.reset(global_position)
     weapon_model.reset()
+    echo_model.reset()
     _camera = Camera2D.new()
     _camera.name = "CombatCamera"
     _camera.enabled = camera_enabled
@@ -80,6 +84,8 @@ func _physics_process(delta: float) -> void:
     velocity = Vector2.ZERO if delta <= 0.0 else (model.position - global_position) / delta
     global_position = model.position
     _resolve_events(events)
+    echo_model.capture_step(delta, model.position, _current_phase_id())
+    _advance_tactical_echo(delta)
     queue_redraw()
 
 
@@ -121,6 +127,42 @@ func weapon_upgrade_comparison(candidate_weapon_id: String) -> Dictionary:
 
 func restore_weapon_state(snapshot_state: Dictionary) -> bool:
     return weapon_model.restore_snapshot(snapshot_state)
+
+
+func begin_tactical_echo_capture(record_id: String) -> bool:
+    return echo_model.begin_capture(
+        record_id,
+        weapon_model.equipped_weapon_id,
+        model.position
+    )
+
+
+func finish_tactical_echo_capture(outcome: String) -> Dictionary:
+    return echo_model.finish_capture(outcome)
+
+
+func cancel_tactical_echo_capture() -> void:
+    echo_model.cancel_capture()
+
+
+func select_tactical_echo_record(record: Dictionary) -> bool:
+    return echo_model.select_record(record)
+
+
+func tactical_echo_status_snapshot() -> Dictionary:
+    return {
+        "selection": echo_model.selection_status(),
+        "replay": echo_model.replay_status_snapshot(),
+        "snapshot": echo_model.snapshot(),
+    }
+
+
+func restore_tactical_echo_state(snapshot_state: Dictionary) -> bool:
+    return echo_model.restore_snapshot(snapshot_state)
+
+
+func cancel_tactical_echo(reason: String = "cancelled") -> bool:
+    return echo_model.cancel_replay(reason)
 
 
 func set_virtual_input(movement: Vector2, dodge_pressed: bool) -> void:
@@ -231,12 +273,7 @@ func _resolve_events(events: Array[Dictionary]) -> void:
 
 
 func _weapon_context(event: Dictionary, targets: Array[Dictionary]) -> Dictionary:
-    var phase_id := "material"
-    if is_instance_valid(_phase_provider):
-        var phase_value: Variant = _phase_provider.get("current_phase")
-        if phase_value != null and not str(phase_value).is_empty():
-            phase_id = str(phase_value)
-
+    var phase_id := _current_phase_id()
     var primary_position: Vector2 = model.position
     var primary_id := int(event.get("target_id", -1))
     var nearest_distance_squared: float = 1.0e30
@@ -313,8 +350,126 @@ func _apply_weapon_action(action: Dictionary, targets: Array[Dictionary]) -> voi
             var target_position: Vector2 = target.get("position", model.position)
             direction = model.position.direction_to(target_position)
             break
+    echo_model.capture_fire(
+        direction,
+        damage,
+        _current_phase_id(),
+        str(action.get("cause_id", ""))
+    )
     weapon_action.emit(action.duplicate(true))
     auto_attack.emit(target_id, damage, direction)
+
+
+func _advance_tactical_echo(delta: float) -> void:
+    if delta <= 0.0:
+        return
+    var phase_id := _current_phase_id()
+    if is_instance_valid(_circuit_provider) and _circuit_provider.has_method("active_circuits"):
+        var active_value: Variant = _circuit_provider.call("active_circuits")
+        if active_value is Array:
+            for raw_circuit in active_value:
+                if not raw_circuit is Dictionary:
+                    continue
+                var circuit: Dictionary = raw_circuit
+                if str(circuit.get("module", "")) != TacticalEchoModelScript.MODULE_ECHO_BEACON:
+                    continue
+                var activation := echo_model.try_activate_from_circuit(
+                    int(circuit.get("id", 0)),
+                    str(circuit.get("module", "")),
+                    model.position,
+                    phase_id
+                )
+                if bool(activation.get("accepted", false)):
+                    var started_event := activation.duplicate(true)
+                    started_event["type"] = "echo_started"
+                    started_event["source"] = "tactical_echo"
+                    tactical_echo_event.emit(started_event)
+
+    var replay_events := echo_model.step_replay(
+        delta,
+        phase_id,
+        _phase_provider,
+        model.paused
+    )
+    for replay_event in replay_events:
+        var event := replay_event.duplicate(true)
+        if str(event.get("type", "")) == "echo_fire":
+            event = _apply_tactical_echo_fire(event)
+        tactical_echo_event.emit(event)
+
+
+func _apply_tactical_echo_fire(action: Dictionary) -> Dictionary:
+    var result := action.duplicate(true)
+    var origin: Vector2 = action.get("origin", echo_model.replay_position)
+    var direction: Vector2 = action.get("direction", Vector2.ZERO)
+    if direction.is_zero_approx():
+        result["hit"] = false
+        result["reason"] = "direction"
+        return result
+    direction = direction.normalized()
+
+    var best_id := -1
+    var best_alignment := -1.0
+    var best_distance := 1.0e30
+    for target in _snapshot_targets():
+        if not bool(target.get("active", true)):
+            continue
+        var target_id := int(target.get("id", -1))
+        if target_id < 0:
+            continue
+        var target_position: Vector2 = target.get("position", origin)
+        var offset := target_position - origin
+        var distance := offset.length()
+        if distance <= 0.001 or distance > 520.0:
+            continue
+        var alignment := direction.dot(offset / distance)
+        if alignment < 0.45:
+            continue
+        if (
+            alignment > best_alignment + 0.0001
+            or (
+                is_equal_approx(alignment, best_alignment)
+                and (
+                    distance < best_distance - 0.0001
+                    or (is_equal_approx(distance, best_distance) and target_id < best_id)
+                )
+            )
+        ):
+            best_id = target_id
+            best_alignment = alignment
+            best_distance = distance
+
+    if best_id < 0:
+        result["hit"] = false
+        result["reason"] = "no_target"
+        return result
+
+    var damage := maxi(1, int(action.get("damage", 1)))
+    var handled := false
+    if is_instance_valid(_target_provider) and _target_provider.has_method("apply_target_damage"):
+        handled = bool(_target_provider.call("apply_target_damage", best_id, damage))
+    if not handled:
+        var target_object := instance_from_id(best_id)
+        if target_object != null and is_instance_valid(target_object) and target_object.has_method("take_damage"):
+            target_object.call("take_damage", damage)
+            handled = true
+
+    result["target_id"] = best_id
+    result["hit"] = handled
+    result["reason"] = "" if handled else "damage_unhandled"
+    return result
+
+
+func _current_phase_id() -> String:
+    if is_instance_valid(_phase_provider):
+        if _phase_provider.has_method("current_phase_id"):
+            var phase_method_value := str(_phase_provider.call("current_phase_id"))
+            if not phase_method_value.is_empty():
+                return phase_method_value
+        var phase_value: Variant = _phase_provider.get("current_phase")
+        if phase_value != null and not str(phase_value).is_empty():
+            return str(phase_value)
+    return "material"
 
 
 static func _segment_crosses_polygon_boundary(
@@ -357,3 +512,16 @@ func _draw() -> void:
         4.0,
         true
     )
+    if echo_model.replay_active:
+        var echo_local := to_local(echo_model.replay_position)
+        draw_circle(echo_local, 14.0, Color(0.68, 0.46, 0.96, 0.34))
+        draw_arc(
+            echo_local,
+            19.0,
+            0.0,
+            TAU,
+            28,
+            Color(0.88, 0.72, 1.0, 0.72),
+            2.0,
+            true
+        )

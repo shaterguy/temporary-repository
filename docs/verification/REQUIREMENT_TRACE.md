@@ -1,4 +1,4 @@
-# Requirement trace — W09 checkpoint
+# Requirement trace — W10 checkpoint
 
 Task: `SR-20260909-150106-PPO12Y`
 Branch target: `v1.0.0-dev1`
@@ -9,18 +9,18 @@ Status terms: `PARTIAL`, `BLOCKED`, `NOT_IMPLEMENTED`. No row in this checkpoint
 | --- | --- | --- | --- |
 | AC-01 | Android install→combat→settlement→hub→next run | NOT_IMPLEMENTED | No user-installable APK or complete expedition loop yet. |
 | AC-02 | First user APK durable non-debug signing/update lineage | BLOCKED | Signing contract recorded; protected secret injection/key creation unavailable in current connector. No debug fallback. |
-| AC-03 | Survivor core loop | PARTIAL | W04 movement/dodge/auto-attack/damage remains; W05 spatial pooling, deterministic warnings, route-compatible swarm pressure, contact damage, and a base-boss primitive remain connected. W08 adds phase-aware player movement collision and phase-filtered targets. W09 routes runtime auto-attack/dodge causes through the causal weapon resolver while preserving target-provider damage settlement. Combat growth and production integration remain. |
+| AC-03 | Survivor core loop | PARTIAL | W04 movement/dodge/auto-attack/damage remains; W05 spatial pooling, deterministic warnings, route-compatible swarm pressure, contact damage, and a base-boss primitive remain connected. W08 adds phase-aware player movement collision and phase-filtered targets. W09 routes runtime auto-attack/dodge causes through the causal weapon resolver while preserving target-provider damage settlement. W10 adds a separate limited-power replay damage path that does not re-enter the causal resolver. Combat growth and production integration remain. |
 | AC-04 | N01 mobile fortress/routes | PARTIAL | W06 deterministic route previews, idempotent junction choice, route-specific movement/supply/threat/objective pressure, visible-objective damage gating, rest/arrival, recoverable failure and checkpoint restore remain. W07 adds an optional circuit-provider hook so an active N02 ark ward can reduce visible ark/objective damage without changing unprotected W06 behavior. Final campaign/save UI and production presentation remain later. |
-| AC-05 | N02 movement-drawn circuits | PARTIAL | W07 closed-loop geometry, light budget, cooldown/cap, timed area effects, snapshot/restore, live snare and ark ward remain. W08 drives the W07 phase token from an actual runtime phase switch. W09 consumes active circuit polygons as a real weapon-transform condition when an attack segment crosses a same-phase boundary. N04 echo replay remains a later dependency; procedural lines are not final art. |
-| AC-06 | N03 causal modular weapons | PARTIAL | W09 adds 6 trigger parts, 6 delivery parts, 8 transform parts, explicit compatibility and energy budgets, a finite per-cause chain-depth limit, duplicate-cause suppression, 3 representative curated weapons, upgrade comparison data, snapshot/legacy migration, and runtime W04/W07/W08 damage integration. Full 18-weapon curated content, production level-up screen/presentation and final balance remain W17+ dependencies. |
-| AC-07 | N04 prior-run tactical echo | NOT_IMPLEMENTED | W10; W07 reserves an `echo_beacon` circuit module identity but does not count echo replay as implemented. |
+| AC-05 | N02 movement-drawn circuits | PARTIAL | W07 closed-loop geometry, light budget, cooldown/cap, timed area effects, snapshot/restore, live snare and ark ward remain. W08 drives the W07 phase token from an actual runtime phase switch. W09 consumes active circuit polygons as a real weapon-transform condition when an attack segment crosses a same-phase boundary. W10 turns an actual active `echo_beacon` circuit ID into a one-shot N04 replay trigger and consumes that activation ID. Procedural lines are not final art. |
+| AC-06 | N03 causal modular weapons | PARTIAL | W09 adds 6 trigger parts, 6 delivery parts, 8 transform parts, explicit compatibility and energy budgets, a finite per-cause chain-depth limit, duplicate-cause suppression, 3 representative curated weapons, upgrade comparison data, snapshot/legacy migration, and runtime W04/W07/W08 damage integration. W10 records one fire input per W09 cause and routes replay damage outside the causal resolver to prevent recursion. Full 18-weapon curated content, production level-up screen/presentation and final balance remain W17+ dependencies. |
+| AC-07 | N04 prior-run tactical echo | PARTIAL | W10 adds versioned ≤8-second relative move/fire records, compatible weapon validation with safe unequip reason, valid records from failed expeditions, pre-run record selection API, one concurrent replay, W07 echo-beacon activation, current W08 collision/phase handling, limited replay power, cancellation, save-ready selected-record/consumed-circuit snapshot, and explicit no-echo/no-reward/no-achievement/no-circuit-charge/no-causal-chain policy. W12 still must persist/select these records across the completed expedition→hub→next-run loop, and final presentation/balance remain later. |
 | AC-08 | N05 disclosed enemy doctrine | NOT_IMPLEMENTED | W11. |
 | AC-09 | N06 persistent world graph | NOT_IMPLEMENTED | W12. |
-| AC-10 | N07 dual-phase battlefield | PARTIAL | W08 adds same-coordinate material/shadow blockers and cover, destination safety preview, no-cost rejection, cooldown, pause/cancel gating, phase-aware player collision and enemy targeting, actual W07 circuit phase switching, explicit cross-phase boss warning before damage, and phase snapshot/restore. W09 now supplies the current phase to causal weapon transforms and propagates the W07 effect provider into the survivor weapon context. Production maps, final art and later N04 echo integration remain. |
-| AC-11 | Campaign/hub/save/retry/post-final loop | PARTIAL | Versioned checksum save envelope + primary/backup primitive, W06 route snapshot/restore, W07 active-circuit snapshot/restore, W08 phase snapshot/restore and W09 weapon snapshot/migration primitive exist; world/campaign/settlement migration still absent. |
-| AC-12 | Distinct content manifest + no release placeholders | PARTIAL | Manifest holds the full planned counts and release gate; implemented production content remains 0. W04 training geometry, W05 swarm preview, W06 ark geometry, W07 circuit lines and W08 phase blockers are development instrumentation. W09 representative weapon definitions are gameplay prototypes and do not count as the final 18 curated production weapons. |
-| AC-13 | Actual art/animation/audio/readability review | NOT_IMPLEMENTED | W04∼W09 procedural preview/instrumentation is not presentation acceptance evidence. |
-| AC-14 | Aspect ratio/multitouch/accessibility/lifecycle/save failures | PARTIAL | Safe-area scaling, pause/focus transient-input reset, virtual-input bridge, route pause/checkpoint, W07 pause-safe circuit timers, W08 phase input edge/reset and W09 paused weapon-resolution rejection exist; full touch/accessibility/platform matrix remains later. |
+| AC-10 | N07 dual-phase battlefield | PARTIAL | W08 adds same-coordinate material/shadow blockers and cover, destination safety preview, no-cost rejection, cooldown, pause/cancel gating, phase-aware player collision and enemy targeting, actual W07 circuit phase switching, explicit cross-phase boss warning before damage, and phase snapshot/restore. W09 supplies the current phase to causal weapon transforms. W10 resolves replay movement against the current phase geometry and suppresses recorded shots whose recorded phase differs from the current battlefield. Production maps, final art and later world integration remain. |
+| AC-11 | Campaign/hub/save/retry/post-final loop | PARTIAL | Versioned checksum save envelope + primary/backup primitive, W06 route snapshot/restore, W07 active-circuit snapshot/restore, W08 phase snapshot/restore, W09 weapon snapshot/migration and W10 save-ready tactical-echo selection/consumed-circuit snapshot exist. W10 intentionally cancels active replay and discards in-progress capture on restore to prevent duplicate side effects. World/campaign/settlement persistence and actual cross-expedition record transport remain W12. |
+| AC-12 | Distinct content manifest + no release placeholders | PARTIAL | Manifest holds the full planned counts and release gate; implemented production content remains 0. W04 training geometry, W05 swarm preview, W06 ark geometry, W07 circuit lines, W08 phase blockers and W10 echo rendering primitive are development instrumentation. W09 representative weapon definitions are gameplay prototypes and do not count as the final 18 curated production weapons. |
+| AC-13 | Actual art/animation/audio/readability review | NOT_IMPLEMENTED | W04∼W10 procedural preview/instrumentation is not presentation acceptance evidence. |
+| AC-14 | Aspect ratio/multitouch/accessibility/lifecycle/save failures | PARTIAL | Safe-area scaling, pause/focus transient-input reset, virtual-input bridge, route pause/checkpoint, W07 pause-safe circuit timers, W08 phase input edge/reset, W09 paused weapon-resolution rejection and W10 pause-safe replay timing exist; full touch/accessibility/platform matrix remains later. |
 | AC-15 | Device performance/memory/soak/16KB | NOT_IMPLEMENTED | W05 spatial partition/state reuse foundations exist, but no device/runtime performance evidence exists. |
 | AC-16 | Licenses/signing provenance/direct APK | PARTIAL | Asset provenance policy + pinned engine source; signing/APK delivery remain unresolved. |
 
@@ -65,7 +65,7 @@ Status terms: `PARTIAL`, `BLOCKED`, `NOT_IMPLEMENTED`. No row in this checkpoint
 - The selected `snare` module applies its boundary-inclusive multiplier to live swarm movement inside the circuit, while the default `ark_ward` module halves visible damage only while the defended position lies inside an active ward.
 - Ark/objective protection is opt-in through the W07 provider hook: no provider preserves W06 damage, while a live ward applies deterministic mitigation before the W06 model settles visible damage.
 - Active circuit IDs, polygons, module/phase, remaining duration, light, cooldown and activation generation survive snapshot/restore; the transient in-progress trail intentionally resets on restore so a committed closure cannot fire twice.
-- `echo_beacon` is a reserved module identity for W10 and is not evidence that tactical echo replay exists in W07.
+- `echo_beacon` is the W10 activation module. W10 consumes each observed echo-beacon circuit ID once, so restore or a long-lived active circuit cannot trigger a second replay.
 
 ## W08 retained fast-test contract
 
@@ -79,7 +79,7 @@ Status terms: `PARTIAL`, `BLOCKED`, `NOT_IMPLEMENTED`. No row in this checkpoint
 - A circuit recorded in material does not affect shadow queries at the same coordinate and becomes active again after returning to material.
 - Phase, remaining cooldown, generation and last valid transition position survive snapshot/restore without replaying a transition.
 
-## W09 fast-test contract
+## W09 retained fast-test contract
 
 - The part catalog exposes exactly 6 trigger parts, 6 delivery parts and 8 transform parts, and every possible triple is deterministically classified as allowed or rejected by the same compatibility table.
 - Every allowed recipe stays within the disclosed energy budget and carries the same finite maximum causal-chain depth; incompatible and over-budget recipes cannot be equipped as valid weapons.
@@ -91,6 +91,20 @@ Status terms: `PARTIAL`, `BLOCKED`, `NOT_IMPLEMENTED`. No row in this checkpoint
 - Paused combat rejects causal weapon resolution. The comparison API discloses changed trigger/delivery/transform/base damage, energy delta, transform condition and hard limits for a candidate upgrade.
 - Weapon state has a versioned snapshot and accepts the defined v0→v1 identity migration without re-consuming a previously resolved cause.
 - This checkpoint contains 3 representative curated weapons. It does not claim the W17 target of 18 production-curated weapons or final level-up presentation/balance is complete.
+
+## W10 fast-test contract
+
+- Tactical records are versioned, JSON/save-envelope compatible and limited to at most 8 seconds and 128 ordered relative movement/fire events.
+- A record validates its curated weapon identity and per-fire weapon identity before selection. Corrupt/incompatible records are safely unequipped with a reason instead of being partially replayed.
+- `failed` is a valid source-expedition outcome; record validity does not require expedition completion.
+- Capture stores relative movement and one fire input per causal source ID, preventing a multi-target W09 resolution from being mis-recorded as several player trigger pulls.
+- An observed W07 `echo_beacon` circuit ID is consumed exactly once. At most one replay can be active; a second circuit observed during a replay is consumed and cannot fire retroactively after the first replay ends.
+- Replays process the same compatible record in stable event-array order. Movement is applied relative to the new activation origin and resolved against the current W08 phase geometry rather than restoring old world coordinates.
+- A recorded fire event whose phase differs from the current phase becomes an explicit `phase_mismatch` blocked event. Compatible shots target only current-world target snapshots.
+- Replay damage is limited to 45% of recorded damage and bypasses the W09 causal resolver. Replay events explicitly disallow echo spawning, rewards, achievements, circuit charge and causal-chain recursion, and the runtime path does not emit regular player weapon/auto-attack signals for echo damage.
+- Mid-replay cancellation stops later actions. Pause stops replay time because the survivor exits gameplay processing while paused.
+- Snapshot/restore keeps the selected compatible record and consumed circuit IDs but cancels active replay and discards in-progress capture, preventing restore-time duplicate damage or activation.
+- The runtime integration test closes a real W07 echo-beacon circuit, replays against a W08-aware W05 target provider, observes actual pooled enemy health loss and verifies W09 resolution generation does not advance.
 
 ## Non-regression and safety
 
