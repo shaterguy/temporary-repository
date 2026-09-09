@@ -1,12 +1,13 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene load_steps=9 format=3]
 
-[ext_resource type="Script" path="res://game/ui/main_shell_w22.gd" id="1_shell"]
+[ext_resource type="Script" path="res://game/ui/main_shell_w23.gd" id="1_shell"]
 [ext_resource type="Texture2D" path="res://assets/runtime/w13/environment_twilight_shipyard.svg" id="2_w13_environment"]
 [ext_resource type="Script" path="res://game/presentation/representative_art_layer.gd" id="3_w13_art"]
 [ext_resource type="Script" path="res://game/presentation/representative_hud.gd" id="4_w13_hud"]
 [ext_resource type="Script" path="res://game/ui/first_expedition_tutorial.gd" id="5_w15_tutorial"]
 [ext_resource type="Script" path="res://game/ui/character_role_tutorial.gd" id="6_w16_character_tutorial"]
 [ext_resource type="Script" path="res://game/presentation/w23_weapon_relic_hud.gd" id="7_w23_weapon_relic_hud"]
+[ext_resource type="Script" path="res://game/presentation/w23_world_event_hud.gd" id="8_w23_world_event_hud"]
 
 [node name="MainShell" type="Control"]
 layout_mode = 3
@@ -87,6 +88,18 @@ unique_name_in_owner = true
 layout_mode = 2
 theme_override_font_sizes/font_size = 16
 text = "Foundation build"
+
+[node name="W23WorldEventHud" type="Control" parent="."]
+unique_name_in_owner = true
+z_index = 35
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("8_w23_world_event_hud")
 
 [node name="W13RepresentativeHud" type="Control" parent="."]
 unique_name_in_owner = true

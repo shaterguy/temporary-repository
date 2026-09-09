@@ -1,0 +1,173 @@
+name: w23c-world-event-art-ci
+
+on:
+  push:
+    branches:
+      - 'v*-dev*'
+      - 'v*-rc*'
+    paths:
+      - 'assets/runtime/w23/enemy_behavior_atlas.svg'
+      - 'assets/runtime/w23/choice_event_atlas.svg'
+      - 'assets/runtime/w23/world_event_art_manifest.json'
+      - 'assets/source/w23/WORLD_EVENT_ART_DIRECTION.md'
+      - 'assets/licenses/W23_ORIGINAL_WORLD_EVENT_ART.md'
+      - 'game/presentation/w23_world_event_*'
+      - 'game/combat/w23_region_swarm_encounter.gd'
+      - 'game/ui/main_shell_w23.gd'
+      - 'game/ui/main_shell.tscn'
+      - 'tests/integration/w23_world_event_art_smoke.gd'
+      - 'tests/visual/capture_w23_world_events.gd'
+      - 'docs/verification/W23C_ART_PACKET.md'
+      - 'content_manifest.json'
+      - '.github/workflows/w23c-world-event-art-ci.yml'
+  pull_request:
+    paths:
+      - 'assets/runtime/w23/enemy_behavior_atlas.svg'
+      - 'assets/runtime/w23/choice_event_atlas.svg'
+      - 'assets/runtime/w23/world_event_art_manifest.json'
+      - 'assets/source/w23/WORLD_EVENT_ART_DIRECTION.md'
+      - 'assets/licenses/W23_ORIGINAL_WORLD_EVENT_ART.md'
+      - 'game/presentation/w23_world_event_*'
+      - 'game/combat/w23_region_swarm_encounter.gd'
+      - 'game/ui/main_shell_w23.gd'
+      - 'game/ui/main_shell.tscn'
+      - 'tests/integration/w23_world_event_art_smoke.gd'
+      - 'tests/visual/capture_w23_world_events.gd'
+      - 'docs/verification/W23C_ART_PACKET.md'
+      - 'content_manifest.json'
+      - '.github/workflows/w23c-world-event-art-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: w23c-world-event-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  world-event-art-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    env:
+      GODOT_VERSION: "4.7.2-stable"
+      GODOT_ARCHIVE_SHA256: "cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4"
+      GODOT_ARCHIVE_URL: "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip"
+      GODOT_BIN: "/tmp/godot/Godot_v4.7.2-stable_linux.x86_64"
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Static W23C contract preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          manifest=assets/runtime/w23/world_event_art_manifest.json
+          test "$(jq -r '.milestone' "$manifest")" = "W23C"
+          test "$(jq -r '.enemy_behavior_count' "$manifest")" = "30"
+          test "$(jq -r '.choice_event_count' "$manifest")" = "40"
+          test "$(jq -r '.region_count' "$manifest")" = "5"
+          test "$(jq -r '.placeholder_count' "$manifest")" = "0"
+          test "$(jq '.enemies | length' "$manifest")" = "30"
+          test "$(jq '.events | length' "$manifest")" = "40"
+          test "$(jq '.regions | length' "$manifest")" = "5"
+          test "$(jq '[.enemies[], .events[], .regions[] | select(.placeholder == true)] | length' "$manifest")" = "0"
+          test "$(grep -o 'data-behavior=' assets/runtime/w23/enemy_behavior_atlas.svg | wc -l)" = "24"
+          test "$(grep -o 'data-event=' assets/runtime/w23/choice_event_atlas.svg | wc -l)" = "40"
+          grep -Fq '<path' assets/runtime/w23/enemy_behavior_atlas.svg
+          grep -Fq 'linearGradient' assets/runtime/w23/enemy_behavior_atlas.svg
+          grep -Fq '<path' assets/runtime/w23/choice_event_atlas.svg
+          grep -Fq 'linearGradient' assets/runtime/w23/choice_event_atlas.svg
+          test "$(jq -r '.art_finalization.w23.enemy_behavior_asset_count' content_manifest.json)" = "30"
+          test "$(jq -r '.art_finalization.w23.choice_event_asset_count' content_manifest.json)" = "40"
+          test "$(jq -r '.art_finalization.w23.region_asset_count' content_manifest.json)" = "5"
+          test "$(jq -r '.region_expansion.w18.w23_production_enemy_art_mapped' content_manifest.json)" = "12"
+          test "$(jq -r '.region_expansion.w19.w23_production_enemy_art_mapped' content_manifest.json)" = "12"
+          test "$(jq -r '.region_expansion.w21.w23_production_choice_event_art_mapped' content_manifest.json)" = "40"
+          test -f assets/source/w23/WORLD_EVENT_ART_DIRECTION.md
+          test -f assets/licenses/W23_ORIGINAL_WORLD_EVENT_ART.md
+          test -f game/presentation/w23_world_event_art_catalog.gd
+          test -f game/presentation/w23_world_event_hud.gd
+          test -f game/combat/w23_region_swarm_encounter.gd
+          test -f game/ui/main_shell_w23.gd
+          test -f game/presentation/w23_world_event_showcase.tscn
+          test -f tests/integration/w23_world_event_art_smoke.gd
+          test -f tests/visual/capture_w23_world_events.gd
+          grep -Fq 'res://game/ui/main_shell_w23.gd' game/ui/main_shell.tscn
+          grep -Fq 'W23WorldEventHud' game/ui/main_shell.tscn
+          test -z "$(find . -type f \( -name '*.jks' -o -name '*.keystore' -o -name '*.p12' -o -name '*.pem' -o -name '*.key' \) -print -quit)"
+
+      - name: Download pinned Godot editor
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/godot
+          curl --fail --location --proto '=https' --tlsv1.2 "$GODOT_ARCHIVE_URL" --output /tmp/godot.zip
+          echo "$GODOT_ARCHIVE_SHA256  /tmp/godot.zip" | sha256sum --check --strict
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x "$GODOT_BIN"
+          "$GODOT_BIN" --version
+
+      - name: Import project headlessly
+        shell: bash
+        run: |
+          set -euo pipefail
+          import_log="$(mktemp)"
+          set +e
+          "$GODOT_BIN" --headless --path . --import 2>&1 | tee "$import_log"
+          godot_status=${PIPESTATUS[0]}
+          set -e
+          test "$godot_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$import_log"; then
+            echo "::error::Godot import reported script compilation errors"
+            exit 1
+          fi
+
+      - name: Run W23C runtime art smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          smoke_log="$(mktemp)"
+          set +e
+          "$GODOT_BIN" --headless --path . --script tests/integration/w23_world_event_art_smoke.gd 2>&1 | tee "$smoke_log"
+          godot_status=${PIPESTATUS[0]}
+          set -e
+          test "$godot_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$smoke_log"; then exit 1; fi
+          if grep -Eq '^W23C_FAIL:|^W23C_WORLD_EVENT_ART=FAIL' "$smoke_log"; then exit 1; fi
+          grep -Fxq 'W23C_ENEMY_VISUAL_ROLES=30' "$smoke_log"
+          grep -Fxq 'W23C_CHOICE_EVENT_ART=40' "$smoke_log"
+          grep -Fxq 'W23C_REGION_ART=5' "$smoke_log"
+          grep -Fxq 'W23C_PLACEHOLDER_COUNT=0' "$smoke_log"
+          grep -Fxq 'W23C_RUNTIME_MAPPING=PASS' "$smoke_log"
+          grep -Fxq 'W23C_WORLD_EVENT_ART=PASS' "$smoke_log"
+
+      - name: Render W23C review sheets
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v xvfb-run >/dev/null
+          mkdir -p artifacts/w23
+          render_log="$(mktemp)"
+          set +e
+          xvfb-run -a "$GODOT_BIN" --path . --rendering-method gl_compatibility --script tests/visual/capture_w23_world_events.gd 2>&1 | tee "$render_log"
+          godot_status=${PIPESTATUS[0]}
+          set -e
+          test "$godot_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$render_log"; then exit 1; fi
+          grep -Fxq 'W23C_ENEMY_REGION_REVIEW=PASS' "$render_log"
+          grep -Fxq 'W23C_CHOICE_EVENT_REVIEW=PASS' "$render_log"
+          grep -Fxq 'W23C_REVIEW_SIZE=1280x720' "$render_log"
+          test -s artifacts/w23/enemy-region-review.png
+          test -s artifacts/w23/choice-event-review.png
+          sha256sum artifacts/w23/enemy-region-review.png artifacts/w23/choice-event-review.png
+
+      - name: Upload W23C review evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: w23c-world-event-review-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            artifacts/w23/enemy-region-review.png
+            artifacts/w23/choice-event-review.png
+          if-no-files-found: error
+          retention-days: 14
