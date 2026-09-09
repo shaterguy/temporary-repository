@@ -113,7 +113,7 @@ static func run() -> Array[String]:
             failures.append("cover doctrine did not alter the tagged response formation as disclosed")
         var encounter = SwarmEncounterScript.new()
         encounter._consume_director_event(first_response)
-        var response_states := encounter._pool.active_states()
+        var response_states: Array[Dictionary] = encounter._pool.active_states()
         if response_states.size() != 1 or int(response_states[0].get("max_health", 0)) != 32:
             failures.append("doctrine response changed runner health instead of only composition/formation")
         encounter.free()
