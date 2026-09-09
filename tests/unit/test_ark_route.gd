@@ -29,8 +29,8 @@ static func run() -> Array[String]:
     idempotent.reset(4242)
     if not idempotent.choose_route(ArkRouteModelScript.JUNCTION_ID, "risk_channel"):
         failures.append("valid risk route could not be selected")
-    var supply_after_choice := idempotent.supply
-    var generation_after_choice := idempotent.choice_generation
+    var supply_after_choice: int = int(idempotent.supply)
+    var generation_after_choice: int = int(idempotent.choice_generation)
     if not idempotent.choose_route(ArkRouteModelScript.JUNCTION_ID, "risk_channel"):
         failures.append("repeating the same junction choice was not idempotent")
     if idempotent.supply != supply_after_choice or idempotent.choice_generation != generation_after_choice:
@@ -95,7 +95,7 @@ static func run() -> Array[String]:
     var hidden_damage = ArkRouteModelScript.new()
     hidden_damage.reset(99)
     hidden_damage.choose_route(ArkRouteModelScript.JUNCTION_ID, "risk_channel")
-    var durability_before_hidden := hidden_damage.durability
+    var durability_before_hidden: int = int(hidden_damage.durability)
     if hidden_damage.apply_ark_damage(100, false):
         failures.append("ark accepted damage without a visible warning/objective exposure")
     if hidden_damage.durability != durability_before_hidden:
@@ -104,7 +104,7 @@ static func run() -> Array[String]:
         failures.append("visible ark damage was not applied")
     if hidden_damage.status != ArkRouteModelScript.STATUS_FAILED_RECOVERABLE:
         failures.append("destroyed ark did not enter the recoverable failure state")
-    var recovery_supply_before := hidden_damage.supply
+    var recovery_supply_before: int = int(hidden_damage.supply)
     if not hidden_damage.recover_from_failure():
         failures.append("recoverable ark failure could not consume supplies to resume")
     if hidden_damage.durability <= 0 or hidden_damage.supply >= recovery_supply_before:
@@ -113,13 +113,13 @@ static func run() -> Array[String]:
     var pod = ArkRouteModelScript.new()
     pod.reset(77)
     pod.choose_route(ArkRouteModelScript.JUNCTION_ID, "supply_causeway")
-    var pod_supply_before := pod.supply
+    var pod_supply_before: int = int(pod.supply)
     if pod.apply_objective_damage(999, false):
         failures.append("supply pod accepted hidden objective damage")
     if pod.supply_pod_integrity != ArkRouteModelScript.MAX_SUPPLY_POD_INTEGRITY:
         failures.append("hidden objective damage changed supply pod integrity")
     pod.apply_objective_damage(999, true)
-    var pod_supply_after_loss := pod.supply
+    var pod_supply_after_loss: int = int(pod.supply)
     pod.apply_objective_damage(999, true)
     if pod_supply_after_loss >= pod_supply_before:
         failures.append("losing the supply-route objective did not create its route-specific supply consequence")
@@ -129,7 +129,7 @@ static func run() -> Array[String]:
     var paused_route = ArkRouteModelScript.new()
     paused_route.reset(17)
     paused_route.choose_route(ArkRouteModelScript.JUNCTION_ID, "supply_causeway")
-    var paused_position := paused_route.position
+    var paused_position: Vector2 = paused_route.position
     paused_route.set_paused(true)
     paused_route.step(2.0)
     if not paused_route.position.is_equal_approx(paused_position):
