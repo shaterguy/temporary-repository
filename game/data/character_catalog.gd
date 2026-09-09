@@ -127,7 +127,7 @@ static func is_unlocked(character_id: String, world: Variant) -> bool:
                 or _world_int(world, "segment_index") >= 2
             )
         ID_MNEME:
-            var cross_run := _world_dictionary(world, "cross_run_state")
+            var cross_run: Dictionary = _world_dictionary(world, "cross_run_state")
             var record_value: Variant = cross_run.get("tactical_echo_record", {})
             if record_value is Dictionary:
                 var record: Dictionary = record_value
@@ -151,12 +151,12 @@ static func unlocked_character_ids(world: Variant) -> Array[String]:
 
 
 static func first_unlocked_character_id(world: Variant) -> String:
-    var unlocked := unlocked_character_ids(world)
+    var unlocked: Array[String] = unlocked_character_ids(world)
     return ID_AURORA if unlocked.is_empty() else unlocked[0]
 
 
 static func _has_horizontal_unlock(world: Variant, unlock_id: String) -> bool:
-    var unlocks_value := _world_value(world, "horizontal_unlocks", [])
+    var unlocks_value: Variant = _world_value(world, "horizontal_unlocks", [])
     if not unlocks_value is Array:
         return false
     for raw_value in unlocks_value:
@@ -170,7 +170,7 @@ static func _world_int(world: Variant, key: String) -> int:
 
 
 static func _world_dictionary(world: Variant, key: String) -> Dictionary:
-    var value := _world_value(world, key, {})
+    var value: Variant = _world_value(world, key, {})
     if value is Dictionary:
         var dictionary_value: Dictionary = value
         return dictionary_value.duplicate(true)

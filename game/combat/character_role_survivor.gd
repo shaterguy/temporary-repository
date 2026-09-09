@@ -188,7 +188,7 @@ func _apply_observer_followup(
         if not target_position_value is Vector2:
             continue
         var target_position: Vector2 = target_position_value
-        var distance := model.position.distance_to(target_position)
+        var distance: float = float(model.position.distance_to(target_position))
         if distance > max_range:
             continue
         if distance > best_distance + 0.0001 or (is_equal_approx(distance, best_distance) and target_id < best_id):
