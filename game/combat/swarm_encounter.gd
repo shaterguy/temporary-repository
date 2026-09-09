@@ -14,6 +14,7 @@ var _pool = EnemyPoolScript.new()
 var _director = SpawnDirectorScript.new()
 var _player: Node2D
 var _escort_target: Node2D
+var _area_effect_provider: Object
 var _telegraphs: Array[Dictionary] = []
 
 
@@ -31,6 +32,10 @@ func configure_player(controller: Node2D) -> void:
 func configure_escort_target(target: Node2D) -> void:
     _escort_target = target
     _sync_route_context()
+
+
+func configure_area_effect_provider(provider: Object) -> void:
+    _area_effect_provider = provider
 
 
 func combat_target_snapshot() -> Array[Dictionary]:
@@ -165,7 +170,7 @@ func _advance_swarm(delta: float) -> void:
             var tangent := Vector2(-pursuit.y, pursuit.x)
             velocity += tangent * sin(_director.elapsed_time * 1.2) * speed * 0.28
 
-        velocity = velocity.limit_length(speed * 1.35)
+        velocity = velocity.limit_length(speed * 1.35) * _movement_multiplier_at(enemy_position)
         var next_position := enemy_position + velocity * delta
         _pool.set_position(entity_id, next_position)
 
@@ -189,6 +194,12 @@ func _advance_swarm(delta: float) -> void:
                 entity_id,
                 BOSS_CONTACT_COOLDOWN if archetype == "boss" else CONTACT_COOLDOWN
             )
+
+
+func _movement_multiplier_at(world_position: Vector2) -> float:
+    if is_instance_valid(_area_effect_provider) and _area_effect_provider.has_method("movement_multiplier_at"):
+        return clampf(float(_area_effect_provider.call("movement_multiplier_at", world_position)), 0.0, 1.0)
+    return 1.0
 
 
 func _separation_vector(entity_id: int, position: Vector2) -> Vector2:

@@ -134,6 +134,8 @@ func _mount_w07_combat_preview() -> void:
     add_child(circuit_preview)
     move_child(circuit_preview, 1)
     circuit_preview.call("configure", combat_preview, ark_preview)
+    if encounter_preview.has_method("configure_area_effect_provider"):
+        encounter_preview.call("configure_area_effect_provider", circuit_preview.call("effect_provider"))
     circuit_preview.connect("circuit_activated", Callable(self, "_on_circuit_activated"))
     circuit_preview.connect("circuit_rejected", Callable(self, "_on_circuit_rejected"))
 

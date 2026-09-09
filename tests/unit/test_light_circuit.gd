@@ -2,6 +2,7 @@ extends RefCounted
 
 const LightCircuitModelScript = preload("res://game/systems/circuit/light_circuit_model.gd")
 const ArkConvoyScript = preload("res://game/world/ark_convoy.gd")
+const SwarmEncounterScript = preload("res://game/combat/swarm_encounter.gd")
 
 
 static func run() -> Array[String]:
@@ -136,6 +137,32 @@ static func run() -> Array[String]:
     _feed(snare, _square(Vector2.ZERO, 60.0), 0.10)
     if absf(snare.movement_multiplier_at(Vector2(60.0, 0.0)) - LightCircuitModelScript.SNARE_MOVEMENT_MULTIPLIER) > 0.001:
         failures.append("circuit boundary did not apply the selected snare area effect")
+
+    var snare_player := Node2D.new()
+    snare_player.position = Vector2(1000.0, 0.0)
+    var normal_encounter = SwarmEncounterScript.new()
+    normal_encounter.configure_player(snare_player)
+    normal_encounter._pool.acquire("swarm", Vector2.ZERO, 24, 100.0, 13.0, 0)
+    normal_encounter._rebuild_spatial()
+    normal_encounter._advance_swarm(0.50)
+    var normal_targets: Array[Dictionary] = normal_encounter.combat_target_snapshot()
+    var normal_position: Vector2 = normal_targets[0].get("position", Vector2.ZERO)
+
+    var slowed_encounter = SwarmEncounterScript.new()
+    slowed_encounter.configure_player(snare_player)
+    slowed_encounter.configure_area_effect_provider(snare)
+    slowed_encounter._pool.acquire("swarm", Vector2.ZERO, 24, 100.0, 13.0, 0)
+    slowed_encounter._rebuild_spatial()
+    slowed_encounter._advance_swarm(0.50)
+    var slowed_targets: Array[Dictionary] = slowed_encounter.combat_target_snapshot()
+    var slowed_position: Vector2 = slowed_targets[0].get("position", Vector2.ZERO)
+    if slowed_position.length() >= normal_position.length():
+        failures.append("live swarm movement did not slow inside the selected snare circuit")
+    if absf(slowed_position.length() / normal_position.length() - LightCircuitModelScript.SNARE_MOVEMENT_MULTIPLIER) > 0.001:
+        failures.append("live swarm movement did not use the deterministic snare multiplier")
+    normal_encounter.free()
+    slowed_encounter.free()
+    snare_player.free()
 
     var capacity = LightCircuitModelScript.new()
     _feed(capacity, _square(Vector2.ZERO, 60.0), 0.05)
