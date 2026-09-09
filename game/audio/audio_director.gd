@@ -23,6 +23,9 @@ var _encounter: Node
 
 func _ready() -> void:
     process_mode = Node.PROCESS_MODE_ALWAYS
+    if _is_script_entry():
+        set_process(false)
+        return
     _ensure_bus(&"Music")
     _ensure_bus(&"SFX")
     _ensure_bus(&"Warning")
@@ -84,7 +87,7 @@ func policy_snapshot() -> Dictionary:
 
 func play_cue(cue_id: String) -> bool:
     var spec := Catalog.cue_spec(cue_id)
-    if spec.is_empty() or str(spec.get("bus", "")) == "Music":
+    if spec.is_empty() or str(spec.get("bus", "")) == "Music" or _sfx_players.is_empty():
         return false
     if float(_cooldowns.get(cue_id, 0.0)) > 0.0:
         return false
@@ -100,6 +103,9 @@ func play_cue(cue_id: String) -> bool:
     _voice_state[index] = {"priority":int(spec.get("priority",0)),"started_at":_clock,"cue_id":cue_id}
     _cooldowns[cue_id] = float(spec.get("cooldown", 0.0))
     return true
+
+func _is_script_entry() -> bool:
+    return OS.get_cmdline_args().has("--script")
 
 func _create_music_players() -> void:
     _region_player = _new_music_player("RegionMusic", Catalog.REGION, -7.0)
