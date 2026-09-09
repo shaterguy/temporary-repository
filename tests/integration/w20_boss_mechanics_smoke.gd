@@ -1,20 +1,24 @@
 extends SceneTree
 
 const BossCatalogScript = preload("res://game/data/boss_catalog.gd")
+const BossArtCatalogScript = preload("res://game/presentation/boss_art_catalog.gd")
+const BossAudioCatalogScript = preload("res://game/audio/boss_audio_catalog.gd")
 const RegionCatalogScript = preload("res://game/data/region_catalog.gd")
 const RegionSpawnDirectorScript = preload("res://game/combat/region_spawn_director.gd")
 const RegionSwarmEncounterScript = preload("res://game/combat/region_swarm_encounter.gd")
 const SurvivorControllerScript = preload("res://game/combat/survivor_controller.gd")
 const BossUnitScript = preload("res://tests/unit/test_boss_expansion.gd")
 
+var _observed_presentation_cues: Array[String] = []
 
 func _initialize() -> void:
     call_deferred("_run")
 
-
 func _run() -> void:
     var started_ms := Time.get_ticks_msec()
     var failures := BossUnitScript.run()
+    for failure in _presentation_failures():
+        failures.append(failure)
     for failure in failures:
         printerr("W20_FAIL: %s" % failure)
     if not failures.is_empty():
@@ -30,6 +34,7 @@ func _run() -> void:
     var encounter = RegionSwarmEncounterScript.new()
     encounter.name = "W20BossSmokeEncounter"
     root.add_child(encounter)
+    encounter.boss_presentation_cue.connect(Callable(self, "_on_boss_presentation_cue"))
     encounter.configure_player(player)
 
     var glass_profile := RegionCatalogScript.profile_for_region("brine_veins")
@@ -61,6 +66,9 @@ func _run() -> void:
     var boss_entity_id := int(runtime.get("active_entity_id", -1))
     if boss_entity_id < 0 or str(runtime.get("profile", {}).get("boss_id", "")) != "rootglass_colossus":
         _fail_and_free("W20 boss was not mounted into the actual pooled encounter", encounter, player)
+        return
+    if _observed_presentation_cues.find("root_crack_intro") < 0 or _observed_presentation_cues.find("root_crack_opening") < 0:
+        _fail_and_free("actual boss spawn did not emit resolvable intro/opening presentation cues", encounter, player)
         return
 
     encounter.call("_physics_process", 0.40)
@@ -98,27 +106,94 @@ func _run() -> void:
     if not encounter.claim_boss_rewards().is_empty():
         _fail_and_free("boss reward queue was claimable more than once", encounter, player)
         return
+    if _observed_presentation_cues.find("root_crack_break") < 0:
+        _fail_and_free("actual boss defeat did not emit its W20 break cue", encounter, player)
+        return
 
     print("W20_BOSS_COUNT=%d" % int(BossCatalogScript.catalog_counts().get("bosses", 0)))
     print("W20_PARENT_REGIONS=%d" % int(BossCatalogScript.catalog_counts().get("parent_regions", 0)))
     print("W20_BOSSES_PER_REGION=%d" % int(BossCatalogScript.catalog_counts().get("bosses_per_region", 0)))
     print("W20_DISTINCT_PATTERN_SHAPES=%d" % int(BossCatalogScript.catalog_counts().get("distinct_pattern_shapes", 0)))
+    print("W20_BOSS_VISUAL_IDENTITIES=%d" % BossArtCatalogScript.boss_ids().size())
+    print("W20_BOSS_AUDIO_IDENTITIES=%d" % BossAudioCatalogScript.boss_ids().size())
+    print("W20_BOSS_PRESENTATION_CUES=%d" % _presentation_cue_count())
     print("W20_RUNTIME_TELEGRAPH=PASS")
     print("W20_PHASE_TRANSITION=PASS")
     print("W20_REWARD_ONCE=PASS")
+    print("W20_PRESENTATION_SIGNAL=PASS")
+    print("W20_BOSS_PRESENTATION=PASS")
     print("W20_BOSS_MECHANICS=PASS")
     print("W20_BOSS_ACTION_MS=%d" % (Time.get_ticks_msec() - started_ms))
     encounter.free()
     player.free()
     quit(0)
 
+func _presentation_failures() -> Array[String]:
+    var failures: Array[String] = []
+    var art_ids := BossArtCatalogScript.boss_ids()
+    var audio_ids := BossAudioCatalogScript.boss_ids()
+    if art_ids.size() != 10:
+        failures.append("boss art catalog must expose exactly ten identities")
+    if audio_ids.size() != 10:
+        failures.append("boss audio catalog must expose exactly ten identities")
+    var seen_paths: Dictionary = {}
+    var seen_cues: Dictionary = {}
+    for profile in BossCatalogScript.all_profiles():
+        var boss_id := str(profile.get("boss_id", ""))
+        if art_ids.find(boss_id) < 0 or audio_ids.find(boss_id) < 0:
+            failures.append("missing W20 presentation identity for %s" % boss_id)
+            continue
+        var path := BossArtCatalogScript.path_for(boss_id)
+        if path.is_empty() or not FileAccess.file_exists(path):
+            failures.append("missing W20 visual asset for %s" % boss_id)
+        elif seen_paths.has(path):
+            failures.append("W20 boss visual path reused by multiple bosses: %s" % path)
+        else:
+            seen_paths[path] = true
+            var loaded: Resource = load(path)
+            if not loaded is Texture2D:
+                failures.append("W20 visual did not import as Texture2D: %s" % boss_id)
+        var expected_cues := PackedStringArray([
+            str(profile.get("intro_cue", "")),
+            str(profile.get("phases", [])[0].get("presentation_cue", "")),
+            str(profile.get("phases", [])[1].get("presentation_cue", "")),
+            str(profile.get("phases", [])[2].get("presentation_cue", "")),
+            str(profile.get("defeat_cue", "")),
+        ])
+        var catalog_cues := BossAudioCatalogScript.cue_ids_for_boss(boss_id)
+        if catalog_cues != expected_cues:
+            failures.append("W20 audio cue contract drift for %s" % boss_id)
+        for cue_id in expected_cues:
+            if cue_id.is_empty() or seen_cues.has(cue_id):
+                failures.append("empty or duplicate W20 presentation cue for %s" % boss_id)
+                continue
+            seen_cues[cue_id] = true
+            var cue_spec := BossAudioCatalogScript.cue_spec(cue_id)
+            if str(cue_spec.get("boss_id", "")) != boss_id:
+                failures.append("W20 audio cue did not resolve to owning boss: %s" % cue_id)
+        var intro_analysis := BossAudioCatalogScript.analyze_cue(str(profile.get("intro_cue", "")))
+        if int(intro_analysis.get("samples", 0)) < 1000 or float(intro_analysis.get("peak", 0.0)) < 0.05 or float(intro_analysis.get("nonzero_ratio", 0.0)) < 0.50:
+            failures.append("W20 boss intro cue is silent or malformed: %s" % boss_id)
+    if seen_paths.size() != 10:
+        failures.append("W20 requires ten unique imported visual paths")
+    if seen_cues.size() != 50:
+        failures.append("W20 requires exactly fifty unique presentation cues")
+    return failures
+
+func _presentation_cue_count() -> int:
+    var count := 0
+    for boss_id in BossAudioCatalogScript.boss_ids():
+        count += BossAudioCatalogScript.cue_ids_for_boss(boss_id).size()
+    return count
+
+func _on_boss_presentation_cue(cue_id: String, _boss_id: String, _event_type: String) -> void:
+    _observed_presentation_cues.append(cue_id)
 
 func _event_index(events: Array[Dictionary], event_type: String) -> int:
     for index in events.size():
         if str(events[index].get("type", "")) == event_type:
             return index
     return -1
-
 
 func _fail_and_free(message: String, encounter: Node, player: Node) -> void:
     printerr("W20_FAIL: %s" % message)

@@ -3,6 +3,9 @@ extends "res://game/combat/swarm_encounter.gd"
 const RegionSpawnDirectorScript = preload("res://game/combat/region_spawn_director.gd")
 const BossCatalogScript = preload("res://game/data/boss_catalog.gd")
 const BossEncounterModelScript = preload("res://game/combat/boss_encounter_model.gd")
+const BossArtCatalogScript = preload("res://game/presentation/boss_art_catalog.gd")
+
+signal boss_presentation_cue(cue_id: String, boss_id: String, event_type: String)
 
 var _boss_model = BossEncounterModelScript.new()
 var _boss_profile: Dictionary = {}
@@ -10,6 +13,7 @@ var _boss_entity_id: int = -1
 var _boss_event_log: Array[Dictionary] = []
 var _boss_reward_queue: Array[Dictionary] = []
 var _boss_visual_warnings: Array[Dictionary] = []
+var _boss_texture_cache: Dictionary = {}
 
 
 func _init() -> void:
@@ -250,9 +254,17 @@ func _adopt_restored_boss_if_needed() -> void:
 
 
 func _record_boss_event(event: Dictionary) -> void:
-    _boss_event_log.append(event.duplicate(true))
+    var record := event.duplicate(true)
+    _boss_event_log.append(record)
     while _boss_event_log.size() > 96:
         _boss_event_log.pop_front()
+    var cue_id := str(record.get("presentation_cue", ""))
+    if not cue_id.is_empty():
+        boss_presentation_cue.emit(
+            cue_id,
+            str(record.get("boss_id", _boss_profile.get("boss_id", ""))),
+            str(record.get("type", ""))
+        )
 
 
 func _advance_boss_visual_warnings(delta: float) -> void:
@@ -269,8 +281,49 @@ func _advance_boss_visual_warnings(delta: float) -> void:
             _boss_visual_warnings[index] = warning
 
 
+func _draw_boss_identity() -> void:
+    if _boss_entity_id < 0 or _boss_profile.is_empty():
+        return
+    var state := _pool.state_for(_boss_entity_id)
+    if state.is_empty() or not _is_phase_targetable(_phase_for_state(state)):
+        return
+    var boss_id := str(_boss_profile.get("boss_id", ""))
+    var texture := _boss_texture_for(boss_id)
+    if texture == null:
+        return
+    var animation := BossArtCatalogScript.animation_for(boss_id)
+    var clock := float(_director.elapsed_time)
+    var phase_index := int(_boss_model.snapshot().get("phase_index", 0))
+    var pulse_hz := maxf(0.1, float(animation.get("pulse_hz", 0.8)))
+    var bob_hz := maxf(0.1, float(animation.get("bob_hz", 0.4)))
+    var pulse := 1.0 + sin(clock * TAU * pulse_hz + float(phase_index) * 0.73) * 0.035
+    var bob := sin(clock * TAU * bob_hz + float(_boss_entity_id) * 0.17) * float(animation.get("bob_px", 2.0))
+    var radius := float(state.get("radius", 36.0))
+    var height := radius * 3.35 * float(animation.get("scale", 1.0)) * pulse
+    var size := Vector2(height * (160.0 / 184.0), height)
+    var center: Vector2 = state.get("position", Vector2.ZERO) + Vector2(0.0, bob)
+    draw_texture_rect(texture, Rect2(center - size * 0.5, size), false, Color.WHITE)
+    var accent := Color.from_string(str(animation.get("accent", "#ffffff")), Color.WHITE)
+    accent.a = 0.38
+    draw_arc(center, radius + 9.0, 0.0, TAU, 32, accent, 2.5, true)
+
+
+func _boss_texture_for(boss_id: String) -> Texture2D:
+    if _boss_texture_cache.has(boss_id):
+        return _boss_texture_cache[boss_id]
+    var path := BossArtCatalogScript.path_for(boss_id)
+    if path.is_empty():
+        return null
+    var loaded: Resource = load(path)
+    if loaded is Texture2D:
+        _boss_texture_cache[boss_id] = loaded
+        return loaded
+    return null
+
+
 func _draw() -> void:
     super._draw()
+    _draw_boss_identity()
     var warning_color := Color(1.0, 0.80, 0.34, 0.92)
     for warning in _boss_visual_warnings:
         var origin: Vector2 = warning.get("position", Vector2.ZERO)

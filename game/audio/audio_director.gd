@@ -2,6 +2,7 @@ extends Node
 
 const Catalog = preload("res://game/audio/audio_catalog.gd")
 const AudioLibrary = preload("res://game/audio/representative_audio_library.gd")
+const BossAudioCatalog = preload("res://game/audio/boss_audio_catalog.gd")
 const MAX_SFX_VOICES: int = 8
 const POLL_SECONDS: float = 0.25
 
@@ -87,6 +88,8 @@ func policy_snapshot() -> Dictionary:
 
 func play_cue(cue_id: String) -> bool:
     var spec := Catalog.cue_spec(cue_id)
+    if spec.is_empty():
+        spec = BossAudioCatalog.cue_spec(cue_id)
     if spec.is_empty() or str(spec.get("bus", "")) == "Music" or _sfx_players.is_empty():
         return false
     if float(_cooldowns.get(cue_id, 0.0)) > 0.0:
@@ -148,7 +151,7 @@ func _select_voice(priority: int) -> int:
 
 func _stream_for(cue_id: String) -> AudioStreamWAV:
     if not _stream_cache.has(cue_id):
-        _stream_cache[cue_id] = AudioLibrary.render_cue(cue_id)
+        _stream_cache[cue_id] = BossAudioCatalog.render_cue(cue_id) if BossAudioCatalog.is_boss_cue(cue_id) else AudioLibrary.render_cue(cue_id)
     return _stream_cache[cue_id]
 
 func _ensure_bus(bus_name: StringName) -> void:
@@ -191,6 +194,9 @@ func _bind_runtime_node(node: Node) -> void:
             _connect_once(node, &"phase_rejected", Callable(self, "_on_phase_rejected"))
         "W12SwarmRuntime":
             _encounter = node
+    if node.has_method("active_enemy_count") and node.has_method("boss_event_log"):
+        _encounter = node
+        _connect_once(node, &"boss_presentation_cue", Callable(self, "_on_boss_presentation_cue"))
 
 func _connect_once(node: Node, signal_name: StringName, callable: Callable) -> void:
     if node.has_signal(signal_name) and not node.is_connected(signal_name, callable):
@@ -211,6 +217,10 @@ func _poll_encounter() -> void:
                 boss_active = true
                 break
     _boss_target = 1.0 if boss_active else 0.0
+
+func _on_boss_presentation_cue(cue_id: String, _boss_id: String, _event_type: String) -> void:
+    if BossAudioCatalog.is_boss_cue(cue_id):
+        play_cue(cue_id)
 
 func _on_weapon_action(action: Dictionary) -> void:
     if str(action.get("type", "")) == "weapon_damage":

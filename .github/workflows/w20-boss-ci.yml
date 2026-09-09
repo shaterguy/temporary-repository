@@ -28,7 +28,7 @@ jobs:
       - name: Checkout exact candidate
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: W20 mechanical contract preflight
+      - name: W20 mechanical and presentation contract preflight
         shell: bash
         run: |
           set -euo pipefail
@@ -38,13 +38,27 @@ jobs:
           test "$(jq -r '.identity.version_code' toolchain.lock)" = "1"
           test "$(jq -r '.planned_distinct_content.bosses' content_manifest.json)" = "10"
           test "$(jq -r '.implemented_content.bosses' content_manifest.json)" = "0"
+          test "$(jq -r '.boss_expansion.w20.status' content_manifest.json)" = "production-av-integrated-awaiting-human-review"
+          test "$(jq -r '.boss_expansion.w20.authored_boss_visual_identities' content_manifest.json)" = "10"
+          test "$(jq -r '.boss_expansion.w20.authored_boss_audio_identities' content_manifest.json)" = "10"
+          test "$(jq -r '.boss_expansion.w20.presentation_cues' content_manifest.json)" = "50"
+          test "$(jq -r '.visual_identity_count' assets/runtime/w20/boss_av_manifest.json)" = "10"
+          test "$(jq -r '.audio_identity_count' assets/runtime/w20/boss_av_manifest.json)" = "10"
+          test "$(jq -r '.presentation_cue_count' assets/runtime/w20/boss_av_manifest.json)" = "50"
+          test "$(jq '.assets | length' assets/runtime/w20/boss_av_manifest.json)" = "10"
+          test "$(jq '[.assets[] | select(.placeholder == true)] | length' assets/runtime/w20/boss_av_manifest.json)" = "0"
           test -f game/data/boss_catalog.gd
           test -f game/combat/boss_encounter_model.gd
           test -f game/combat/region_spawn_director.gd
           test -f game/combat/region_swarm_encounter.gd
+          test -f game/presentation/boss_art_catalog.gd
+          test -f game/audio/boss_audio_catalog.gd
+          test -f assets/source/w20/BOSS_AV_DIRECTION.md
+          test -f assets/licenses/W20_ORIGINAL_BOSS_AV.md
           test -f tests/unit/test_boss_expansion.gd
           test -f tests/integration/w20_boss_mechanics_smoke.gd
           test -f docs/verification/W20_BOSS_MECHANICS.md
+          test -f docs/verification/W20_BOSS_PRESENTATION.md
           grep -Fq '"drowned_navigator"' game/data/boss_catalog.gd
           grep -Fq '"black_sun_reliquary"' game/data/boss_catalog.gd
           grep -Fq 'func configure_boss_id' game/combat/region_spawn_director.gd
@@ -76,7 +90,7 @@ jobs:
             exit 1
           fi
 
-      - name: Run W20 actual boss-mechanics smoke
+      - name: Run W20 actual boss mechanics and presentation smoke
         shell: bash
         run: |
           set -euo pipefail
@@ -95,16 +109,21 @@ jobs:
             exit 1
           fi
           if grep -Eq '^W20_FAIL:|^W20_BOSS_MECHANICS=FAIL' "$w20_log"; then
-            echo "::error::W20 boss mechanics contract failed"
+            echo "::error::W20 boss contract failed"
             exit 1
           fi
           grep -Fxq 'W20_BOSS_COUNT=10' "$w20_log"
           grep -Fxq 'W20_PARENT_REGIONS=5' "$w20_log"
           grep -Fxq 'W20_BOSSES_PER_REGION=2' "$w20_log"
           grep -Fxq 'W20_DISTINCT_PATTERN_SHAPES=10' "$w20_log"
+          grep -Fxq 'W20_BOSS_VISUAL_IDENTITIES=10' "$w20_log"
+          grep -Fxq 'W20_BOSS_AUDIO_IDENTITIES=10' "$w20_log"
+          grep -Fxq 'W20_BOSS_PRESENTATION_CUES=50' "$w20_log"
           grep -Fxq 'W20_RUNTIME_TELEGRAPH=PASS' "$w20_log"
           grep -Fxq 'W20_PHASE_TRANSITION=PASS' "$w20_log"
           grep -Fxq 'W20_REWARD_ONCE=PASS' "$w20_log"
+          grep -Fxq 'W20_PRESENTATION_SIGNAL=PASS' "$w20_log"
+          grep -Fxq 'W20_BOSS_PRESENTATION=PASS' "$w20_log"
           grep -Fxq 'W20_BOSS_MECHANICS=PASS' "$w20_log"
           action_ms="$(sed -n 's/^W20_BOSS_ACTION_MS=//p' "$w20_log" | tail -n 1)"
           test -n "$action_ms"

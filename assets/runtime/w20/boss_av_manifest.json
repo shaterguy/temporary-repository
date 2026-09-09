@@ -1,0 +1,34 @@
+{
+  "schema": 1,
+  "milestone": "W20",
+  "status": "runtime-integrated-awaiting-human-review",
+  "visual_identity_count": 10,
+  "audio_identity_count": 10,
+  "presentation_cue_count": 50,
+  "visual_catalog": "res://game/presentation/boss_art_catalog.gd",
+  "audio_catalog": "res://game/audio/boss_audio_catalog.gd",
+  "source_record": "res://assets/source/w20/BOSS_AV_DIRECTION.md",
+  "license_record": "res://assets/licenses/W20_ORIGINAL_BOSS_AV.md",
+  "assets": [
+    {"boss_id":"drowned_navigator","visual_path":"res://assets/runtime/w20/boss_drowned_navigator.svg","audio_stem":"nav_lamp","animation_profile":"tide_breath","placeholder":false},
+    {"boss_id":"keel_bell_matron","visual_path":"res://assets/runtime/w20/boss_keel_bell_matron.svg","audio_stem":"bell_wake","animation_profile":"bell_heave","placeholder":false},
+    {"boss_id":"prism_ossuary","visual_path":"res://assets/runtime/w20/boss_prism_ossuary.svg","audio_stem":"prism_bloom","animation_profile":"prism_shiver","placeholder":false},
+    {"boss_id":"rootglass_colossus","visual_path":"res://assets/runtime/w20/boss_rootglass_colossus.svg","audio_stem":"root_crack","animation_profile":"root_weight","placeholder":false},
+    {"boss_id":"mnemonic_leviathan","visual_path":"res://assets/runtime/w20/boss_mnemonic_leviathan.svg","audio_stem":"memory_tide","animation_profile":"memory_swell","placeholder":false},
+    {"boss_id":"index_regent","visual_path":"res://assets/runtime/w20/boss_index_regent.svg","audio_stem":"cipher_halo","animation_profile":"index_orbit","placeholder":false},
+    {"boss_id":"furnace_conductor","visual_path":"res://assets/runtime/w20/boss_furnace_conductor.svg","audio_stem":"signal_flare","animation_profile":"furnace_pulse","placeholder":false},
+    {"boss_id":"trestle_widow","visual_path":"res://assets/runtime/w20/boss_trestle_widow.svg","audio_stem":"spindle_flash","animation_profile":"widow_tension","placeholder":false},
+    {"boss_id":"corona_castellan","visual_path":"res://assets/runtime/w20/boss_corona_castellan.svg","audio_stem":"corona_helix","animation_profile":"corona_bloom","placeholder":false},
+    {"boss_id":"black_sun_reliquary","visual_path":"res://assets/runtime/w20/boss_black_sun_reliquary.svg","audio_stem":"eclipse_collapse","animation_profile":"reliquary_gravity","placeholder":false}
+  ],
+  "readability_contract": {
+    "distinct_silhouette_per_boss": true,
+    "danger_telegraph_above_boss_art": true,
+    "phase_mechanics_remain_authoritative": true
+  },
+  "review_state": {
+    "human_visual_readability": "pending",
+    "human_listening": "pending",
+    "human_balance": "pending"
+  }
+}
