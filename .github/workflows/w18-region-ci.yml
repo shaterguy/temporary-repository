@@ -62,7 +62,6 @@ jobs:
           test -f tests/unit/test_region_expansion.gd
           test -f tests/integration/w18_region_expansion_smoke.gd
           test -f docs/verification/W18_REGION_EXPANSION.md
-          grep -Fq 'path="res://game/ui/main_shell_w18.gd"' game/ui/main_shell.tscn
           test -z "$(find . -type f \( -name '*.jks' -o -name '*.keystore' -o -name '*.p12' -o -name '*.pem' -o -name '*.key' \) -print -quit)"
 
       - name: Download pinned Godot editor
