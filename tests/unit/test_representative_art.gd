@@ -78,16 +78,17 @@ static func run() -> Array[String]:
     _expect(not baseline_layout["player"].intersects(baseline_layout["ark"]), "W13 baseline survivor and Ark panels must not overlap", failures)
     _expect(not baseline_layout["ark"].intersects(baseline_layout["pause"]), "W13 baseline Ark and pause panels must not overlap", failures)
 
-    var shell_packed := load("res://game/ui/main_shell.tscn")
-    _expect(shell_packed is PackedScene, "main shell must remain loadable with W13 presentation", failures)
-    if shell_packed is PackedScene:
-        var shell := shell_packed.instantiate()
+    var shell_resource: Resource = load("res://game/ui/main_shell.tscn")
+    _expect(shell_resource is PackedScene, "main shell must remain loadable with W13 presentation", failures)
+    if shell_resource is PackedScene:
+        var shell_scene: PackedScene = shell_resource as PackedScene
+        var shell: Node = shell_scene.instantiate()
         _expect(shell.get_node_or_null("W13Environment") != null, "main shell must mount W13 environment", failures)
         _expect(shell.get_node_or_null("W13RepresentativeArt") != null, "main shell must mount W13 representative art layer", failures)
         _expect(shell.get_node_or_null("W13RepresentativeHud") != null, "main shell must mount W13 representative HUD", failures)
         shell.free()
-    var showcase := load("res://game/presentation/w13_showcase.tscn")
-    _expect(showcase is PackedScene, "W13 showcase scene must load for rendered review", failures)
+    var showcase_resource: Resource = load("res://game/presentation/w13_showcase.tscn")
+    _expect(showcase_resource is PackedScene, "W13 showcase scene must load for rendered review", failures)
     return failures
 
 
