@@ -136,6 +136,31 @@
       "integration_test": "res://tests/integration/w18_region_expansion_smoke.gd",
       "human_region_art_review": "pending",
       "human_region_balance_review": "pending"
+    },
+    "w19": {
+      "status": "runtime-mechanics-integrated",
+      "region_catalog": "res://game/data/region_catalog.gd",
+      "region_objective_model": "res://game/world/region_expedition_model.gd",
+      "region_route_runtime": "res://game/world/region_ark_route_model.gd",
+      "region_spawn_runtime": "res://game/combat/region_spawn_director.gd",
+      "world_connection_runtime": "res://game/world/world_campaign_model.gd",
+      "main_shell_bridge": "res://game/ui/main_shell_w18.gd",
+      "parent_regions": 2,
+      "subregion_route_profiles": 2,
+      "phase_states_per_region": 2,
+      "enemy_behavior_definitions": 12,
+      "persistent_world_connections": 2,
+      "environment_asset_count": 2,
+      "runtime_manifest": "res://assets/runtime/w19/region_manifest.json",
+      "source_record": "res://assets/source/w19/REGION_ART_DIRECTION.md",
+      "license_record": "res://assets/licenses/W19_ORIGINAL_ART.md",
+      "production_region_count": 0,
+      "production_enemy_behavior_count": 0,
+      "focused_ci": ".github/workflows/w19-region-ci.yml",
+      "unit_test": "res://tests/unit/test_w19_region_connections.gd",
+      "integration_test": "res://tests/integration/w19_region_connections_smoke.gd",
+      "human_region_art_review": "pending",
+      "human_region_balance_review": "pending"
     }
   },
   "notes": [
@@ -145,6 +170,7 @@
     "W15 records main-flow integration and first-expedition onboarding without falsely advancing production content counts or claiming final fun/readability review.",
     "W16 exposes six runtime-distinct character roles, unlock rules and role tutorials. The two W13 player identities are mapped to Aurora/Cinder, while all six remain excluded from implemented_content until final character-specific production art/audio/provenance and balance gates are complete.",
     "W17 expands the retained W09 causal system to 18 validated curated weapon definitions, 48 bounded relic definitions, six representative builds and transparent selection/comparison data. Production weapon/relic counts remain zero until final per-item production asset/provenance and human balance gates are complete.",
-    "W18 maps the existing stage-1 and stage-2 campaign destinations into Glass Garden and Flooded Archive runtime regions with four distinct route geometries, two-phase objective gates, twelve deterministic regional entry behaviors and two project-original environment vectors. Production region/enemy-behavior counts remain zero until later boss/audio/full asset breadth and human quality gates are complete."
+    "W18 maps the existing stage-1 and stage-2 campaign destinations into Glass Garden and Flooded Archive runtime regions with four distinct route geometries, two-phase objective gates, twelve deterministic regional entry behaviors and two project-original environment vectors. Production region/enemy-behavior counts remain zero until later boss/audio/full asset breadth and human quality gates are complete.",
+    "W19 turns the two existing recoverable post-final world connections into Ash Railway and Eclipse Fortress runtime regions. Each connection has a distinct route, phase rule set, six regional behaviors, persistent world-axis/unlock effects and a project-original environment vector. W19 intentionally preserves the W18 three-segment save schema; W21 remains responsible for integrating all five parent regions into the final campaign topology."
   ]
 }

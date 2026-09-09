@@ -1,0 +1,124 @@
+name: w19-region-ci
+
+on:
+  push:
+    branches:
+      - 'v*-dev*'
+      - 'v*-rc*'
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: w19-region-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  w19-region-regression:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      GODOT_VERSION: "4.7.2-stable"
+      GODOT_ARCHIVE_SHA256: "cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4"
+      GODOT_ARCHIVE_URL: "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip"
+      GODOT_BIN: "/tmp/godot/Godot_v4.7.2-stable_linux.x86_64"
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: W19 static contract preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(jq -r '.engine.version' toolchain.lock)" = "$GODOT_VERSION"
+          test "$(jq -r '.engine.linux_x86_64_sha256' toolchain.lock)" = "$GODOT_ARCHIVE_SHA256"
+          test "$(jq -r '.identity.version_name' toolchain.lock)" = "1.0.0-dev1"
+          test "$(jq -r '.identity.version_code' toolchain.lock)" = "1"
+          test "$(jq -r '.region_expansion.w19.status' content_manifest.json)" = "runtime-mechanics-integrated"
+          test "$(jq -r '.region_expansion.w19.parent_regions' content_manifest.json)" = "2"
+          test "$(jq -r '.region_expansion.w19.subregion_route_profiles' content_manifest.json)" = "2"
+          test "$(jq -r '.region_expansion.w19.phase_states_per_region' content_manifest.json)" = "2"
+          test "$(jq -r '.region_expansion.w19.enemy_behavior_definitions' content_manifest.json)" = "12"
+          test "$(jq -r '.region_expansion.w19.persistent_world_connections' content_manifest.json)" = "2"
+          test "$(jq -r '.region_expansion.w19.environment_asset_count' content_manifest.json)" = "2"
+          test "$(jq -r '.region_expansion.w19.production_region_count' content_manifest.json)" = "0"
+          test "$(jq -r '.region_expansion.w19.production_enemy_behavior_count' content_manifest.json)" = "0"
+          test "$(jq -r '.implemented_content.regions' content_manifest.json)" = "0"
+          test "$(jq -r '.implemented_content.enemy_behaviors' content_manifest.json)" = "0"
+          test "$(jq -r '.assets | length' assets/runtime/w19/region_manifest.json)" = "2"
+          test "$(jq '[.assets[] | select(.placeholder == true)] | length' assets/runtime/w19/region_manifest.json)" = "0"
+          test -f assets/runtime/w19/environment_ash_railway.svg
+          test -f assets/runtime/w19/environment_eclipse_fortress.svg
+          test -f assets/source/w19/REGION_ART_DIRECTION.md
+          test -f assets/licenses/W19_ORIGINAL_ART.md
+          test -f tests/unit/test_w19_region_connections.gd
+          test -f tests/integration/w19_region_connections_smoke.gd
+          test -f docs/verification/W19_REGION_CONNECTIONS.md
+          grep -Fq '"afterglow_frontier"' game/data/region_catalog.gd
+          grep -Fq '"far_lantern_chain"' game/data/region_catalog.gd
+          grep -Fq '"deep_rescue_patrol"' game/data/region_catalog.gd
+          grep -Fq '"lighthouse_survey"' game/data/region_catalog.gd
+          test -z "$(find . -type f \( -name '*.jks' -o -name '*.keystore' -o -name '*.p12' -o -name '*.pem' -o -name '*.key' \) -print -quit)"
+
+      - name: Download pinned Godot editor
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/godot
+          curl --fail --location --proto '=https' --tlsv1.2 "$GODOT_ARCHIVE_URL" --output /tmp/godot.zip
+          echo "$GODOT_ARCHIVE_SHA256  /tmp/godot.zip" | sha256sum --check --strict
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x "$GODOT_BIN"
+          "$GODOT_BIN" --version
+
+      - name: Import W19 candidate headlessly
+        shell: bash
+        run: |
+          set -euo pipefail
+          import_log="$(mktemp)"
+          set +e
+          "$GODOT_BIN" --headless --path . --import 2>&1 | tee "$import_log"
+          godot_status=${PIPESTATUS[0]}
+          set -e
+          test "$godot_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$import_log"; then
+            echo "::error::W19 import reported script compilation errors"
+            exit 1
+          fi
+
+      - name: Run W19 actual region-connection smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          w19_log="$(mktemp)"
+          set +e
+          "$GODOT_BIN" --headless --path . --script tests/integration/w19_region_connections_smoke.gd 2>&1 | tee "$w19_log"
+          godot_status=${PIPESTATUS[0]}
+          set -e
+          test "$godot_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$w19_log"; then
+            echo "::error::W19 region smoke reported script/runtime errors"
+            exit 1
+          fi
+          if grep -Eq 'ObjectDB instances leaked|Resources still in use' "$w19_log"; then
+            echo "::error::W19 region smoke leaked runtime objects/resources"
+            exit 1
+          fi
+          if grep -Eq '^W19_FAIL:|^W19_REGION_CONNECTIONS=FAIL' "$w19_log"; then
+            echo "::error::W19 region smoke contract failed"
+            exit 1
+          fi
+          grep -Fxq 'W19_PARENT_REGIONS=2' "$w19_log"
+          grep -Fxq 'W19_ROUTE_PROFILES=2' "$w19_log"
+          grep -Fxq 'W19_ENEMY_BEHAVIOR_DEFS=12' "$w19_log"
+          grep -Fxq 'W19_WORLD_CONNECTIONS=2' "$w19_log"
+          grep -Fxq 'W19_ASH_RAILWAY_RUNTIME=PASS' "$w19_log"
+          grep -Fxq 'W19_ASH_OBJECTIVE=PASS' "$w19_log"
+          grep -Fxq 'W19_INHERITED_CHECKPOINT=PASS' "$w19_log"
+          grep -Fxq 'W19_ECLIPSE_FORTRESS_RUNTIME=PASS' "$w19_log"
+          grep -Fxq 'W19_REGION_CONNECTIONS=PASS' "$w19_log"
+          action_ms="$(sed -n 's/^W19_REGION_ACTION_MS=//p' "$w19_log" | tail -n 1)"
+          test -n "$action_ms"
+          test "$action_ms" -le 4000

@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "milestone": "w19-region-connections",
+  "assets": [
+    {
+      "id": "environment_ash_railway",
+      "parent_region": "ash_railway",
+      "path": "res://assets/runtime/w19/environment_ash_railway.svg",
+      "kind": "environment",
+      "source": "res://assets/source/w19/REGION_ART_DIRECTION.md",
+      "license_record": "res://assets/licenses/W19_ORIGINAL_ART.md",
+      "placeholder": false
+    },
+    {
+      "id": "environment_eclipse_fortress",
+      "parent_region": "eclipse_fortress",
+      "path": "res://assets/runtime/w19/environment_eclipse_fortress.svg",
+      "kind": "environment",
+      "source": "res://assets/source/w19/REGION_ART_DIRECTION.md",
+      "license_record": "res://assets/licenses/W19_ORIGINAL_ART.md",
+      "placeholder": false
+    }
+  ]
+}
