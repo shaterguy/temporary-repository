@@ -29,7 +29,7 @@ func slot_metadata_all() -> Array[Dictionary]:
 func start_new(slot: int, campaign_seed: int, overwrite: bool = false) -> Dictionary:
     if not _valid_slot(slot):
         return {"ok": false, "status": "INVALID_SLOT"}
-    var metadata := SaveStoreScript.slot_metadata(slot, save_root)
+    var metadata: Dictionary = SaveStoreScript.slot_metadata(slot, save_root)
     if bool(metadata.get("occupied", false)) and not overwrite:
         return {"ok": false, "status": "SLOT_OCCUPIED"}
     if overwrite:
@@ -39,7 +39,7 @@ func start_new(slot: int, campaign_seed: int, overwrite: bool = false) -> Dictio
     active_slot = slot
     sequence = 0
     loaded = true
-    var save_result := _write_candidate(world, {}, "", "new_game")
+    var save_result: Dictionary = _write_candidate(world, {}, "", "new_game")
     if not bool(save_result.get("ok", false)):
         loaded = false
         active_slot = -1
@@ -57,7 +57,7 @@ func start_new(slot: int, campaign_seed: int, overwrite: bool = false) -> Dictio
 func load_slot(slot: int) -> Dictionary:
     if not _valid_slot(slot):
         return {"ok": false, "status": "INVALID_SLOT"}
-    var read_result := SaveStoreScript.read_slot(slot, save_root)
+    var read_result: Dictionary = SaveStoreScript.read_slot(slot, save_root)
     if not bool(read_result.get("ok", false)):
         return {
             "ok": false,
@@ -66,8 +66,8 @@ func load_slot(slot: int) -> Dictionary:
         }
     var envelope: Dictionary = read_result.get("envelope", {})
     var payload: Dictionary = envelope.get("payload", {})
-    var restored := world.restore_save_payload(payload)
-    var legacy_payload := false
+    var restored: bool = world.restore_save_payload(payload)
+    var legacy_payload: bool = false
     if not restored:
         legacy_payload = world.restore_snapshot(payload)
         restored = legacy_payload
@@ -99,12 +99,12 @@ func begin_expedition(choice_id: String) -> Dictionary:
         return begin_result
     if not candidate.suspend_current_expedition({}):
         return {"ok": false, "status": "INITIAL_SUSPEND_FAILED"}
-    var save_result := _write_candidate(candidate, {}, "", "departure_choice")
+    var save_result: Dictionary = _write_candidate(candidate, {}, "", "departure_choice")
     if not bool(save_result.get("ok", false)):
         return save_result
     if not world.restore_snapshot(candidate.snapshot()):
         return {"ok": false, "status": "COMMITTED_STATE_RESTORE_FAILED"}
-    var result := begin_result.duplicate(true)
+    var result: Dictionary = begin_result.duplicate(true)
     result["save_status"] = save_result.get("status", "SAVED")
     result["sequence"] = sequence
     return result
@@ -115,11 +115,11 @@ func checkpoint(reason: String, runtime_state: Dictionary) -> Dictionary:
         return {"ok": false, "status": "NOT_LOADED"}
     if not _is_json_safe(runtime_state):
         return {"ok": false, "status": "RUNTIME_STATE_NOT_JSON_SAFE"}
-    var before := world.snapshot()
+    var before: Dictionary = world.snapshot()
     if world.state == WorldCampaignModelScript.STATE_EXPEDITION:
         if not world.suspend_current_expedition(runtime_state):
             return {"ok": false, "status": "SUSPEND_FAILED"}
-    var result := _write_candidate(world, runtime_state, "", reason)
+    var result: Dictionary = _write_candidate(world, runtime_state, "", reason)
     if not bool(result.get("ok", false)):
         world.restore_snapshot(before)
     return result
@@ -140,17 +140,17 @@ func settle_current(
     var candidate = WorldCampaignModelScript.new()
     if not candidate.restore_snapshot(world.snapshot()):
         return {"ok": false, "status": "CANDIDATE_RESTORE_FAILED"}
-    var expedition_id := candidate.active_expedition_id
+    var expedition_id: String = str(candidate.active_expedition_id)
     if expedition_id.is_empty():
         return {"ok": false, "status": "MISSING_EXPEDITION_ID"}
-    var settlement_id := "settlement:%s" % expedition_id
+    var settlement_id: String = "settlement:%s" % expedition_id
 
-    var summary := observation_summary.duplicate(true)
+    var summary: Dictionary = observation_summary.duplicate(true)
     var previous_summary: Dictionary = candidate.cross_run_state.get(
         "doctrine_observation_summary",
         {}
     )
-    var previous_failure_streak := maxi(0, int(previous_summary.get("failure_streak", 0)))
+    var previous_failure_streak: int = maxi(0, int(previous_summary.get("failure_streak", 0)))
     summary["failure_streak"] = previous_failure_streak + 1 if outcome == "failed" else 0
 
     var settlement: Dictionary = candidate.settle_expedition(
@@ -163,17 +163,17 @@ func settle_current(
     if not bool(settlement.get("ok", false)):
         return settlement
 
-    var next_plan := DisclosedDoctrineModelScript.select_plan(
+    var next_plan: Dictionary = DisclosedDoctrineModelScript.select_plan(
         summary,
         candidate.campaign_seed,
         candidate.segment_index
     )
-    var persisted_plan := DisclosedDoctrineModelScript.snapshot_plan(next_plan)
+    var persisted_plan: Dictionary = DisclosedDoctrineModelScript.snapshot_plan(next_plan)
     if persisted_plan.is_empty():
         return {"ok": false, "status": "DOCTRINE_PLAN_SNAPSHOT_FAILED"}
     candidate.set_cross_run_state(tactical_echo_record, summary, persisted_plan)
 
-    var save_result := _write_candidate(
+    var save_result: Dictionary = _write_candidate(
         candidate,
         {},
         settlement_id,
@@ -184,7 +184,7 @@ func settle_current(
     if not world.restore_snapshot(candidate.snapshot()):
         return {"ok": false, "status": "COMMITTED_STATE_RESTORE_FAILED"}
 
-    var result := settlement.duplicate(true)
+    var result: Dictionary = settlement.duplicate(true)
     result["settlement_id"] = settlement_id
     result["save_status"] = save_result.get("status", "SAVED")
     result["sequence"] = sequence
@@ -226,22 +226,22 @@ func _write_candidate(
 ) -> Dictionary:
     if not _valid_slot(active_slot):
         return {"ok": false, "status": "INVALID_ACTIVE_SLOT"}
-    var payload := candidate.make_save_payload(
+    var payload: Dictionary = candidate.make_save_payload(
         {},
         {
             "last_checkpoint_reason": reason,
             "runtime_schema": str(runtime_state.get("schema", "")),
         }
     )
-    var next_sequence := sequence + 1
-    var envelope := SaveStoreScript.make_envelope(payload, next_sequence, settlement_id)
+    var next_sequence: int = sequence + 1
+    var envelope: Dictionary = SaveStoreScript.make_envelope(payload, next_sequence, settlement_id)
     if not _is_json_safe(envelope):
         return {"ok": false, "status": "SAVE_PAYLOAD_NOT_JSON_SAFE"}
-    var write_result := SaveStoreScript.write_slot(active_slot, envelope, save_root)
+    var write_result: Dictionary = SaveStoreScript.write_slot(active_slot, envelope, save_root)
     last_save_status = str(write_result.get("status", "UNKNOWN"))
     if bool(write_result.get("ok", false)):
         sequence = int(write_result.get("sequence", next_sequence))
-    var result := write_result.duplicate(true)
+    var result: Dictionary = write_result.duplicate(true)
     result["slot"] = active_slot
     result["reason"] = reason
     return result
