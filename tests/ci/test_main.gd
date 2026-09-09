@@ -11,6 +11,7 @@ const TEST_SUITES := [
     preload("res://tests/unit/test_causal_weapon.gd"),
     preload("res://tests/unit/test_tactical_echo.gd"),
     preload("res://tests/unit/test_disclosed_doctrine.gd"),
+    preload("res://tests/unit/test_world_campaign.gd"),
 ]
 const TEST_SUITE_NAMES := [
     "save_store",
@@ -23,6 +24,7 @@ const TEST_SUITE_NAMES := [
     "causal_weapon",
     "tactical_echo",
     "disclosed_doctrine",
+    "world_campaign",
 ]
 const FAST_TEST_WATCHDOG_SECONDS: float = 30.0
 
@@ -41,7 +43,7 @@ func _run_tests() -> void:
         failures.append_array(suite.run())
         print("SUITE_DONE=%s" % suite_name)
 
-    print("TEST_CONTRACT=w11-disclosed-doctrine-v1")
+    print("TEST_CONTRACT=w12-world-save-v1")
     print("SUITES=%d" % TEST_SUITES.size())
     if failures.is_empty():
         print("RESULT=PASS")

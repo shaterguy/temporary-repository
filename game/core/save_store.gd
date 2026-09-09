@@ -5,6 +5,7 @@ const BuildIdentityScript = preload("res://game/core/build_identity.gd")
 const SAVE_ROOT: String = "user://saves"
 const SLOT_COUNT: int = 3
 
+
 static func checksum_for(envelope: Dictionary) -> String:
     var normalized := envelope.duplicate(true)
     normalized.erase("checksum")
@@ -19,6 +20,13 @@ static func checksum_for(envelope: Dictionary) -> String:
     return context.finish().hex_encode()
 
 
+static func checksum_matches(envelope: Dictionary) -> bool:
+    var expected_checksum := str(envelope.get("checksum", ""))
+    if expected_checksum.is_empty():
+        return false
+    return checksum_for(envelope) == expected_checksum
+
+
 static func make_envelope(payload: Dictionary, sequence: int, settlement_id: String = "") -> Dictionary:
     var envelope := {
         "schema_version": BuildIdentityScript.SAVE_SCHEMA_VERSION,
@@ -31,7 +39,7 @@ static func make_envelope(payload: Dictionary, sequence: int, settlement_id: Str
 
 
 static func validate_envelope(envelope: Dictionary) -> bool:
-    if envelope.get("schema_version", -1) != BuildIdentityScript.SAVE_SCHEMA_VERSION:
+    if int(envelope.get("schema_version", -1)) != BuildIdentityScript.SAVE_SCHEMA_VERSION:
         return false
     if int(envelope.get("sequence", -1)) < 0:
         return false
@@ -39,10 +47,33 @@ static func validate_envelope(envelope: Dictionary) -> bool:
         return false
     if typeof(envelope.get("payload", null)) != TYPE_DICTIONARY:
         return false
-    var expected_checksum := str(envelope.get("checksum", ""))
-    if expected_checksum.is_empty():
-        return false
-    return checksum_for(envelope) == expected_checksum
+    return checksum_matches(envelope)
+
+
+static func migrate_envelope(envelope: Dictionary) -> Dictionary:
+    if envelope.is_empty():
+        return {"ok": false, "status": "NO_SAVE", "envelope": {}}
+    var schema_version := int(envelope.get("schema_version", -1))
+    if schema_version == BuildIdentityScript.SAVE_SCHEMA_VERSION:
+        if validate_envelope(envelope):
+            return {"ok": true, "status": "CURRENT", "envelope": envelope.duplicate(true)}
+        return {"ok": false, "status": "INVALID_CURRENT", "envelope": {}}
+    if schema_version > BuildIdentityScript.SAVE_SCHEMA_VERSION:
+        return {"ok": false, "status": "UNSUPPORTED_NEWER_SCHEMA", "envelope": {}}
+    if schema_version != 0:
+        return {"ok": false, "status": "UNSUPPORTED_OLDER_SCHEMA", "envelope": {}}
+    if int(envelope.get("sequence", -1)) < 0:
+        return {"ok": false, "status": "INVALID_LEGACY_SEQUENCE", "envelope": {}}
+    if typeof(envelope.get("settlement_id", "")) != TYPE_STRING:
+        return {"ok": false, "status": "INVALID_LEGACY_SETTLEMENT", "envelope": {}}
+    if typeof(envelope.get("payload", null)) != TYPE_DICTIONARY or not checksum_matches(envelope):
+        return {"ok": false, "status": "INVALID_LEGACY_CHECKSUM", "envelope": {}}
+    var migrated := make_envelope(
+        envelope.get("payload", {}).duplicate(true),
+        int(envelope.get("sequence", 0)),
+        str(envelope.get("settlement_id", ""))
+    )
+    return {"ok": true, "status": "MIGRATED_V0_TO_V1", "envelope": migrated}
 
 
 static func choose_valid(primary: Dictionary, backup: Dictionary) -> Dictionary:
@@ -51,6 +82,35 @@ static func choose_valid(primary: Dictionary, backup: Dictionary) -> Dictionary:
     if validate_envelope(backup):
         return {"ok": true, "status": "RECOVERED_FROM_BACKUP", "envelope": backup.duplicate(true)}
     return {"ok": false, "status": "NO_VALID_SAVE", "envelope": {}}
+
+
+static func choose_loadable(primary: Dictionary, backup: Dictionary) -> Dictionary:
+    var primary_result := migrate_envelope(primary)
+    if bool(primary_result.get("ok", false)):
+        var primary_status := "PRIMARY"
+        if primary_result.get("status", "") == "MIGRATED_V0_TO_V1":
+            primary_status = "MIGRATED_PRIMARY"
+        return {
+            "ok": true,
+            "status": primary_status,
+            "envelope": primary_result.get("envelope", {}).duplicate(true),
+        }
+    var backup_result := migrate_envelope(backup)
+    if bool(backup_result.get("ok", false)):
+        var backup_status := "RECOVERED_FROM_BACKUP"
+        if backup_result.get("status", "") == "MIGRATED_V0_TO_V1":
+            backup_status = "RECOVERED_MIGRATED_BACKUP"
+        return {
+            "ok": true,
+            "status": backup_status,
+            "envelope": backup_result.get("envelope", {}).duplicate(true),
+        }
+    var status := "NO_VALID_SAVE"
+    if primary_result.get("status", "") == "UNSUPPORTED_NEWER_SCHEMA":
+        status = "UNSUPPORTED_NEWER_SCHEMA"
+    elif backup_result.get("status", "") == "UNSUPPORTED_NEWER_SCHEMA":
+        status = "UNSUPPORTED_NEWER_SCHEMA"
+    return {"ok": false, "status": status, "envelope": {}}
 
 
 static func write_slot(slot: int, envelope: Dictionary, root: String = SAVE_ROOT) -> Dictionary:
@@ -67,6 +127,30 @@ static func write_slot(slot: int, envelope: Dictionary, root: String = SAVE_ROOT
     var primary := _slot_path(root, slot)
     var backup := primary + ".bak"
     var temporary := primary + ".tmp"
+    var existing := read_slot(slot, root)
+    if bool(existing.get("ok", false)):
+        var existing_envelope: Dictionary = existing.get("envelope", {})
+        var existing_sequence := int(existing_envelope.get("sequence", -1))
+        var incoming_sequence := int(envelope.get("sequence", -1))
+        if incoming_sequence < existing_sequence:
+            return {"ok": false, "status": "STALE_SEQUENCE", "current_sequence": existing_sequence}
+        if incoming_sequence == existing_sequence:
+            if str(existing_envelope.get("checksum", "")) == str(envelope.get("checksum", "")):
+                return {"ok": true, "status": "ALREADY_SAVED", "sequence": existing_sequence}
+            return {"ok": false, "status": "SEQUENCE_CONFLICT", "current_sequence": existing_sequence}
+        if str(existing.get("status", "")).begins_with("RECOVERED_"):
+            if FileAccess.file_exists(primary):
+                var remove_corrupt_error := DirAccess.remove_absolute(ProjectSettings.globalize_path(primary))
+                if remove_corrupt_error != OK:
+                    return {"ok": false, "status": "REMOVE_CORRUPT_PRIMARY_FAILED", "error": remove_corrupt_error}
+            if FileAccess.file_exists(backup):
+                var restore_backup_error := DirAccess.rename_absolute(
+                    ProjectSettings.globalize_path(backup),
+                    ProjectSettings.globalize_path(primary)
+                )
+                if restore_backup_error != OK:
+                    return {"ok": false, "status": "RESTORE_BACKUP_FAILED", "error": restore_backup_error}
+
     var temporary_file := FileAccess.open(temporary, FileAccess.WRITE)
     if temporary_file == null:
         return {"ok": false, "status": "OPEN_TEMP_FAILED", "error": FileAccess.get_open_error()}
@@ -75,7 +159,7 @@ static func write_slot(slot: int, envelope: Dictionary, root: String = SAVE_ROOT
     temporary_file.close()
 
     var temporary_readback := _read_json(temporary)
-    if not validate_envelope(temporary_readback):
+    if not validate_envelope(temporary_readback) or temporary_readback != envelope:
         _remove_if_exists(temporary)
         return {"ok": false, "status": "TEMP_READBACK_FAILED"}
 
@@ -108,14 +192,37 @@ static func write_slot(slot: int, envelope: Dictionary, root: String = SAVE_ROOT
         _remove_if_exists(temporary)
         return {"ok": false, "status": "PROMOTE_TEMP_FAILED", "error": promote_error}
 
-    return {"ok": true, "status": "SAVED"}
+    var promoted := _read_json(primary)
+    if not validate_envelope(promoted) or promoted != envelope:
+        if FileAccess.file_exists(backup):
+            _remove_if_exists(primary)
+            DirAccess.rename_absolute(
+                ProjectSettings.globalize_path(backup),
+                ProjectSettings.globalize_path(primary)
+            )
+        return {"ok": false, "status": "PROMOTED_READBACK_FAILED"}
+    return {"ok": true, "status": "SAVED", "sequence": int(envelope.get("sequence", 0))}
 
 
 static func read_slot(slot: int, root: String = SAVE_ROOT) -> Dictionary:
     if slot < 0 or slot >= SLOT_COUNT:
         return {"ok": false, "status": "INVALID_SLOT", "envelope": {}}
     var primary := _slot_path(root, slot)
-    return choose_valid(_read_json(primary), _read_json(primary + ".bak"))
+    return choose_loadable(_read_json(primary), _read_json(primary + ".bak"))
+
+
+static func slot_metadata(slot: int, root: String = SAVE_ROOT) -> Dictionary:
+    var result := read_slot(slot, root)
+    if not bool(result.get("ok", false)):
+        return {"slot": slot, "occupied": false, "status": result.get("status", "NO_VALID_SAVE")}
+    var envelope: Dictionary = result.get("envelope", {})
+    return {
+        "slot": slot,
+        "occupied": true,
+        "status": result.get("status", "PRIMARY"),
+        "sequence": int(envelope.get("sequence", 0)),
+        "settlement_id": str(envelope.get("settlement_id", "")),
+    }
 
 
 static func clear_slot(slot: int, root: String = SAVE_ROOT) -> void:
