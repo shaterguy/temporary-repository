@@ -54,10 +54,11 @@ func _run_story_smoke() -> void:
         bool(pending_loaded.get("ok", false))
         and pending_reload.world.pending_event_id == pending_id
         and pending_reload.world.has_pending_story_event()
+        and pending_reload.world.ending_id.is_empty()
         and pending_reload.sequence == pending_sequence
     )
     if not _pending_save_reload_ok:
-        _failures.append("W21 pending final story event did not survive transactional save/reload")
+        _failures.append("W21 pending final story event did not survive transactional save/reload without premature ending")
         await _finish(shell, Time.get_ticks_msec() - action_started_ms)
         return
 
