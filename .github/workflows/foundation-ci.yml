@@ -46,10 +46,15 @@ jobs:
           test "$(jq -r '.representative_art.w13.runtime_asset_count' content_manifest.json)" = "15"
           test "$(jq -r '.representative_audio.w14.status' content_manifest.json)" = "runtime-integrated"
           test "$(jq -r '.representative_audio.w14.runtime_asset_count' content_manifest.json)" = "7"
+          test "$(jq -r '.vertical_slice.w15.status' content_manifest.json)" = "runtime-integrated"
+          test "$(jq -r '.vertical_slice.w15.systems_integrated' content_manifest.json)" = "7"
+          test "$(jq -r '.vertical_slice.w15.persistent_settlement_reload' content_manifest.json)" = "true"
           test "$(jq -r '.assets | length' assets/runtime/w13/art_manifest.json)" = "15"
           test "$(jq '[.assets[] | select(.placeholder == true)] | length' assets/runtime/w13/art_manifest.json)" = "0"
           test "$(jq -r '.assets | length' assets/runtime/w14/audio_manifest.json)" = "7"
           test "$(jq '[.assets[] | select(.placeholder == true)] | length' assets/runtime/w14/audio_manifest.json)" = "0"
+          test -f game/ui/first_expedition_tutorial.gd
+          test -f tests/integration/w15_vertical_slice_smoke.gd
           test -z "$(find . -type f \( -name '*.jks' -o -name '*.keystore' -o -name '*.p12' -o -name '*.pem' -o -name '*.key' \) -print -quit)"
 
       - name: Download pinned Godot editor
@@ -96,9 +101,40 @@ jobs:
             echo "::error::Fast-test runner reported a failure"
             exit 1
           fi
-          grep -Fxq 'TEST_CONTRACT=w14-representative-audio-v1' "$test_log"
-          grep -Fxq 'SUITES=15' "$test_log"
+          grep -Fxq 'TEST_CONTRACT=w15-vertical-slice-v1' "$test_log"
+          grep -Fxq 'SUITES=16' "$test_log"
           grep -Fxq 'RESULT=PASS' "$test_log"
+
+      - name: Run W15 actual vertical-slice smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          smoke_log="$(mktemp)"
+          set +e
+          "$GODOT_BIN" --headless --path . --script tests/integration/w15_vertical_slice_smoke.gd 2>&1 | tee "$smoke_log"
+          godot_status=${PIPESTATUS[0]}
+          set -e
+          test "$godot_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$smoke_log"; then
+            echo "::error::W15 vertical smoke reported script/runtime errors"
+            exit 1
+          fi
+          if grep -Eq 'ObjectDB instances leaked|Resources still in use' "$smoke_log"; then
+            echo "::error::W15 vertical smoke leaked runtime objects/resources"
+            exit 1
+          fi
+          if grep -Eq '^W15_FAIL:|^W15_VERTICAL_SLICE=FAIL' "$smoke_log"; then
+            echo "::error::W15 vertical smoke contract failed"
+            exit 1
+          fi
+          grep -Fxq 'W15_VERTICAL_SYSTEMS=7' "$smoke_log"
+          grep -Fxq 'W15_TUTORIAL=COMPLETE' "$smoke_log"
+          grep -Fxq 'W15_SAVE_RELOAD=PASS' "$smoke_log"
+          grep -Fxq 'W15_PRESENTATION=W13+W14' "$smoke_log"
+          grep -Fxq 'W15_VERTICAL_SLICE=PASS' "$smoke_log"
+          action_ms="$(sed -n 's/^W15_VERTICAL_ACTION_MS=//p' "$smoke_log" | tail -n 1)"
+          test -n "$action_ms"
+          test "$action_ms" -le 2500
 
       - name: Render W13 representative art
         shell: bash

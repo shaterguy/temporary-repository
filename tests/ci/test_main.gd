@@ -16,6 +16,7 @@ const TEST_SUITES := [
     preload("res://tests/unit/test_runtime_state_codec.gd"),
     preload("res://tests/unit/test_representative_art.gd"),
     preload("res://tests/unit/test_representative_audio.gd"),
+    preload("res://tests/unit/test_vertical_slice_tutorial.gd"),
 ]
 const TEST_SUITE_NAMES := [
     "save_store",
@@ -33,6 +34,7 @@ const TEST_SUITE_NAMES := [
     "runtime_state_codec",
     "representative_art",
     "representative_audio",
+    "vertical_slice_tutorial",
 ]
 const FAST_TEST_WATCHDOG_SECONDS: float = 30.0
 
@@ -49,7 +51,7 @@ func _run_tests() -> void:
         print("SUITE_START=%s" % suite_name)
         failures.append_array(suite.run())
         print("SUITE_DONE=%s" % suite_name)
-    print("TEST_CONTRACT=w14-representative-audio-v1")
+    print("TEST_CONTRACT=w15-vertical-slice-v1")
     print("SUITES=%d" % TEST_SUITES.size())
     if failures.is_empty():
         print("RESULT=PASS")

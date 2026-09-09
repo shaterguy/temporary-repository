@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "status": "vertical-slice-representative-audio",
+  "status": "vertical-slice-integrated",
   "release_gate": {
     "placeholder_assets_required": 0,
     "license_record_required_for_every_runtime_asset": true
@@ -58,9 +58,24 @@
       "human_listening_review": "pending-artifact-listen"
     }
   },
+  "vertical_slice": {
+    "w15": {
+      "status": "runtime-integrated",
+      "main_scene": "res://game/ui/main_shell.tscn",
+      "first_expedition_tutorial": "res://game/ui/first_expedition_tutorial.gd",
+      "systems_integrated": 7,
+      "persistent_settlement_reload": true,
+      "representative_art": "w13",
+      "representative_audio": "w14",
+      "mechanical_review": "remote-smoke-required",
+      "human_fun_review": "pending",
+      "human_readability_review": "pending"
+    }
+  },
   "notes": [
     "The foundation shell is not counted as playable content.",
     "Counts may only advance when an item has a distinct gameplay role and tracked runtime asset/license state.",
-    "W13 representative visual identities and W14 representative audio identities are tracked separately and do not falsely increment production gameplay-content counts."
+    "W13 representative visual identities and W14 representative audio identities are tracked separately and do not falsely increment production gameplay-content counts.",
+    "W15 records main-flow integration and first-expedition onboarding without falsely advancing production content counts or claiming final fun/readability review."
   ]
 }
