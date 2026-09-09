@@ -4,7 +4,7 @@ const Catalog = preload("res://game/audio/audio_catalog.gd")
 const AudioLibrary = preload("res://game/audio/representative_audio_library.gd")
 const AudioDirectorScript = preload("res://game/audio/audio_director.gd")
 
-func run() -> Array[String]:
+static func run() -> Array[String]:
     var failures: Array[String] = []
     _expect(Catalog.cue_ids().size() == 7, "W14 must expose seven representative audio identities", failures)
     _expect(int(Catalog.cue_spec(Catalog.WARNING).priority) > int(Catalog.cue_spec(Catalog.COMBAT).priority), "warning priority must exceed combat priority", failures)
@@ -32,6 +32,6 @@ func run() -> Array[String]:
     director.free()
     return failures
 
-func _expect(condition: bool, message: String, failures: Array[String]) -> void:
+static func _expect(condition: bool, message: String, failures: Array[String]) -> void:
     if not condition:
         failures.append(message)

@@ -147,7 +147,8 @@ func _bind_existing_nodes() -> void:
         _bind_runtime_node(node)
 
 func _on_node_added(node: Node) -> void:
-    call_deferred("_bind_runtime_node", node)
+    if is_instance_valid(node):
+        _bind_runtime_node(node)
 
 func _bind_runtime_node(node: Node) -> void:
     if not is_instance_valid(node):
@@ -173,25 +174,33 @@ func _connect_once(node: Node, signal_name: StringName, callable: Callable) -> v
 
 func _poll_encounter() -> void:
     if not is_instance_valid(_encounter):
-        _tension_target = 0.0; _boss_target = 0.0; return
+        _tension_target = 0.0
+        _boss_target = 0.0
+        return
     if _encounter.has_method("active_enemy_count"):
         _tension_target = clampf(float(_encounter.call("active_enemy_count")) / 12.0, 0.0, 1.0)
     var pool = _encounter.get("_pool")
     var boss_active := false
     if pool != null and pool.has_method("active_states"):
         for state in pool.call("active_states"):
-            if str(state.get("archetype", "")) == "boss": boss_active = true; break
+            if str(state.get("archetype", "")) == "boss":
+                boss_active = true
+                break
     _boss_target = 1.0 if boss_active else 0.0
 
 func _on_weapon_action(action: Dictionary) -> void:
-    if str(action.get("type", "")) == "weapon_damage": play_cue(Catalog.COMBAT)
+    if str(action.get("type", "")) == "weapon_damage":
+        play_cue(Catalog.COMBAT)
 
 func _on_hit_feedback(_damage: int, remaining_health: int, _generation: int) -> void:
-    if remaining_health <= 35: play_cue(Catalog.WARNING)
+    if remaining_health <= 35:
+        play_cue(Catalog.WARNING)
 
 func _on_route_state_changed(status: String, _route_id: String) -> void:
-    if status == "ARRIVED": play_cue(Catalog.REWARD)
-    elif status == "FAILED_RECOVERABLE": play_cue(Catalog.WARNING)
+    if status == "ARRIVED":
+        play_cue(Catalog.REWARD)
+    elif status == "FAILED_RECOVERABLE":
+        play_cue(Catalog.WARNING)
 
 func _on_circuit_activated(_id: int, _module_id: String, _light: float) -> void:
     play_cue(Catalog.CIRCUIT)
@@ -201,7 +210,8 @@ func _on_circuit_rejected(_reason: String) -> void:
 
 func _on_phase_changed(_phase_id: String, threat_count: int) -> void:
     play_cue(Catalog.CIRCUIT)
-    if threat_count > 0: play_cue(Catalog.WARNING)
+    if threat_count > 0:
+        play_cue(Catalog.WARNING)
 
 func _on_phase_rejected(_reason: String) -> void:
     play_cue(Catalog.WARNING)
