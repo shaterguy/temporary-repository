@@ -3,10 +3,12 @@ extends SceneTree
 const CampaignRuntimeScript = preload("res://game/world/campaign_runtime.gd")
 const SaveStoreScript = preload("res://game/core/save_store.gd")
 const WorldCampaignScript = preload("res://game/world/world_campaign_model.gd")
+const StoryUnitTestScript = preload("res://tests/unit/test_w21_campaign_story.gd")
 const SAVE_ROOT: String = "user://ci_w21_campaign_story"
 const MAX_ACTION_MILLISECONDS: int = 4000
 
 var _failures: Array[String] = []
+var _story_unit_ok: bool = false
 var _pending_save_reload_ok: bool = false
 var _hub_story_choice_ok: bool = false
 var _ending_reload_ok: bool = false
@@ -19,6 +21,9 @@ func _initialize() -> void:
 
 func _run_story_smoke() -> void:
     _clear_save_root()
+    var unit_failures: Array[String] = StoryUnitTestScript.run()
+    _story_unit_ok = unit_failures.is_empty()
+    _failures.append_array(unit_failures)
     var action_started_ms := Time.get_ticks_msec()
     var shell: Node = await _create_shell()
     if shell == null:
@@ -136,6 +141,8 @@ func _finish(shell: Node, action_ms: int) -> void:
     await process_frame
     _clear_save_root()
     print("W21_STORY_ACTION_MS=%d" % action_ms)
+    if _story_unit_ok:
+        print("W21_STORY_UNIT=PASS")
     if _pending_save_reload_ok:
         print("W21_PENDING_EVENT_RELOAD=PASS")
     if _hub_story_choice_ok:
