@@ -1,0 +1,122 @@
+name: w21-campaign-topology-ci
+
+on:
+  push:
+    branches:
+      - 'v*-dev*'
+      - 'v*-rc*'
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: w21-campaign-topology-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  w21-campaign-topology-regression:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      GODOT_VERSION: "4.7.2-stable"
+      GODOT_ARCHIVE_SHA256: "cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4"
+      GODOT_ARCHIVE_URL: "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip"
+      GODOT_BIN: "/tmp/godot/Godot_v4.7.2-stable_linux.x86_64"
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: W21 static contract preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(jq -r '.engine.version' toolchain.lock)" = "$GODOT_VERSION"
+          test "$(jq -r '.engine.linux_x86_64_sha256' toolchain.lock)" = "$GODOT_ARCHIVE_SHA256"
+          test "$(jq -r '.identity.version_name' toolchain.lock)" = "1.0.0-dev1"
+          test "$(jq -r '.identity.version_code' toolchain.lock)" = "1"
+          test "$(jq -r '.status' content_manifest.json)" = "campaign-topology-integrated"
+          test "$(jq -r '.region_expansion.w21.status' content_manifest.json)" = "campaign-topology-integrated"
+          test "$(jq -r '.region_expansion.w21.campaign_parent_regions' content_manifest.json)" = "5"
+          test "$(jq -r '.region_expansion.w21.campaign_segments' content_manifest.json)" = "4"
+          test "$(jq -r '.region_expansion.w21.final_branch_parent_regions' content_manifest.json)" = "2"
+          test "$(jq -r '.region_expansion.w21.post_final_departures' content_manifest.json)" = "2"
+          test "$(jq -r '.region_expansion.w21.pre_w21_world_schema' content_manifest.json)" = "lanternfall-world-v1"
+          test "$(jq -r '.region_expansion.w21.current_world_schema' content_manifest.json)" = "lanternfall-world-v2"
+          test "$(jq -r '.region_expansion.w21.save_payload_schema' content_manifest.json)" = "lanternfall-save-payload-v1"
+          test "$(jq -r '.region_expansion.w21.production_region_count' content_manifest.json)" = "0"
+          test "$(jq -r '.implemented_content.regions' content_manifest.json)" = "0"
+          test -f tests/unit/test_w21_campaign_topology.gd
+          test -f tests/integration/w21_campaign_topology_smoke.gd
+          test -f docs/verification/W21_CAMPAIGN_TOPOLOGY.md
+          grep -Fq 'const SCHEMA: String = "lanternfall-world-v2"' game/world/world_campaign_model.gd
+          grep -Fq 'const PRE_W21_SCHEMA: String = "lanternfall-world-v1"' game/world/world_campaign_model.gd
+          grep -Fq 'const PAYLOAD_SCHEMA: String = "lanternfall-save-payload-v1"' game/world/world_campaign_model.gd
+          grep -Fq 'const CAMPAIGN_SEGMENTS: int = 4' game/world/world_campaign_model.gd
+          grep -Fq 'const FINAL_BRANCH_SEGMENT: int = 3' game/world/world_campaign_model.gd
+          grep -Fq '"twilight_shipyard"' game/world/world_campaign_model.gd
+          grep -Fq '"glass_garden"' game/world/world_campaign_model.gd
+          grep -Fq '"flooded_archive"' game/world/world_campaign_model.gd
+          grep -Fq '"ash_railway"' game/world/world_campaign_model.gd
+          grep -Fq '"eclipse_fortress"' game/world/world_campaign_model.gd
+          test -z "$(find . -type f \( -name '*.jks' -o -name '*.keystore' -o -name '*.p12' -o -name '*.pem' -o -name '*.key' \) -print -quit)"
+
+      - name: Download pinned Godot editor
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/godot
+          curl --fail --location --proto '=https' --tlsv1.2 "$GODOT_ARCHIVE_URL" --output /tmp/godot.zip
+          echo "$GODOT_ARCHIVE_SHA256  /tmp/godot.zip" | sha256sum --check --strict
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x "$GODOT_BIN"
+          "$GODOT_BIN" --version
+
+      - name: Import W21 candidate headlessly
+        shell: bash
+        run: |
+          set -euo pipefail
+          import_log="$(mktemp)"
+          set +e
+          "$GODOT_BIN" --headless --path . --import 2>&1 | tee "$import_log"
+          godot_status=${PIPESTATUS[0]}
+          set -e
+          test "$godot_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$import_log"; then
+            echo "::error::W21 import reported script compilation errors"
+            exit 1
+          fi
+
+      - name: Run W21 actual campaign-topology smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          w21_log="$(mktemp)"
+          set +e
+          "$GODOT_BIN" --headless --path . --script tests/integration/w21_campaign_topology_smoke.gd 2>&1 | tee "$w21_log"
+          godot_status=${PIPESTATUS[0]}
+          set -e
+          test "$godot_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$w21_log"; then
+            echo "::error::W21 campaign topology smoke reported script/runtime errors"
+            exit 1
+          fi
+          if grep -Eq 'ObjectDB instances leaked|Resources still in use' "$w21_log"; then
+            echo "::error::W21 campaign topology smoke leaked runtime objects/resources"
+            exit 1
+          fi
+          if grep -Eq '^W21_FAIL:|^W21_CAMPAIGN_TOPOLOGY=FAIL' "$w21_log"; then
+            echo "::error::W21 campaign topology contract failed"
+            exit 1
+          fi
+          grep -Fxq 'W21_CAMPAIGN_SEGMENTS=4' "$w21_log"
+          grep -Fxq 'W21_PARENT_REGIONS=5' "$w21_log"
+          grep -Fxq 'W21_PRE_W21_MIGRATION=PASS' "$w21_log"
+          grep -Fxq 'W21_ASH_FINAL_BRANCH=PASS' "$w21_log"
+          grep -Fxq 'W21_ECLIPSE_FINAL_BRANCH=PASS' "$w21_log"
+          grep -Fxq 'W21_FINAL_BRANCH_CHECKPOINT=PASS' "$w21_log"
+          grep -Fxq 'W21_CAMPAIGN_TOPOLOGY=PASS' "$w21_log"
+          action_ms="$(sed -n 's/^W21_CAMPAIGN_ACTION_MS=//p' "$w21_log" | tail -n 1)"
+          test -n "$action_ms"
+          test "$action_ms" -le 4000

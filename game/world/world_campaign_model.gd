@@ -1,13 +1,16 @@
 class_name WorldCampaignModel
 extends RefCounted
 
-const SCHEMA: String = "lanternfall-world-v1"
+const SCHEMA: String = "lanternfall-world-v2"
+const PRE_W21_SCHEMA: String = "lanternfall-world-v1"
 const LEGACY_SCHEMA: String = "lanternfall-world-v0"
 const PAYLOAD_SCHEMA: String = "lanternfall-save-payload-v1"
 const STATE_HUB: String = "HUB"
 const STATE_EXPEDITION: String = "EXPEDITION"
 const STATE_POST_FINAL: String = "POST_FINAL"
-const CAMPAIGN_SEGMENTS: int = 3
+const PRE_W21_CAMPAIGN_SEGMENTS: int = 3
+const FINAL_BRANCH_SEGMENT: int = 3
+const CAMPAIGN_SEGMENTS: int = 4
 const MAX_SETTLEMENT_IDS: int = 128
 const STARTING_SALVAGE: int = 40
 
@@ -64,6 +67,32 @@ func reset(seed: int = 1) -> void:
     }
 
 
+static func campaign_parent_region_ids() -> Array[String]:
+    return [
+        "twilight_shipyard",
+        "glass_garden",
+        "flooded_archive",
+        "ash_railway",
+        "eclipse_fortress",
+    ]
+
+
+func campaign_topology_snapshot() -> Dictionary:
+    var active_config := _choice_config(active_choice_id)
+    return {
+        "schema": "lanternfall-campaign-topology-v1",
+        "campaign_segments": CAMPAIGN_SEGMENTS,
+        "final_branch_segment": FINAL_BRANCH_SEGMENT,
+        "parent_region_ids": campaign_parent_region_ids(),
+        "segment_index": segment_index,
+        "state": state,
+        "active_choice_id": active_choice_id,
+        "active_region_id": active_region_id,
+        "active_parent_region_id": str(active_config.get("parent_region_id", "")),
+        "post_final": segment_index >= CAMPAIGN_SEGMENTS,
+    }
+
+
 func departure_options() -> Array[Dictionary]:
     var result: Array[Dictionary] = []
     if state != STATE_HUB and state != STATE_POST_FINAL:
@@ -112,6 +141,7 @@ func expedition_context() -> Dictionary:
         "expedition_id": active_expedition_id,
         "choice_id": active_choice_id,
         "region_id": active_region_id,
+        "parent_region_id": str(config.get("parent_region_id", "")),
         "route_id": str(config.get("route_id", "risk_channel")),
         "support_id": str(config.get("support_id", "")),
         "shop_modifier": str(config.get("shop_modifier", "standard")),
@@ -353,12 +383,14 @@ static func migrate_snapshot(snapshot_state: Dictionary) -> Dictionary:
     var schema := str(snapshot_state.get("schema", ""))
     if schema == SCHEMA:
         return snapshot_state.duplicate(true)
+    if schema == PRE_W21_SCHEMA:
+        return _migrate_pre_w21_snapshot(snapshot_state)
     if schema != LEGACY_SCHEMA:
         return {}
-    var migrated := {
-        "schema": SCHEMA,
+    var pre_w21 := {
+        "schema": PRE_W21_SCHEMA,
         "campaign_seed": maxi(1, absi(int(snapshot_state.get("seed", 1)))),
-        "segment_index": clampi(int(snapshot_state.get("chapter", 0)), 0, CAMPAIGN_SEGMENTS),
+        "segment_index": clampi(int(snapshot_state.get("chapter", 0)), 0, PRE_W21_CAMPAIGN_SEGMENTS),
         "post_final_cycle": 0,
         "state": STATE_HUB,
         "active_choice_id": "",
@@ -382,13 +414,48 @@ static func migrate_snapshot(snapshot_state: Dictionary) -> Dictionary:
             "doctrine_plan": snapshot_state.get("doctrine_plan", {}).duplicate(true),
         },
     }
-    if int(migrated.get("segment_index", 0)) >= CAMPAIGN_SEGMENTS:
-        migrated["state"] = STATE_POST_FINAL
-    var migrated_access: Array[String] = migrated.get("access_rights", [])
+    if int(pre_w21.get("segment_index", 0)) >= PRE_W21_CAMPAIGN_SEGMENTS:
+        pre_w21["state"] = STATE_POST_FINAL
+    var migrated_access: Array[String] = pre_w21.get("access_rights", [])
     if not migrated_access.has("ark_berth"):
         migrated_access.append("ark_berth")
-        migrated["access_rights"] = migrated_access
+        pre_w21["access_rights"] = migrated_access
+    return _migrate_pre_w21_snapshot(pre_w21)
+
+
+static func _migrate_pre_w21_snapshot(snapshot_state: Dictionary) -> Dictionary:
+    var pre_w21_segment := int(snapshot_state.get("segment_index", -1))
+    if pre_w21_segment < 0 or pre_w21_segment > PRE_W21_CAMPAIGN_SEGMENTS:
+        return {}
+    var migrated := snapshot_state.duplicate(true)
+    migrated["schema"] = SCHEMA
+    migrated["segment_index"] = pre_w21_segment
+    if pre_w21_segment < PRE_W21_CAMPAIGN_SEGMENTS:
+        return migrated
+
+    var migrated_state := str(migrated.get("state", ""))
+    if _has_pre_w21_final_success(migrated):
+        migrated["segment_index"] = CAMPAIGN_SEGMENTS
+        if migrated_state == STATE_HUB:
+            migrated["state"] = STATE_POST_FINAL
+    else:
+        migrated["segment_index"] = FINAL_BRANCH_SEGMENT
+        if migrated_state == STATE_POST_FINAL:
+            migrated["state"] = STATE_HUB
     return migrated
+
+
+static func _has_pre_w21_final_success(snapshot_state: Dictionary) -> bool:
+    if int(snapshot_state.get("post_final_cycle", 0)) > 0:
+        return true
+    var completed := _string_array_static(snapshot_state.get("completed_choices", []))
+    if completed.has("deep_rescue_patrol") or completed.has("lighthouse_survey"):
+        return true
+    var unlocks := _string_array_static(snapshot_state.get("horizontal_unlocks", []))
+    if unlocks.has("rescue_network") or unlocks.has("survey_beacon"):
+        return true
+    var rights := _string_array_static(snapshot_state.get("access_rights", []))
+    return rights.has("post_final_patrol") or rights.has("post_final_survey")
 
 
 func _choice_ids_for_stage() -> Array[String]:
@@ -401,34 +468,38 @@ func _choice_ids_for_stage() -> Array[String]:
             return ["preserve_smuggler_route", "stabilize_beacon_grid"]
         2:
             return ["evacuate_archive", "seal_storm_channel"]
+        FINAL_BRANCH_SEGMENT:
+            return ["deep_rescue_patrol", "lighthouse_survey"]
     return []
 
 
 func _choice_available_for_stage(config: Dictionary) -> bool:
     var config_stage := int(config.get("stage", -99))
+    if config_stage == FINAL_BRANCH_SEGMENT:
+        return segment_index >= FINAL_BRANCH_SEGMENT
     if segment_index >= CAMPAIGN_SEGMENTS:
-        return config_stage == -1
+        return false
     return config_stage == segment_index
 
 
 func _choice_config(choice_id: String) -> Dictionary:
     match choice_id:
         "rescue_dockhands":
-            return _config(0, choice_id, "saltglass_reach", "supply_causeway", "dockhands", "refit_discount", "raider_pressure", "field_refit", "harbor_key", "residents", 4, 12)
+            return _config(0, choice_id, "saltglass_reach", "twilight_shipyard", "supply_causeway", "dockhands", "refit_discount", "raider_pressure", "field_refit", "harbor_key", "residents", 4, 12)
         "restore_lighthouse":
-            return _config(0, choice_id, "stormglass_channel", "risk_channel", "beacon_watch", "phase_stock", "shade_pressure", "phase_anchor", "beacon_key", "lighthouse", 1, 16)
+            return _config(0, choice_id, "stormglass_channel", "twilight_shipyard", "risk_channel", "beacon_watch", "phase_stock", "shade_pressure", "phase_anchor", "beacon_key", "lighthouse", 1, 16)
         "preserve_smuggler_route":
-            return _config(1, choice_id, "brine_veins", "supply_causeway", "route_guides", "salvage_exchange", "flank_pressure", "route_feint", "brine_pass", "route", 1, 14)
+            return _config(1, choice_id, "brine_veins", "glass_garden", "supply_causeway", "route_guides", "salvage_exchange", "flank_pressure", "route_feint", "brine_pass", "route", 1, 14)
         "stabilize_beacon_grid":
-            return _config(1, choice_id, "blackglass_spires", "risk_channel", "lampwrights", "circuit_stock", "doctrine_pressure", "circuit_overcharge", "grid_access", "lighthouse", 1, 18)
+            return _config(1, choice_id, "blackglass_spires", "glass_garden", "risk_channel", "lampwrights", "circuit_stock", "doctrine_pressure", "circuit_overcharge", "grid_access", "lighthouse", 1, 18)
         "evacuate_archive":
-            return _config(2, choice_id, "drowned_archive", "supply_causeway", "archivists", "echo_catalog", "pursuit_pressure", "echo_archive", "archive_access", "residents", 5, 20)
+            return _config(2, choice_id, "drowned_archive", "flooded_archive", "supply_causeway", "archivists", "echo_catalog", "pursuit_pressure", "echo_archive", "archive_access", "residents", 5, 20)
         "seal_storm_channel":
-            return _config(2, choice_id, "storm_crown", "risk_channel", "stormwardens", "weapon_exchange", "boss_pressure", "storm_gate", "crown_access", "route", 1, 24)
+            return _config(2, choice_id, "storm_crown", "flooded_archive", "risk_channel", "stormwardens", "weapon_exchange", "boss_pressure", "storm_gate", "crown_access", "route", 1, 24)
         "deep_rescue_patrol":
-            return _config(-1, choice_id, "afterglow_frontier", "supply_causeway", "veteran_rescuers", "legacy_exchange", "frontier_pressure", "rescue_network", "post_final_patrol", "residents", 2, 18)
+            return _config(FINAL_BRANCH_SEGMENT, choice_id, "afterglow_frontier", "ash_railway", "supply_causeway", "veteran_rescuers", "legacy_exchange", "frontier_pressure", "rescue_network", "post_final_patrol", "residents", 2, 18)
         "lighthouse_survey":
-            return _config(-1, choice_id, "far_lantern_chain", "risk_channel", "survey_fleet", "rare_circuit_stock", "anomaly_pressure", "survey_beacon", "post_final_survey", "lighthouse", 1, 22)
+            return _config(FINAL_BRANCH_SEGMENT, choice_id, "far_lantern_chain", "eclipse_fortress", "risk_channel", "survey_fleet", "rare_circuit_stock", "anomaly_pressure", "survey_beacon", "post_final_survey", "lighthouse", 1, 22)
     return {}
 
 
@@ -436,6 +507,7 @@ func _config(
     stage: int,
     choice_id: String,
     next_region: String,
+    parent_region_id: String,
     route_id: String,
     support_id: String,
     shop_modifier: String,
@@ -450,6 +522,7 @@ func _config(
         "stage": stage,
         "choice_id": choice_id,
         "next_region": next_region,
+        "parent_region_id": parent_region_id,
         "route_id": route_id,
         "support_id": support_id,
         "shop_modifier": shop_modifier,
@@ -466,6 +539,7 @@ func _public_choice(config: Dictionary) -> Dictionary:
     return {
         "choice_id": str(config.get("choice_id", "")),
         "next_region": str(config.get("next_region", "")),
+        "parent_region_id": str(config.get("parent_region_id", "")),
         "route_id": str(config.get("route_id", "")),
         "support_id": str(config.get("support_id", "")),
         "shop_modifier": str(config.get("shop_modifier", "")),
