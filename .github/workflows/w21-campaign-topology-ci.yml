@@ -142,9 +142,13 @@ jobs:
           set -euo pipefail
           story_log="$(mktemp)"
           set +e
-          "$GODOT_BIN" --headless --path . --script tests/integration/w21_campaign_story_smoke.gd 2>&1 | tee "$story_log"
+          timeout --signal=TERM --kill-after=2s 30s "$GODOT_BIN" --headless --path . --script tests/integration/w21_campaign_story_smoke.gd 2>&1 | tee "$story_log"
           godot_status=${PIPESTATUS[0]}
           set -e
+          if [ "$godot_status" -eq 124 ] || [ "$godot_status" -eq 137 ]; then
+            echo "::error::W21 campaign story smoke exceeded the 30s process budget"
+            exit 1
+          fi
           test "$godot_status" -eq 0
           if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$story_log"; then
             echo "::error::W21 campaign story smoke reported script/runtime errors"
