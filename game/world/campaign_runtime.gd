@@ -110,6 +110,33 @@ func begin_expedition(choice_id: String) -> Dictionary:
     return result
 
 
+func current_story_event() -> Dictionary:
+    return world.pending_story_event()
+
+
+func resolve_story_event(option_index: int) -> Dictionary:
+    if not loaded:
+        return {"ok": false, "status": "NOT_LOADED"}
+    if not world.has_pending_story_event():
+        return {"ok": false, "status": "NO_PENDING_EVENT"}
+    var candidate = WorldCampaignModelScript.new()
+    if not candidate.restore_snapshot(world.snapshot()):
+        return {"ok": false, "status": "CANDIDATE_RESTORE_FAILED"}
+    var event_result: Dictionary = candidate.resolve_pending_story_event(option_index)
+    if not bool(event_result.get("ok", false)):
+        return event_result
+    var event_id := str(event_result.get("event_id", ""))
+    var save_result: Dictionary = _write_candidate(candidate, {}, "event:%s" % event_id, "story_event_choice")
+    if not bool(save_result.get("ok", false)):
+        return save_result
+    if not world.restore_snapshot(candidate.snapshot()):
+        return {"ok": false, "status": "COMMITTED_STATE_RESTORE_FAILED"}
+    var result: Dictionary = event_result.duplicate(true)
+    result["save_status"] = save_result.get("status", "SAVED")
+    result["sequence"] = sequence
+    return result
+
+
 func checkpoint(reason: String, runtime_state: Dictionary) -> Dictionary:
     if not loaded or not _valid_slot(active_slot):
         return {"ok": false, "status": "NOT_LOADED"}
