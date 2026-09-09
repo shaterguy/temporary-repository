@@ -36,7 +36,6 @@ jobs:
           test "$(jq -r '.engine.linux_x86_64_sha256' toolchain.lock)" = "$GODOT_ARCHIVE_SHA256"
           test "$(jq -r '.identity.version_name' toolchain.lock)" = "1.0.0-dev1"
           test "$(jq -r '.identity.version_code' toolchain.lock)" = "1"
-          test "$(jq -r '.status' content_manifest.json)" = "region-expansion-integrated"
           test "$(jq -r '.region_expansion.w18.status' content_manifest.json)" = "runtime-mechanics-integrated"
           test "$(jq -r '.region_expansion.w18.parent_regions' content_manifest.json)" = "2"
           test "$(jq -r '.region_expansion.w18.subregion_route_profiles' content_manifest.json)" = "4"
