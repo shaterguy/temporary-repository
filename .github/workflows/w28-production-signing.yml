@@ -25,8 +25,8 @@ jobs:
       GODOT_TEMPLATES_SHA256: "f298490b8d44d934be425a5a65a51bf15f422428b229a06a6e11d9ffea248011"
       GODOT_TEMPLATES_URL: "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_export_templates.tpz"
       GODOT_BIN: "/tmp/godot/Godot_v4.7.2-stable_linux.x86_64"
-      ANDROID_BUILD_TOOLS: "35.0.1"
-      ANDROID_PLATFORM: "android-35"
+      ANDROID_BUILD_TOOLS: "36.1.0"
+      ANDROID_PLATFORM: "android-36"
       APK_PATH: "artifacts/w28/LANTERNFALL-1.0.0-dev1-production.apk"
 
     steps:
@@ -55,6 +55,8 @@ jobs:
           test "$(jq -r '.engine.export_templates_sha256' toolchain.lock)" = "$GODOT_TEMPLATES_SHA256"
           test "$(jq -r '.android.build_tools' toolchain.lock)" = "$ANDROID_BUILD_TOOLS"
           test "$(jq -r '.android.sdk_platform' toolchain.lock)" = "$ANDROID_PLATFORM"
+          test "$(jq -r '.android.min_api' toolchain.lock)" = "24"
+          test "$(jq -r '.android.target_api' toolchain.lock)" = "36"
           test "$(jq -r '.identity.prod_application_id' toolchain.lock)" = "com.shaterguy.lanternfall"
           test "$(jq -r '.identity.version_name' toolchain.lock)" = "1.0.0-dev1"
           test "$(jq -r '.identity.version_code' toolchain.lock)" = "1"
@@ -170,6 +172,8 @@ jobs:
 
           "$aapt_bin" dump badging "$APK_PATH" | tee /tmp/w28-badging.txt
           grep -Eq "^package: name='com[.]shaterguy[.]lanternfall' versionCode='1' versionName='1[.]0[.]0-dev1'" /tmp/w28-badging.txt
+          grep -Fxq "sdkVersion:'24'" /tmp/w28-badging.txt
+          grep -Fxq "targetSdkVersion:'36'" /tmp/w28-badging.txt
           "$apksigner_bin" verify --verbose --print-certs "$APK_PATH" | tee /tmp/w28-signing.txt
           cert_sha256="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' /tmp/w28-signing.txt | head -n 1 | tr -d ': ' | tr '[:lower:]' '[:upper:]')"
           expected_sha256="$(printf '%s' "$EXPECTED_CERT_SHA256" | tr -d ': ' | tr '[:lower:]' '[:upper:]')"
@@ -202,12 +206,16 @@ jobs:
             echo "version_name=1.0.0-dev1"
             echo "version_code=1"
             echo "package=com.shaterguy.lanternfall"
+            echo "min_sdk=24"
+            echo "target_sdk=36"
             echo "certificate_sha256=$cert_sha256"
             echo "apk_sha256=$apk_sha256"
             echo "apk_size_bytes=$apk_size"
             echo "native_16kb_compatible=true"
           } > artifacts/w28/LANTERNFALL-1.0.0-dev1-production.metadata.txt
           echo "W28_PROD_PACKAGE=com.shaterguy.lanternfall"
+          echo "W28_MIN_SDK=24"
+          echo "W28_TARGET_SDK=36"
           echo "W28_CERT_SHA256=$cert_sha256"
           echo "W28_APK_SHA256=$apk_sha256"
           echo "W28_APK_SIZE_BYTES=$apk_size"
