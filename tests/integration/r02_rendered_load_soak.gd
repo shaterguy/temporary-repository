@@ -21,6 +21,8 @@ var _weapon_burst_ms: float = 0.0
 var _frame_samples_ms: Array[float] = []
 var _memory_before_bytes: int = 0
 var _memory_after_bytes: int = 0
+var _baseline_checkpoint_status: String = "NOT_RUN"
+var _final_checkpoint_status: String = "NOT_RUN"
 
 
 func _initialize() -> void:
@@ -73,6 +75,18 @@ func _run() -> void:
     if combat.has_signal("weapon_action"):
         combat.connect("weapon_action", Callable(self, "_on_weapon_action_observed"))
 
+    # The host render environment can run far slower than device real time. Freeze
+    # only MainShell's wall-clock policy loop so a 300-frame render soak cannot
+    # accidentally trigger periodic checkpoints or deferred settlement merely because
+    # llvmpipe took >15 seconds. Child production runtimes and rendering stay alive.
+    shell.set_process(false)
+    var baseline_checkpoint: Dictionary = shell.call("_checkpoint_runtime", "r02_baseline_before_load")
+    _baseline_checkpoint_status = str(baseline_checkpoint.get("status", "UNKNOWN"))
+    _expect(
+        bool(baseline_checkpoint.get("ok", false)),
+        "R02 baseline checkpoint failed before load: %s" % _baseline_checkpoint_status
+    )
+
     var load_ids := _inject_enemy_load(encounter, phase)
     _enemy_peak = int(encounter.call("active_enemy_count"))
     _expect(load_ids.size() == ENEMY_TARGET, "R02 could not inject 600 production EnemyPool entities")
@@ -81,14 +95,15 @@ func _run() -> void:
     var target_snapshot := _active_targets(encounter)
     _expect(target_snapshot.size() >= ENEMY_TARGET, "R02 target provider did not expose 600 active runtime enemies")
     if target_snapshot.is_empty():
+        shell.set_process(true)
         _finish(shell, viewport)
         return
 
     _memory_before_bytes = int(Performance.get_monitor(Performance.MEMORY_STATIC))
 
-    # Keep automatic combat from adding fresh effects while the harness establishes
-    # and expires fixed concurrent loads. Manual calls still use the production
-    # resolver/application path. Normal combat physics resumes after 30 load frames.
+    # Keep automatic player attacks from adding fresh effects while the harness
+    # establishes exact concurrent loads. Manual calls still use the production
+    # resolver/application path. Enemy/ark/phase child runtimes remain active.
     combat.set_physics_process(false)
 
     # The product has no projectile node/model: weapon delivery resolves as real
@@ -112,10 +127,10 @@ func _run() -> void:
     _expect(_projectile_action_peak >= PROJECTILE_ACTION_TARGET, "R02 production weapon-action load did not reach 1000")
     _expect(_effect_count(art) >= PROJECTILE_ACTION_TARGET, "R02 weapon_action signal did not populate the production VFX queue")
 
-    # Let the first action burst expire through the product's own VFX lifetime logic.
-    art.set_process(true)
-    for _index in range(90):
-        await process_frame
+    # Advance the production VFX lifetime routine directly while regular processing
+    # is paused. Waiting 90 host-render frames here previously allowed unrelated
+    # MainShell wall-clock policy to overtake the load test on llvmpipe.
+    art.call("_process", 1.0)
     _expect(_effect_count(art) == 0, "R02 production VFX queue did not expire after its bounded lifetime")
 
     # Establish the separate 300-effect rendered load using the same real weapon
@@ -147,15 +162,19 @@ func _run() -> void:
         _frame_samples_ms.append(float(Time.get_ticks_usec() - frame_started) / 1000.0)
         if frame_index + 1 == EFFECT_HEAVY_FRAMES:
             art.set_process(true)
-            combat.set_physics_process(true)
         if (frame_index + 1) % 60 == 0:
             _expect(int(encounter.call("active_enemy_count")) >= ENEMY_TARGET, "R02 enemy load fell below 600 during sustained rendered soak")
 
     art.set_process(true)
-    combat.set_physics_process(true)
     _memory_after_bytes = int(Performance.get_monitor(Performance.MEMORY_STATIC))
     var checkpoint: Dictionary = shell.call("_checkpoint_runtime", "r02_rendered_load_soak")
-    _expect(bool(checkpoint.get("ok", false)), "R02 600-enemy runtime could not checkpoint after sustained soak")
+    _final_checkpoint_status = str(checkpoint.get("status", "UNKNOWN"))
+    _expect(
+        bool(checkpoint.get("ok", false)),
+        "R02 600-enemy runtime could not checkpoint after sustained soak: %s" % _final_checkpoint_status
+    )
+    shell.set_process(true)
+    combat.set_physics_process(true)
 
     _finish(shell, viewport)
 
@@ -233,6 +252,7 @@ func _expect(condition: bool, message: String) -> void:
 
 func _finish(shell: Node, viewport: SubViewport) -> void:
     if is_instance_valid(shell):
+        shell.set_process(true)
         shell.queue_free()
     if is_instance_valid(viewport):
         viewport.queue_free()
@@ -243,6 +263,7 @@ func _finish(shell: Node, viewport: SubViewport) -> void:
 
     if _failures.is_empty():
         print("R02_REAL_MAIN_SCENE=PASS")
+        print("R02_BASELINE_CHECKPOINT_STATUS=%s" % _baseline_checkpoint_status)
         print("R02_ENEMY_LOAD_TARGET=600")
         print("R02_ENEMY_LOAD_ACTUAL=%d" % _enemy_peak)
         print("R02_PROJECTILE_LOAD_TARGET=1000")
@@ -259,6 +280,7 @@ func _finish(shell: Node, viewport: SubViewport) -> void:
         print("R02_MEMORY_AFTER_BYTES=%d" % _memory_after_bytes)
         print("R02_EFFECT_HEAVY_FRAMES=%d" % EFFECT_HEAVY_FRAMES)
         print("R02_SUSTAINED_FRAMES=%d" % SUSTAINED_FRAMES)
+        print("R02_FINAL_CHECKPOINT_STATUS=%s" % _final_checkpoint_status)
         print("R02_SAVE_CHECKPOINT=PASS")
         print("R02_HOST_PERF_ENV=ubuntu-xvfb-gl_compatibility")
         print("R02_ANDROID_DEVICE_PERF=PENDING_R04")
@@ -269,6 +291,8 @@ func _finish(shell: Node, viewport: SubViewport) -> void:
 
     for failure: String in _failures:
         printerr("R02_FAIL: %s" % failure)
+    printerr("R02_BASELINE_CHECKPOINT_STATUS=%s" % _baseline_checkpoint_status)
+    printerr("R02_FINAL_CHECKPOINT_STATUS=%s" % _final_checkpoint_status)
     printerr("R02_RENDERED_LOAD_SOAK=FAIL")
     quit(1)
 
