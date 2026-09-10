@@ -7,10 +7,10 @@ Verification-only branch: `verify/r04-android-runtime-touch-fix`
 Primary requirement mapping: `AC-14`
 Non-regression mapping: `NR-03`, `NR-04`
 
-`TEST_CONTRACT_PREFLIGHT_STATUS=PENDING_FINAL_READBACK`
-`ACTION_PREFLIGHT_STATUS=PENDING_FINAL_READBACK`
+`TEST_CONTRACT_PREFLIGHT_STATUS=PASS`
+`ACTION_PREFLIGHT_STATUS=PASS`
 `PREVENTION_RULES=PR-001,PR-002,PR-004,PR-007`
-`PREVENTION_COMPLIANCE_STATUS=PENDING_FINAL_READBACK`
+`PREVENTION_COMPLIANCE_STATUS=PASS`
 `SECURITY_DELTA=NONE`
 
 ## Immutable rebuilt production candidate
@@ -58,12 +58,12 @@ This is a verification-environment change only. It does not change the product s
 
 ## TEST_CONTRACT_PREFLIGHT for the SwANGLE run
 
-The planned test groups are mapped as follows before the target branch is advanced:
+Status: `PASS` after staging readback.
 
-- exact product ancestry and two-file verification-only boundary: `VALID` after staging diff readback;
+- exact product ancestry and two-file verification-only boundary: `VALID`; comparison against target head `ef7da392a2919c6c8b0877a84f42677d802456da` shows only `.github/workflows/r04-android-runtime.yml` and this document changed;
 - exact W28 artifact archive, APK SHA-256, package/version and production certificate lineage: `VALID` from current remote/artifact readback plus in-run recheck;
 - API36 Google APIs x86_64 runtime with arm64-v8a translation ABI and recorded native bridge: `VALID` and unchanged from the preceding R04 identity;
-- renderer contract: updated from stale `-gpu software` to explicit `-gpu swangle`; becomes `VALID` only after workflow and this document are read back together on the staging commit;
+- renderer contract: `VALID`; workflow commit `9ee5841b46ecf1adb2f68de4101ea006bb85b43f` changes only the launch renderer `software -> swangle`, runtime renderer evidence label and final `R04_RENDERER` label;
 - visible/nonblank screenshot assertion plus immediate known shader-limit rejection: `VALID` and retained;
 - real Android touchscreen save-slot selection, hub departure, expedition movement, background checkpoint, process relaunch persistence and 1024x768 reentry: `VALID` and unchanged;
 - package ANR/fatal/SIGILL/SIGSEGV checks: `VALID` and unchanged;
@@ -75,7 +75,9 @@ A valid R04 PASS still requires all touch/lifecycle/persistence conditions in on
 
 ## ACTION_PREFLIGHT for the target branch advance
 
-The target action is a fast-forward of `verify/r04-android-runtime-touch-fix` from its read-back head to the fully reviewed staging commit. The target workflow is push-triggered on exactly the two R04 verification files, so both file changes are staged away from the trigger branch and the target ref is advanced only after final preflight. This prevents partial-file intermediate Actions runs.
+Status: `PASS` for a new workflow identity after target/artifact baseline readback.
+
+The target action is a fast-forward of `verify/r04-android-runtime-touch-fix` from its read-back head to the fully reviewed staging commit. The target workflow is push-triggered on exactly the two R04 verification files, so both file changes were staged away from the trigger branch and the target ref is advanced only after final preflight. This prevents partial-file intermediate Actions runs.
 
 Baseline locked for the final preflight:
 
@@ -90,14 +92,14 @@ Baseline locked for the final preflight:
 - execution change: explicit `swangle` renderer and matching evidence label only; no product/build/signing mutation
 - execution decision: `NEW_RUN`, because renderer/workflow execution identity changes; failed run `34459160737` is not rerun
 
-Prevention rules for this execution:
+Prevention compliance:
 
-- PR-001: read-only branch, artifact, workflow, run-log and emulator renderer support checks precede the mutation; no diagnostic Actions run is used as a probe.
-- PR-002: the target advance contains a real renderer execution-contract change; no empty/no-op trigger commit is created.
-- PR-004: R04 evidence artifact names continue to contain both `github.run_id` and `github.run_attempt`; the new workflow identity is executed as a new run.
-- PR-007: API/Build Tools/ABI/package/version remain pinned to the current authoritative `toolchain.lock`; no stale version profile is substituted.
+- PR-001 `PASS`: read-only branch, artifact, workflow, run-log and emulator renderer support checks preceded the mutation; no diagnostic Actions run was used as a probe.
+- PR-002 `PASS`: the target advance contains a real renderer execution-contract change; no empty/no-op trigger commit was created.
+- PR-004 `PASS`: R04 evidence artifact names continue to contain both `github.run_id` and `github.run_attempt`; the new workflow identity is executed as a new run.
+- PR-007 `PASS`: API/Build Tools/ABI/package/version remain pinned to the current authoritative `toolchain.lock`; no stale version profile is substituted.
 
-The three preflight status markers at the top of this file are changed to `PASS` only after the staging branch has the exact intended two-file diff and the target head/artifact baseline are re-read immediately before the target fast-forward.
+Immediately before target fast-forward, the target branch head and W28 artifact identity are read back once more. Any drift invalidates this preflight and blocks the target mutation rather than silently executing against a changed baseline.
 
 ## Completion rule
 
