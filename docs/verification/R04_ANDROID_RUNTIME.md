@@ -15,7 +15,7 @@ Non-regression mapping: `NR-03`, `NR-04`
 
 ## Immutable rebuilt production candidate
 
-R04 reuses the new W28 production output without rebuilding, resigning or repackaging it.
+R04 reuses the rebuilt W28 production APK without rebuilding, resigning or repackaging it.
 
 - source SHA `9d1743676e6c17fd573675d5065e346bef9546ea`
 - W28 run `34457263441`
@@ -29,70 +29,66 @@ R04 reuses the new W28 production output without rebuilding, resigning or repack
 
 The verification branch may differ from the product SHA only at `.github/workflows/r04-android-runtime.yml` and this document.
 
-## Evidence reused from earlier R04 attempts
+## Reused R04 evidence and repaired product gap
 
-Android 11 / API 30 Google APIs x86_64 with ARM binary translation installed and launched the earlier production APK but later produced SIGILL inside Android's `libndk_translation.so`. The native crash was in the translated-runtime layer, not in the product source.
+Earlier R04 attempts established the remote-environment boundaries before this candidate:
 
-A GitHub hosted ARM64 runner was then proven unsuitable for native Android virtualization because `/dev/kvm` was absent. A separate x86_64-host ARM64-system-image preflight proved that the current Android Emulator refuses an arm64 guest on an x86_64 host with `System image must match the host architecture`.
+- Android 11/API30 x86_64 translation installed the older production APK but later crashed inside Android `libndk_translation.so` with SIGILL; that was classified as translated-runtime failure rather than application code failure.
+- GitHub's hosted ARM64 runner had no `/dev/kvm`; the x86_64 hosted runner's emulator explicitly rejected a native arm64 system image because the guest architecture must match the host.
+- Android 16/API36 Google APIs x86_64 exposed both `x86_64` and `arm64-v8a` through `libndk_translation.so` and installed the product successfully without the API30 translator SIGILL.
+- API36 run `34455506910` exposed a real product usability gap: save-slot and hub departure were keyboard-only while touch controls activated only after expedition entry. The W25 repair added standard Godot Button controls that forward to the existing authoritative `select_save_slot()` and `select_world_choice()` methods. W25 run `34456594450` verified actual scene transitions `SLOT_SELECT -> HUB -> EXPEDITION` through the mounted controls.
+- The same earlier API36 run using `-gpu swiftshader` rendered black and logged `active uniforms exceed GL_MAX_FRAGMENT_UNIFORM_VECTORS (261)`, so black frames are explicitly rejected and that renderer combination is not reused.
 
-API36 run `34455506910` established a newer viable translated runtime: Android 16 Google APIs x86_64 exposed `arm64-v8a`, installed the production APK and ran the application without the API30 translator SIGILL. That run exposed two distinct gaps:
+The rebuilt production APK contains the touch-entry repair and retains the same durable production signing certificate.
 
-1. Product gap: the first-run slot and hub transitions were keyboard-only, while touch input existed only after expedition entry. The W25 repair added standard Godot Button controls that forward to the existing authoritative `select_save_slot()` and `select_world_choice()` methods. W25 run `34456594450` independently verified the real scene transition `SLOT_SELECT -> HUB -> EXPEDITION` through those mounted controls.
-2. Renderer gap: the API36 `-gpu swiftshader` run produced black screenshots and logged `active uniforms exceed GL_MAX_FRAGMENT_UNIFORM_VECTORS (261)`. A black frame must not be accepted as a valid ready state merely because it is not white.
+## Harness failures excluded from product evidence
 
-The rebuilt production APK above includes the product touch repair and was signed by the same durable production certificate as the earlier production artifact.
+R04 run `34458136289` stopped before Android provisioning because the metadata certificate fingerprint was compared case-sensitively. Direct artifact readback showed the same fingerprint digits with uppercase metadata versus lowercase pinned value. The harness now normalizes both.
 
-R04 run `34458136289` on the rebuilt artifact stopped before Android provisioning. The artifact ZIP and APK SHA-256 both matched, but the verification harness compared the certificate metadata with case-sensitive text. The W28 metadata stores the same certificate SHA-256 in uppercase while R04 pins the normalized value in lowercase. Direct artifact readback confirmed all certificate bytes/digits match. Classification: `HARNESS_CERTIFICATE_CASE_NORMALIZATION`. The correction normalizes the metadata fingerprint before comparison; no product, signer, artifact or expected certificate identity changes.
+R04 run `34458472387` advanced further: exact artifact reuse PASS, API36 `-gpu software` runtime PASS, package/version/certificate PASS, production APK install PASS and `adb root` PASS. It then stopped immediately after launch before the first rendered-frame assertion because Bash `set -u` evaluated `${idx}` inside a combined `local` declaration before `idx` was bound. Classification: `HARNESS_BASH_LOCAL_NOUNSET_ORDER`. This run provides no renderer or touch-navigation PASS/FAIL evidence. The correction separates dependent local declarations and simplifies the runtime harness; product SHA, APK, signer, Android image and renderer are unchanged.
 
 ## Current TEST_CONTRACT_PREFLIGHT
 
-Status: `PASS` before the corrected Actions execution.
-
-The test is bound to the exact product SHA, W28 artifact/archive/APK hashes, package/version, certificate lineage, API36 Google APIs x86_64 image and the production source contracts for save/checkpoint/touch behavior.
+Status: `PASS` before the corrected run.
 
 A valid R04 PASS requires all of the following in the same run:
 
-- the verification branch differs from the product SHA only by the R04 workflow and this document;
-- the exact W28 artifact archive and APK hashes are rechecked before installation;
-- metadata certificate SHA-256 is case-normalized and equals the pinned production certificate lineage;
-- API36 boots on x86_64, exposes both x86_64 and arm64-v8a ABI capability, and records the native bridge;
-- the emulator uses current `-gpu software` selection rather than the already-failed `swiftshader` configuration;
-- game readiness requires a visible, nonblank rendered frame with sufficient color/variance, not merely a low white-pixel fraction;
-- the known API36 shader-limit error immediately fails the renderer gate;
-- no keyboard input is used for the user-facing first-run navigation;
-- an actual Android touchscreen tap on the mounted first slot Button creates the HUB/new_game save state;
-- a second actual touchscreen Button tap creates the EXPEDITION/departure_initialized save state;
-- an actual touchscreen virtual-stick drag changes the persisted player position, while dodge/phase touch paths are also injected;
-- HOME/background creates an EXPEDITION/background checkpoint with increasing sequence;
-- process death and relaunch preserve the same expedition ID, and touchscreen slot selection resumes the saved expedition;
-- resize/relaunch at 1024x768 also resumes the same saved expedition through touch;
-- package fatal exceptions, ANR, SIGILL and SIGSEGV tombstones are absent;
-- the run does not label its 4 KB translated guest as an actual 16 KB runtime test; W28 binary compatibility remains reused static evidence.
-
-The touchscreen choice helper scans only the vertical row where the standard Godot choice Button can exist and checks the authoritative save transition after each tap. It stops immediately when the target state is observed. This is an actual input-path test, not a direct method call or save-file fabrication.
+- exact product ancestry and exactly two verification-only changed files;
+- exact W28 artifact archive, APK SHA-256, package/version and production certificate lineage;
+- API36 Google APIs x86_64 runtime with `arm64-v8a` translation ABI and recorded native bridge;
+- current `-gpu software` renderer, with visible/nonblank screenshot evidence and immediate rejection of the known shader-uniform-limit error;
+- first-install package state;
+- real Android touchscreen input, not keyboard input, for first save-slot selection and hub departure;
+- save JSON transition to `HUB` with `last_checkpoint_reason=new_game` after the first touch choice;
+- save JSON transition to `EXPEDITION` with `last_checkpoint_reason=departure_initialized` after the second touch choice;
+- actual virtual-stick touchscreen swipe changes the persisted player position, with dodge/phase touchscreen events injected as well;
+- HOME/background creates a later EXPEDITION checkpoint with `last_checkpoint_reason=background`;
+- process death/relaunch preserves the same expedition identity and touch reentry restores that expedition;
+- 1024x768 resize/relaunch preserves the same expedition identity and remains visibly rendered;
+- no package ANR, fatal exception, SIGILL or SIGSEGV evidence;
+- 16 KB compatibility remains the exact W28 static/package evidence and is not falsely labeled as a 16 KB runtime test on the 4 KB translated guest.
 
 ## Current ACTION_PREFLIGHT
 
-Status: `PASS` before mutation/execution.
+Status: `PASS`.
 
 - repository: `shaterguy/temporary-repository`
-- product branch/source: `v1.0.0-dev1` / `9d1743676e6c17fd573675d5065e346bef9546ea`
-- signing branch/source: `sign/w28-production` / same SHA
+- product source: `v1.0.0-dev1` / `9d1743676e6c17fd573675d5065e346bef9546ea`
+- signing source: `sign/w28-production` / same SHA
 - W28 production run: `34457263441`
-- R04 mutation boundary: only `.github/workflows/r04-android-runtime.yml` and `docs/verification/R04_ANDROID_RUNTIME.md`
-- workflow contract changes from run `34458136289` only in certificate metadata normalization, so a new run is required rather than rerunning the old workflow identity;
-- product code, package/version, signer, save schemas and production APK are immutable during R04;
-- R04 evidence artifact identity contains both `github.run_id` and `github.run_attempt`.
+- R04 mutation boundary: only `.github/workflows/r04-android-runtime.yml` and this document
+- run `34458472387` is not rerun because the workflow execution identity changes to fix the confirmed Bash harness defect;
+- no product code, package/version, signer, save schema or production artifact mutation occurs in R04.
 
 Prevention compliance:
 
-- PR-001 PASS: run logs and the immutable W28 artifact metadata were read directly before correcting the comparison; no mutation probe was used.
-- PR-002 PASS: the verification commit changes the actual certificate verification behavior and is not a no-op/trigger-only commit.
-- PR-004 PASS: R04 evidence artifacts are attempt-specific and consumers are bound to the exact new W28 artifact ID/hash.
-- PR-007 PASS: API target, Build Tools, product identity and runtime selector are aligned to authoritative `toolchain.lock`; the already-failed renderer path is not silently reused.
+- PR-001 PASS: run-21 logs were read directly and the first failure was identified before mutation.
+- PR-002 PASS: the next commit changes actual harness execution behavior and is not a no-op trigger commit.
+- PR-004 PASS: R04 evidence artifacts contain both `github.run_id` and `github.run_attempt` in identity.
+- PR-007 PASS: Android API, Build Tools, package/version and product identity remain aligned to authoritative `toolchain.lock`, and the previously failed renderer profile is not silently reused.
 
 ## Completion rule
 
-`R04_ANDROID_RUNTIME=PASS` is emitted only after the immutable rebuilt production APK passes visible render, real touchscreen first-run navigation, expedition touch input, background checkpoint, process-death/relaunch persistence and resize/reentry without fatal/ANR/native crash evidence.
+`R04_ANDROID_RUNTIME=PASS` may be emitted only after the immutable rebuilt production APK completes visible render, real touchscreen first-run navigation, expedition touch input, background checkpoint, process-death/relaunch persistence and resize/reentry without fatal/ANR/native-crash evidence.
 
-If `-gpu software` still cannot render the actual game while package/runtime execution otherwise survives, R04 remains incomplete and the next automatic alternative is a separately preflighted renderer configuration. A renderer/environment failure is not converted into an application PASS, and a newly reproduced product defect is returned to BUILDER rather than worked around in the verification harness.
+A renderer/environment failure remains an environment result and is not promoted to application PASS. A reproducible product defect returns to BUILDER rather than being bypassed in the R04 harness.
