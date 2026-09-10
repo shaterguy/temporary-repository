@@ -38,6 +38,8 @@ func _capture() -> void:
         await process_frame
         shell.set_process(false)
         shell.set("selected_weapon_id", "shade_halo")
+        var review_relics: Array[String] = ["shadow_edge", "phase_lens"]
+        shell.set("selected_relic_ids", review_relics)
         shell.set("shell_mode", "EXPEDITION")
         var event_hud := shell.get_node_or_null("W23WorldEventHud")
         if event_hud != null:

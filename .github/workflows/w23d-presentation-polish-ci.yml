@@ -6,6 +6,11 @@ on:
       - 'v*-dev*'
       - 'v*-rc*'
     paths:
+      - 'game/ui/main_shell.tscn'
+      - 'game/ui/main_shell_w24.gd'
+      - 'game/ui/character_role_tutorial.gd'
+      - 'game/ui/first_expedition_tutorial.gd'
+      - 'game/presentation/representative_hud.gd'
       - 'game/presentation/w23_weapon_relic_hud.gd'
       - 'game/presentation/w23_world_event_hud.gd'
       - 'tests/integration/w23_presentation_polish_smoke.gd'
@@ -14,6 +19,11 @@ on:
       - '.github/workflows/w23d-presentation-polish-ci.yml'
   pull_request:
     paths:
+      - 'game/ui/main_shell.tscn'
+      - 'game/ui/main_shell_w24.gd'
+      - 'game/ui/character_role_tutorial.gd'
+      - 'game/ui/first_expedition_tutorial.gd'
+      - 'game/presentation/representative_hud.gd'
       - 'game/presentation/w23_weapon_relic_hud.gd'
       - 'game/presentation/w23_world_event_hud.gd'
       - 'tests/integration/w23_presentation_polish_smoke.gd'
@@ -46,15 +56,24 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          test -f game/ui/main_shell_w24.gd
+          test -f game/ui/character_role_tutorial.gd
+          test -f game/ui/first_expedition_tutorial.gd
+          test -f game/presentation/representative_hud.gd
           test -f game/presentation/w23_weapon_relic_hud.gd
           test -f game/presentation/w23_world_event_hud.gd
           test -f tests/integration/w23_presentation_polish_smoke.gd
           test -f tests/visual/capture_w23_readability.gd
           test -f docs/verification/W23D_PRESENTATION_POLISH.md
+          grep -Fq 'static func layout_for(viewport_size: Vector2)' game/presentation/representative_hud.gd
           grep -Fq 'static func layout_for(viewport_size: Vector2, expedition: bool)' game/presentation/w23_weapon_relic_hud.gd
-          grep -Fq 'static func layout_for(viewport_size: Vector2)' game/presentation/w23_world_event_hud.gd
+          grep -Fq 'static func visible_for_mode(shell_mode: String)' game/ui/character_role_tutorial.gd
+          grep -Fq 'static func prompt_for_step(step: String)' game/ui/first_expedition_tutorial.gd
           grep -Fq 'static func transition_profile()' game/presentation/w23_world_event_hud.gd
           grep -Fq 'W23D_READABILITY_MATRIX=1280x720,1920x1080,2340x1080,2640x1080' tests/integration/w23_presentation_polish_smoke.gd
+          grep -Fq 'W23D_TOUCH_CLEARANCE=PASS' tests/integration/w23_presentation_polish_smoke.gd
+          grep -Fq 'W23D_LOCALIZATION=PASS' tests/integration/w23_presentation_polish_smoke.gd
+          grep -Fq 'W23D_TUTORIAL_SCOPE=PASS' tests/integration/w23_presentation_polish_smoke.gd
           grep -Fq 'W23D_CAPTURE=PASS' tests/visual/capture_w23_readability.gd
           test -z "$(find . -type f \( -name '*.jks' -o -name '*.keystore' -o -name '*.p12' -o -name '*.pem' -o -name '*.key' \) -print -quit)"
 
@@ -100,6 +119,9 @@ jobs:
           grep -Fxq 'W23D_ANIMATION_PROFILE=PRESENTATION_ONLY' "$smoke_log"
           grep -Fxq 'W23D_HUD_COLLISION=PASS' "$smoke_log"
           grep -Fxq 'W23D_STORY_CARD_BOUNDS=PASS' "$smoke_log"
+          grep -Fxq 'W23D_TOUCH_CLEARANCE=PASS' "$smoke_log"
+          grep -Fxq 'W23D_LOCALIZATION=PASS' "$smoke_log"
+          grep -Fxq 'W23D_TUTORIAL_SCOPE=PASS' "$smoke_log"
           grep -Fxq 'W23D_PRESENTATION_POLISH=PASS' "$smoke_log"
 
       - name: Render W23D readability matrix

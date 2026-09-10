@@ -24,16 +24,19 @@ func status_snapshot() -> Dictionary:
     }
 
 
+static func visible_for_mode(shell_mode: String) -> bool:
+    return shell_mode == "HUB"
+
+
 func _refresh_from_runtime() -> void:
     var host := get_parent()
     if host == null or not host.has_method("character_tutorial_prompt"):
         _set_prompt("", "", false)
         return
     var shell_mode := str(host.get("shell_mode"))
-    var should_show := shell_mode == "HUB" or shell_mode == "EXPEDITION"
     var character_id := str(host.get("selected_character_id"))
     var prompt := str(host.call("character_tutorial_prompt"))
-    _set_prompt(character_id, prompt, should_show and not prompt.is_empty())
+    _set_prompt(character_id, prompt, visible_for_mode(shell_mode) and not prompt.is_empty())
 
 
 func _set_prompt(character_id: String, prompt: String, visible: bool) -> void:
@@ -41,7 +44,7 @@ func _set_prompt(character_id: String, prompt: String, visible: bool) -> void:
     _prompt = prompt
     if not is_instance_valid(_prompt_label):
         return
-    _prompt_label.text = "W16 캐릭터 전술 · %s" % prompt if visible else ""
+    _prompt_label.text = "캐릭터 전술 · %s" % prompt if visible else ""
     _prompt_label.visible = visible
 
 

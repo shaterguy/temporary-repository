@@ -54,22 +54,26 @@ func current_step() -> String:
     return STEP_SETTLE
 
 
-func prompt_text() -> String:
-    match current_step():
+static func prompt_for_step(step: String) -> String:
+    match step:
         STEP_SLOT:
-            return "첫 항해 · 1∼3으로 저장 슬롯을 선택합니다."
+            return "첫 항해 · 저장 슬롯을 선택해 여정을 시작하세요."
         STEP_DEPART:
-            return "거점 · 1/2로 서로 다른 항로를 선택합니다. 선택은 세계 상태에 남습니다."
+            return "거점 · 항로를 고르면 그 선택이 이번 여정의 세계 상태에 남습니다."
         STEP_MOVE:
-            return "원정 · 방향키/WASD로 이동합니다. 공격은 자동이며 Space 회피로 포위를 끊습니다."
+            return "원정 · 왼쪽 패드로 이동하고 오른쪽 원형 버튼으로 회피하세요. 공격은 자동입니다."
         STEP_CIRCUIT:
-            return "잔광 회로 · 3/4/5 모듈을 고르고 이동 경로를 닫아 회로를 완성합니다."
+            return "잔광 회로 · 회로 모듈을 고른 뒤 이동 경로를 닫아 회로를 완성하세요."
         STEP_PHASE:
-            return "이중 위상 · Q로 반대 위상을 확인·전환해 지형과 적 구성을 바꿉니다."
+            return "이중 위상 · 오른쪽 마름모 버튼으로 위상을 전환해 지형과 적 구성을 바꾸세요."
         STEP_SETTLE:
-            return "항로 완주 · 휴식 지점은 Enter, 파손은 R 복구, 철수는 F입니다. 정산 뒤 변화가 저장됩니다."
+            return "항로 완주 · 휴식·복구·철수 선택 뒤 정산하면 이번 원정의 변화가 저장됩니다."
         _:
             return ""
+
+
+func prompt_text() -> String:
+    return prompt_for_step(current_step())
 
 
 func status_snapshot() -> Dictionary:

@@ -1,6 +1,7 @@
 extends Control
 
 const ArtCatalogScript = preload("res://game/presentation/w23_world_event_art_catalog.gd")
+const StoryEventCatalogScript = preload("res://game/data/campaign_story_event_catalog.gd")
 
 const CARD_MAX_WIDTH: float = 360.0
 const CARD_MIN_WIDTH: float = 240.0
@@ -64,6 +65,11 @@ static func transition_profile() -> Dictionary:
     }
 
 
+static func event_label_for(event_id: String) -> String:
+    var event: Dictionary = StoryEventCatalogScript.event_by_id(event_id)
+    return str(event.get("title", "항로의 이야기")) if not event.is_empty() else "항로의 이야기"
+
+
 func show_event(event_id: String) -> bool:
     if ArtCatalogScript.event_entry(event_id).is_empty():
         clear_event()
@@ -88,7 +94,8 @@ func event_snapshot() -> Dictionary:
         return {}
     var snapshot := ArtCatalogScript.event_art_snapshot(_event_id)
     var layout := layout_for(size)
-    snapshot["layout_version"] = "w23d-responsive-v1"
+    snapshot["event_label"] = event_label_for(_event_id)
+    snapshot["layout_version"] = "w23d-responsive-v2"
     snapshot["outer_rect"] = layout.get("outer", Rect2())
     snapshot["card_rect"] = layout.get("card", Rect2())
     snapshot["reveal_progress"] = _reveal
@@ -118,7 +125,7 @@ func _draw() -> void:
     draw_string(
         font,
         card.position + Vector2(0.0, card.size.y + 24.0),
-        "STORY SIGNAL · %s" % _event_id.to_upper(),
+        "이야기 · %s" % event_label_for(_event_id),
         HORIZONTAL_ALIGNMENT_LEFT,
         card.size.x,
         13,
