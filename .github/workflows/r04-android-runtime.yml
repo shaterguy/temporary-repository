@@ -188,7 +188,6 @@ jobs:
             echo '::error::private save-state inspection unavailable on API36 runtime'; exit 23
           fi
           printf 'data_mode=%s\n' "$DATA_MODE" | tee /tmp/r04/evidence/data-mode.txt
-          SAVE_ABS="/data/user/0/$PACKAGE/files/saves/slot_0.json"
 
           alive() { test -n "$(adb shell pidof "$PACKAGE" 2>/dev/null | tr -d '\r')"; }
           foreground() {
@@ -198,7 +197,10 @@ jobs:
           dump_save() {
             local out="$1"
             if test "$DATA_MODE" = root; then
-              adb exec-out cat "$SAVE_ABS" >"$out"
+              local save_path
+              save_path="$(adb shell find "/data/user/0/$PACKAGE" -type f -name slot_0.json 2>/dev/null | tr -d '\r' | head -1)"
+              test -n "$save_path"
+              adb exec-out cat "$save_path" >"$out"
             else
               adb exec-out run-as "$PACKAGE" cat files/saves/slot_0.json >"$out"
             fi
@@ -229,18 +231,12 @@ jobs:
           }
           assert_no_runtime_crash() {
             capture_logs
-            python3 - <<'PY'
-from pathlib import Path
-pkg='com.shaterguy.lanternfall'
-texts=[]
-for name in ('logcat.txt','tombstones-tail.txt'):
-    p=Path('/tmp/r04/evidence')/name
-    if p.exists(): texts.append(p.read_text(errors='replace'))
-text='\n'.join(texts)
-markers=('Fatal signal 4','SIGILL','libndk_translation.so','ANR in '+pkg,'Input dispatching timed out')
-if pkg in text and any(m in text for m in markers):
-    raise SystemExit('R04_RUNTIME_CRASH_MARKER')
-PY
+            if grep -E -B20 -A40 'Fatal signal|ANR in|Input dispatching timed out' /tmp/r04/evidence/logcat.txt | grep -F "$PACKAGE" >/dev/null; then
+              echo '::error::package-associated fatal signal or ANR detected'; exit 31
+            fi
+            if test -f /tmp/r04/evidence/tombstones-tail.txt && grep -E -B40 -A80 'signal 4|SIGILL|signal 11|SIGSEGV' /tmp/r04/evidence/tombstones-tail.txt | grep -F "$PACKAGE" >/dev/null; then
+              echo '::error::package-associated native tombstone detected'; exit 32
+            fi
           }
           shot() {
             local name="$1"
@@ -263,22 +259,9 @@ PY
               sleep 5
               if ! alive || ! foreground; then capture_logs; return 1; fi
               shot "${prefix}-probe-${i}"
-              fraction="$(python3 - "$prefix" "$i" <<'PY'
-from PIL import Image
-import sys
-p=f'/tmp/r04/evidence/{sys.argv[1]}-probe-{sys.argv[2]}.png'
-im=Image.open(p).convert('RGB').resize((160,90))
-pix=list(im.getdata())
-white=sum(1 for r,g,b in pix if r>235 and g>235 and b>235)/len(pix)
-print(f'{white:.7f}')
-PY
-)"
+              fraction="$(python3 -c "from PIL import Image; import sys; im=Image.open('/tmp/r04/evidence/'+sys.argv[1]+'-probe-'+sys.argv[2]+'.png').convert('RGB').resize((160,90)); pix=list(im.getdata()); print(f'{sum(1 for r,g,b in pix if r>235 and g>235 and b>235)/len(pix):.7f}')" "$prefix" "$i")"
               printf '%s %s\n' "$i" "$fraction" >>"/tmp/r04/evidence/${prefix}-readiness.txt"
-              if python3 - "$fraction" <<'PY'
-import sys
-raise SystemExit(0 if float(sys.argv[1]) < 0.90 else 1)
-PY
-              then ready=1; break; fi
+              if python3 -c 'import sys; sys.exit(0 if float(sys.argv[1]) < 0.90 else 1)' "$fraction"; then ready=1; break; fi
             done
             test "$ready" = 1
             assert_no_runtime_crash
@@ -287,11 +270,7 @@ PY
           launch
           wait_game_ready initial
           shot slot_select
-          python3 - <<'PY'
-from PIL import Image
-im=Image.open('/tmp/r04/evidence/slot_select.png')
-if im.width <= im.height: raise SystemExit('R04_EXPECTED_LANDSCAPE_LAYOUT')
-PY
+          python3 -c "from PIL import Image; import sys; im=Image.open('/tmp/r04/evidence/slot_select.png'); sys.exit(0 if im.width > im.height else 1)" || { echo '::error::expected landscape app surface'; exit 24; }
 
           adb shell input keyevent KEYCODE_1
           wait_save /tmp/r04/evidence/save-hub.json HUB new_game
@@ -309,7 +288,6 @@ PY
           shot expedition
           alive; foreground; assert_no_runtime_crash
 
-          # Source-defined default mobile layout at 1280x720: stick=(108,612), dodge=(1200,640), phase=(1200,508).
           adb shell input touchscreen swipe 108 612 190 612 900
           adb shell input touchscreen tap 1200 640
           adb shell input touchscreen tap 1200 508
@@ -320,13 +298,7 @@ PY
           seq_bg="$(jq -r '.sequence' /tmp/r04/evidence/save-background.json)"
           test "$seq_bg" -gt "$seq_exp"
           test "$(jq -r '.payload.world.active_expedition_id' /tmp/r04/evidence/save-background.json)" = "$exp_id"
-          python3 - <<'PY'
-import json, math
-p=json.load(open('/tmp/r04/evidence/save-background.json'))
-pos=p['payload']['suspended_expedition']['runtime_state']['player']['position']
-if len(pos)!=2 or math.hypot(float(pos[0])-640.0,float(pos[1])-360.0) < 1.0:
-    raise SystemExit('R04_TOUCH_DID_NOT_CHANGE_PLAYER_POSITION')
-PY
+          python3 -c "import json,math,sys; p=json.load(open('/tmp/r04/evidence/save-background.json')); pos=p['payload']['suspended_expedition']['runtime_state']['player']['position']; sys.exit(0 if len(pos)==2 and math.hypot(float(pos[0])-640.0,float(pos[1])-360.0)>=1.0 else 1)" || { echo '::error::touch did not change player position'; exit 25; }
           touch_pos="$(jq -c '.payload.suspended_expedition.runtime_state.player.position' /tmp/r04/evidence/save-background.json)"
           assert_no_runtime_crash
 

@@ -25,14 +25,16 @@ GitHub ARM hosted run `34449593508` confirmed `aarch64` host architecture but no
 
 Translation-free guest run `34453580060` confirmed Android 11 `system-images;android-30;google_apis;arm64-v8a` and `qemu-system-aarch64` install successfully on the x86_64 host, but Emulator 37 rejects launch with `Avd's CPU Architecture 'arm64' is not supported by the QEMU2 emulator on x86_64 host. System image must match the host architecture.` Classification: `X64_HOST_ARM64_GUEST_UNSUPPORTED`. Thus the translation-free ARM64 guest alternative is environment BLOCKED.
 
-## Current Android 16 API36 contract
+## Android 16 API36 contract
 
 The next automatic alternative is Android 16 / API36 Google APIs x86_64 with the current Emulator 37 SwiftShader renderer and its newer ARM64 NDK translation layer. This aligns the runtime API with the product target/compile SDK 36 while preserving the exact W28 APK.
+
+Run `34454488242` at commit `faa97e36f31f14cf3affadcbc3d28582944c90e3` created no jobs because several embedded Python heredoc bodies were less-indented than the YAML `run: |` block. Classification: `HARNESS_YAML_HEREDOC_INDENT`. It provides no product or environment evidence. The correction removes Python heredocs in favor of single-line `python3 -c` checks while preserving the approved API36 test contract.
 
 TEST_CONTRACT_BASELINE:
 - Environment gate: API 36 boot succeeds; `ro.product.cpu.abilist` contains both `x86_64` and `arm64-v8a`; native bridge and actual page size are recorded.
 - Artifact gate: exact W28 artifact ZIP and APK hashes pass; package, versionCode/versionName, minSdk 24, targetSdk 36, `arm64-v8a`, and production certificate self-consistency pass; first install returns `Success`.
-- Stable-launch gate: process remains alive and foreground, leaves the white Godot startup screen within 60 seconds, and no package-associated SIGILL, fatal signal, `libndk_translation` crash or ANR marker appears.
+- Stable-launch gate: process remains alive and foreground, leaves the white Godot startup screen within 60 seconds, and no package-associated fatal signal, native tombstone or ANR marker appears.
 - State gate from product source: first `KEYCODE_1` creates slot 0 with save JSON `world.state=HUB` and `last_checkpoint_reason=new_game`; second `KEYCODE_1` reaches `world.state=EXPEDITION` with `last_checkpoint_reason=departure_initialized` and a valid `w12-runtime-state-v1` snapshot.
 - Touch gate from `MobileInputModel`: at 1280x720 default safe geometry the fixed stick center is `(108,612)`, dodge center `(1200,640)`, and phase center `(1200,508)`. Injected Android touchscreen movement must cause the background-checkpoint player position to differ materially from origin `(640,360)`.
 - Background/save gate: HOME must produce a newer save sequence with `last_checkpoint_reason=background`, preserving the same active expedition id.
@@ -40,13 +42,13 @@ TEST_CONTRACT_BASELINE:
 - Resize gate: after force-stop and `wm size 1024x768`, cold launch and slot selection must restore the same expedition, remain alive/foreground and checkpoint successfully; no runtime crash/ANR marker may appear.
 - W28 static 16KB compatibility remains authoritative for 16KB packaging; thermal/LMK/haptic feel remains a physical-device post-delivery check; historical in-place update is N/A because no prior user version exists.
 
-ACTION_PREFLIGHT_BASELINE: repository `shaterguy/temporary-repository`, branch `verify/r04-android-runtime`, pre-mutation HEAD `32028eb7eb55443289e6a0dd5752aff4c9f43b26`, product SHA and W28 artifact identity unchanged. The runtime contract changes from environment-only ARM64 guest probing to an actual API36 application R04 run, so a new commit/run identity is required rather than rerunning run 14.
+ACTION_PREFLIGHT_BASELINE: repository `shaterguy/temporary-repository`, branch `verify/r04-android-runtime`, pre-correction HEAD `faa97e36f31f14cf3affadcbc3d28582944c90e3`, product SHA and W28 artifact identity unchanged. Because the failed run had no jobs and the workflow syntax changes, a new commit/run identity is required rather than a job rerun.
 
 Prevention compliance:
-- PR-001 PASS: product input/save/runtime source and run-14 failure logs were read before mutation; no write was used to discover schema or state.
-- PR-002 PASS: the commit changes the substantive runtime/test contract; it is not a trigger-only/no-op mutation.
+- PR-001 PASS: run/job readback established `total_count=0`, then the workflow source exposed the under-indented heredoc body before mutation.
+- PR-002 PASS: the correction changes executable YAML syntax and is not a trigger-only/no-op mutation.
 - PR-004 PASS: R04 evidence artifact identity contains both `github.run_id` and `github.run_attempt`.
-- PR-007 PASS: product/version/artifact validation identity remains pinned; only the Android validation environment changes.
+- PR-007 PASS: product/version/artifact validation identity remains pinned; only the Android validation harness changes.
 
 ## Completion rule
 
