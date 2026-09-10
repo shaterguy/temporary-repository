@@ -97,8 +97,8 @@ func resolve_event(event: Dictionary, context: Dictionary) -> Array[Dictionary]:
     elif transform_id == "snare_resonance" and transform_active:
         damage_multiplier *= 1.20
     elif transform_id == "ark_resonance" and transform_active:
-        damage_multiplier *= 1.20
-    if transform_active and (transform_id == "circuit_split" or transform_id == "ricochet_once"):
+        damage_multiplier *= 1.35
+    if transform_active and (transform_id == "circuit_split" or transform_id == "ricochet_once" or transform_id == "phase_afterglow"):
         max_targets += 1
     var relic_effects: Dictionary = RelicCatalogScript.effect_summary(equipped_relic_ids, recipe, context, max_targets)
     if not bool(relic_effects.get("valid", false)):

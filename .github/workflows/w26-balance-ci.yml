@@ -1,0 +1,116 @@
+name: w26-balance-ci
+
+on:
+  push:
+    branches:
+      - 'v*-dev*'
+      - 'v*-rc*'
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: w26-balance-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  w26-balance-longrun:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      GODOT_VERSION: "4.7.2-stable"
+      GODOT_ARCHIVE_SHA256: "cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4"
+      GODOT_ARCHIVE_URL: "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip"
+      GODOT_BIN: "/tmp/godot/Godot_v4.7.2-stable_linux.x86_64"
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: W26 static contract preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(jq -r '.engine.version' toolchain.lock)" = "$GODOT_VERSION"
+          test "$(jq -r '.engine.linux_x86_64_sha256' toolchain.lock)" = "$GODOT_ARCHIVE_SHA256"
+          test "$(jq -r '.identity.version_name' toolchain.lock)" = "1.0.0-dev1"
+          test "$(jq -r '.identity.version_code' toolchain.lock)" = "1"
+          test "$(jq -r '.identity.prod_application_id' toolchain.lock)" = "com.shaterguy.lanternfall"
+          test "$(jq -r '.identity.dev_application_id' toolchain.lock)" = "com.shaterguy.lanternfall.dev"
+          grep -Fq 'const SCHEMA: String = "lanternfall-world-v2"' game/world/world_campaign_model.gd
+          grep -Fq 'const PAYLOAD_SCHEMA: String = "lanternfall-save-payload-v1"' game/world/world_campaign_model.gd
+          grep -Fq 'const SCHEMA: String = "lanternfall-endgame-v1"' game/world/endgame_progression_model.gd
+          grep -Fq 'const W26_MAX_SALVAGE_RESERVE: int = 160' game/world/campaign_runtime_w22.gd
+          grep -Fq 'const W26_ENDGAME_RECON_COST: int = 20' game/world/campaign_runtime_w22.gd
+          grep -Fq 'func prepare_endgame_recon() -> Dictionary:' game/world/campaign_runtime_w22.gd
+          grep -Fq 'elif transform_id == "ark_resonance" and transform_active:' game/combat/causal_weapon_model.gd
+          grep -Fq 'transform_id == "phase_afterglow"' game/combat/causal_weapon_model.gd
+          grep -Fq 'KEY_X' game/ui/main_shell_w22.gd
+          test -f tests/integration/w26_balance_longrun_smoke.gd
+          test -f docs/verification/W26_BALANCE_LONGRUN.md
+          test -z "$(find . -type f \( -name '*.jks' -o -name '*.keystore' -o -name '*.p12' -o -name '*.pem' -o -name '*.key' \) -print -quit)"
+
+      - name: Download pinned Godot editor
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/godot
+          curl --fail --location --proto '=https' --tlsv1.2 "$GODOT_ARCHIVE_URL" --output /tmp/godot.zip
+          echo "$GODOT_ARCHIVE_SHA256  /tmp/godot.zip" | sha256sum --check --strict
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x "$GODOT_BIN"
+          "$GODOT_BIN" --version
+
+      - name: Import W26 candidate headlessly
+        shell: bash
+        run: |
+          set -euo pipefail
+          import_log="$(mktemp)"
+          set +e
+          "$GODOT_BIN" --headless --path . --import 2>&1 | tee "$import_log"
+          godot_status=${PIPESTATUS[0]}
+          set -e
+          test "$godot_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$import_log"; then
+            echo "::error::W26 import reported script compilation errors"
+            exit 1
+          fi
+
+      - name: Run W26 balance and long-run smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          w26_log="$(mktemp)"
+          set +e
+          timeout --signal=TERM --kill-after=2s 35s "$GODOT_BIN" --headless --path . --script tests/integration/w26_balance_longrun_smoke.gd 2>&1 | tee "$w26_log"
+          godot_status=${PIPESTATUS[0]}
+          set -e
+          if [ "$godot_status" -eq 124 ] || [ "$godot_status" -eq 137 ]; then
+            echo "::error::W26 balance smoke exceeded the 35s process budget"
+            exit 1
+          fi
+          test "$godot_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$w26_log"; then
+            echo "::error::W26 balance smoke reported script/runtime errors"
+            exit 1
+          fi
+          if grep -Eq 'ObjectDB instances leaked|Resources still in use' "$w26_log"; then
+            echo "::error::W26 balance smoke leaked runtime objects/resources"
+            exit 1
+          fi
+          if grep -Eq '^W26_FAIL:|^W26_BALANCE_LONGRUN=FAIL' "$w26_log"; then
+            echo "::error::W26 balance/long-run contract failed"
+            exit 1
+          fi
+          grep -Fxq 'W26_RETAINED_CONTRACTS=PASS' "$w26_log"
+          grep -Fxq 'W26_LONGRUN_VARIANTS=PASS' "$w26_log"
+          grep -Fxq 'W26_WEAPON_BALANCE=PASS' "$w26_log"
+          grep -Fxq 'W26_ECONOMY=PASS' "$w26_log"
+          grep -Fxq 'W26_RECON_SAVE=PASS' "$w26_log"
+          grep -Fxq 'W26_SAME_SEED_RETRY=PASS' "$w26_log"
+          grep -Fxq 'W26_HUMAN_FUN=PENDING' "$w26_log"
+          grep -Fxq 'W26_BALANCE_LONGRUN=PASS' "$w26_log"
+          action_ms="$(sed -n 's/^W26_BALANCE_ACTION_MS=//p' "$w26_log" | tail -n 1)"
+          test -n "$action_ms"
+          test "$action_ms" -le 5000

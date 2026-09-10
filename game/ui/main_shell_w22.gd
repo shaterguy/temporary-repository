@@ -2,20 +2,39 @@ extends "res://game/ui/main_shell_w18.gd"
 
 const W22CampaignRuntimeScript = preload("res://game/world/campaign_runtime_w22.gd")
 
-
 func _init() -> void:
     campaign = W22CampaignRuntimeScript.new()
-
 
 func _unhandled_input(event: InputEvent) -> void:
     if event is InputEventKey:
         var key_event := event as InputEventKey
+        if shell_mode == MODE_HUB and key_event.pressed and not key_event.echo and key_event.keycode == KEY_X:
+            prepare_endgame_recon()
+            get_viewport().set_input_as_handled()
+            return
         if shell_mode == MODE_HUB and key_event.pressed and not key_event.echo and key_event.keycode == KEY_Y:
             retry_last_endgame_seed()
             get_viewport().set_input_as_handled()
             return
     super._unhandled_input(event)
 
+func prepare_endgame_recon() -> bool:
+    if shell_mode != MODE_HUB or campaign == null or not campaign.has_method("prepare_endgame_recon"):
+        return false
+    var summary := endgame_progression_snapshot()
+    if bool(summary.get("retry_available", false)):
+        status_label.text = "W26 정찰 준비 불가: 동일 시드 재도전 여부를 먼저 결정"
+        return false
+    var result: Dictionary = campaign.call("prepare_endgame_recon")
+    if not bool(result.get("ok", false)):
+        status_label.text = "W26 정찰 준비 불가: %s" % str(result.get("status", "UNKNOWN"))
+        return false
+    _show_hub_prompt()
+    if bool(result.get("applied", false)):
+        status_label.text += " · W26 정찰 준비 · 보급자원 -%d" % int(result.get("cost", 0))
+    else:
+        status_label.text += " · W26 정찰 이미 준비됨"
+    return true
 
 func retry_last_endgame_seed() -> bool:
     if shell_mode != MODE_HUB or campaign == null or not campaign.has_method("begin_endgame_retry"):
@@ -24,7 +43,6 @@ func retry_last_endgame_seed() -> bool:
     if not bool(begin_result.get("ok", false)):
         status_label.text = "W22 동일 시드 재도전 불가: %s" % str(begin_result.get("status", "UNKNOWN"))
         return false
-
     shell_mode = MODE_EXPEDITION
     var context: Dictionary = campaign.world.expedition_context()
     if not _prepare_expedition(context):
@@ -41,7 +59,6 @@ func retry_last_endgame_seed() -> bool:
         _show_expedition_status("동일 시드 재도전")
     return true
 
-
 func _expedition_seed() -> int:
     if campaign != null and campaign.world != null:
         var context: Dictionary = campaign.world.expedition_context()
@@ -49,7 +66,6 @@ func _expedition_seed() -> int:
         if run_seed > 0:
             return run_seed
     return super._expedition_seed()
-
 
 func _observation_summary() -> Dictionary:
     var summary: Dictionary = super._observation_summary()
@@ -67,7 +83,6 @@ func _observation_summary() -> Dictionary:
         summary["circuit_activation_count"] = 0
     return summary
 
-
 func _show_hub_prompt() -> void:
     super._show_hub_prompt()
     if campaign == null or campaign.world == null:
@@ -79,15 +94,23 @@ func _show_hub_prompt() -> void:
     var summary := endgame_progression_snapshot()
     if summary.is_empty():
         return
-    var retry_text := " · Y:동일시드 재도전" if bool(summary.get("retry_available", false)) else ""
-    status_label.text += " · W22 숙련 %d(%s) · 과제 %d/%d%s" % [
+    var retry_available := bool(summary.get("retry_available", false))
+    var retry_text := " · Y:동일시드 재도전" if retry_available else ""
+    var recon_text := ""
+    var recon: Variant = summary.get("recon", {})
+    if recon is Dictionary and not recon.is_empty():
+        if bool(recon.get("prepared", false)):
+            recon_text = " · X:정찰준비됨"
+        elif bool(recon.get("available", false)) and not retry_available:
+            recon_text = " · X:정찰재배치(%d)" % int(recon.get("cost", 20))
+    status_label.text += " · W22 숙련 %d(%s) · 과제 %d/%d%s%s" % [
         int(summary.get("mastery_marks", 0)),
         str(summary.get("mastery_rank", "wayfinder")),
         (summary.get("completed_challenges", []) as Array).size(),
         6,
         retry_text,
+        recon_text,
     ]
-
 
 func _show_expedition_status(prefix: String) -> void:
     super._show_expedition_status(prefix)
@@ -96,13 +119,14 @@ func _show_expedition_status(prefix: String) -> void:
     var context: Dictionary = campaign.world.expedition_context()
     if not context.has("run_seed"):
         return
-    status_label.text += " · W22 %s · 시드 %d · 과제 %s · 재도전%d" % [
+    var recon_text := " · 정찰재배치" if str(campaign.world.active_expedition_modifier.get("endgame_recon_id", "")) == "variant_recon" else ""
+    status_label.text += " · W22 %s · 시드 %d · 과제 %s · 재도전%d%s" % [
         str(context.get("variant_label", context.get("variant_id", "variant"))),
         int(context.get("run_seed", 0)),
         str(context.get("challenge_id", "none")),
         int(context.get("retry_count", 0)),
+        recon_text,
     ]
-
 
 func endgame_progression_snapshot() -> Dictionary:
     if campaign == null or not campaign.has_method("endgame_snapshot"):
