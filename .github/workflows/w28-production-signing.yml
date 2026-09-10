@@ -1,7 +1,9 @@
 name: w28-production-signing
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - 'sign/w28-production'
 
 permissions:
   contents: read
@@ -12,7 +14,7 @@ concurrency:
 
 jobs:
   production-apk:
-    if: github.ref == 'refs/heads/v1.0.0-dev1'
+    if: github.ref == 'refs/heads/sign/w28-production'
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     env:
@@ -31,11 +33,22 @@ jobs:
       - name: Checkout exact candidate
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Require signing branch to equal current verified dev head
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/sign/w28-production"
+          git fetch --no-tags --depth=1 origin refs/heads/v1.0.0-dev1:refs/remotes/origin/v1.0.0-dev1
+          candidate_sha="$(git rev-parse HEAD)"
+          dev_sha="$(git rev-parse refs/remotes/origin/v1.0.0-dev1)"
+          test "$candidate_sha" = "$dev_sha"
+          echo "W28_SIGNING_CANDIDATE_SHA=$candidate_sha"
+          echo "W28_SIGNING_CANDIDATE_SYNC=PASS"
+
       - name: Static release contract preflight
         shell: bash
         run: |
           set -euo pipefail
-          test "$GITHUB_REF" = "refs/heads/v1.0.0-dev1"
           python3 tests/ci/check_w28_release_contract.py
           test "$(jq -r '.engine.version' toolchain.lock)" = "$GODOT_VERSION"
           test "$(jq -r '.engine.linux_x86_64_sha256' toolchain.lock)" = "$GODOT_ARCHIVE_SHA256"
