@@ -42,9 +42,11 @@ API36 run `34455506910` established a newer viable translated runtime: Android 1
 
 The rebuilt production APK above includes the product touch repair and was signed by the same durable production certificate as the earlier production artifact.
 
+R04 run `34458136289` on the rebuilt artifact stopped before Android provisioning. The artifact ZIP and APK SHA-256 both matched, but the verification harness compared the certificate metadata with case-sensitive text. The W28 metadata stores the same certificate SHA-256 in uppercase while R04 pins the normalized value in lowercase. Direct artifact readback confirmed all certificate bytes/digits match. Classification: `HARNESS_CERTIFICATE_CASE_NORMALIZATION`. The correction normalizes the metadata fingerprint before comparison; no product, signer, artifact or expected certificate identity changes.
+
 ## Current TEST_CONTRACT_PREFLIGHT
 
-Status: `PASS` before Actions execution.
+Status: `PASS` before the corrected Actions execution.
 
 The test is bound to the exact product SHA, W28 artifact/archive/APK hashes, package/version, certificate lineage, API36 Google APIs x86_64 image and the production source contracts for save/checkpoint/touch behavior.
 
@@ -52,7 +54,7 @@ A valid R04 PASS requires all of the following in the same run:
 
 - the verification branch differs from the product SHA only by the R04 workflow and this document;
 - the exact W28 artifact archive and APK hashes are rechecked before installation;
-- metadata certificate SHA-256 equals the pinned production certificate lineage;
+- metadata certificate SHA-256 is case-normalized and equals the pinned production certificate lineage;
 - API36 boots on x86_64, exposes both x86_64 and arm64-v8a ABI capability, and records the native bridge;
 - the emulator uses current `-gpu software` selection rather than the already-failed `swiftshader` configuration;
 - game readiness requires a visible, nonblank rendered frame with sufficient color/variance, not merely a low white-pixel fraction;
@@ -78,14 +80,14 @@ Status: `PASS` before mutation/execution.
 - signing branch/source: `sign/w28-production` / same SHA
 - W28 production run: `34457263441`
 - R04 mutation boundary: only `.github/workflows/r04-android-runtime.yml` and `docs/verification/R04_ANDROID_RUNTIME.md`
-- workflow contract changes materially from the prior R04 run, so this must be a new push-triggered run rather than a rerun of an old run;
+- workflow contract changes from run `34458136289` only in certificate metadata normalization, so a new run is required rather than rerunning the old workflow identity;
 - product code, package/version, signer, save schemas and production APK are immutable during R04;
 - R04 evidence artifact identity contains both `github.run_id` and `github.run_attempt`.
 
 Prevention compliance:
 
-- PR-001 PASS: source, prior run logs/artifacts, new W28 artifact identity and current branch state were read before the R04 mutation; the new run is required by the changed product/runtime contract rather than being a capability probe.
-- PR-002 PASS: the verification commit changes the actual R04 runtime contract and is not a no-op/trigger-only commit.
+- PR-001 PASS: run logs and the immutable W28 artifact metadata were read directly before correcting the comparison; no mutation probe was used.
+- PR-002 PASS: the verification commit changes the actual certificate verification behavior and is not a no-op/trigger-only commit.
 - PR-004 PASS: R04 evidence artifacts are attempt-specific and consumers are bound to the exact new W28 artifact ID/hash.
 - PR-007 PASS: API target, Build Tools, product identity and runtime selector are aligned to authoritative `toolchain.lock`; the already-failed renderer path is not silently reused.
 

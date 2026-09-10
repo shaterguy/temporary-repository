@@ -84,7 +84,8 @@ jobs:
           grep -Fxq "version_code=$VERSION_CODE" "$META"
           grep -Fxq "package=$PACKAGE" "$META"
           grep -Fxq "apk_sha256=$APK_SHA256" "$META"
-          grep -Fxq "certificate_sha256=$CERT_SHA256" "$META"
+          meta_cert="$(sed -n 's/^certificate_sha256=//p' "$META" | head -1 | tr -d ': ' | tr '[:upper:]' '[:lower:]')"
+          test "$meta_cert" = "$CERT_SHA256"
           grep -Fxq 'native_16kb_compatible=true' "$META"
           printf '%s\n' "$APK" >/tmp/r04/apk-path
           printf '%s\n' "$META" >/tmp/r04/meta-path
