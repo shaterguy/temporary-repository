@@ -163,7 +163,6 @@ jobs:
           grep -Eq "versionCode=$VERSION_CODE([^0-9]|$)" /tmp/r04/evidence/package.txt
           grep -Fq "versionName=$VERSION_NAME" /tmp/r04/evidence/package.txt
           grep -Eq 'targetSdk=36([^0-9]|$)' /tmp/r04/evidence/package.txt
-
           adb logcat -c
           adb logcat -v threadtime > /tmp/r04/evidence/logcat-live.txt 2>&1 &
           echo $! >/tmp/r04/evidence/logcat.pid
@@ -171,7 +170,7 @@ jobs:
           no_anr() {
             timeout 8s adb shell uiautomator dump /sdcard/r04-window.xml >/dev/null 2>&1 || true
             adb shell cat /sdcard/r04-window.xml 2>/dev/null | tr -d '\r' > /tmp/r04/evidence/window-last.xml || true
-            if grep -Eqi "responding|close app|wait" /tmp/r04/evidence/window-last.xml; then
+            if grep -Eqi 'is not responding|close app|wait' /tmp/r04/evidence/window-last.xml; then
               echo '::error::Android ANR/system wait dialog detected'
               return 1
             fi
@@ -186,13 +185,7 @@ jobs:
             sha256sum "/tmp/r04/evidence/$1.png" >"/tmp/r04/evidence/$1.sha256"
           }
           white_fraction() {
-            python3 - "$1" <<'PY'
-from PIL import Image
-import sys
-im=Image.open(sys.argv[1]).convert('RGB')
-px=list(im.getdata()); n=len(px)
-print(sum(1 for r,g,b in px if r>245 and g>245 and b>245)/n)
-PY
+            python3 -c 'from PIL import Image; import sys; im=Image.open(sys.argv[1]).convert("RGB"); px=list(im.getdata()); print(sum(1 for r,g,b in px if r>245 and g>245 and b>245)/len(px))' "$1"
           }
           launch() {
             adb shell monkey -p "$PACKAGE" -c android.intent.category.LAUNCHER 1 | tee /tmp/r04/evidence/monkey-last.txt
@@ -208,30 +201,21 @@ PY
             shot startup_probe
             wf="$(white_fraction /tmp/r04/evidence/startup_probe.png)"
             printf 'startup_probe_%02d_white_fraction=%s\n' "$i" "$wf" | tee -a /tmp/r04/evidence/readiness.txt
-            if python3 - "$wf" <<'PY'
-import sys
-raise SystemExit(0 if float(sys.argv[1]) < 0.75 else 1)
-PY
-            then ready=1; break; fi
+            if python3 -c 'import sys; raise SystemExit(0 if float(sys.argv[1]) < 0.75 else 1)' "$wf"; then ready=1; break; fi
           done
           if test "$ready" != 1; then
-            echo '::error::game did not leave the Godot splash/readiness threshold'; exit 42
+            echo '::error::game did not leave the Godot splash/readiness threshold'
+            exit 42
           fi
           foreground
           shot slot_select
           slot="$(cut -d' ' -f1 /tmp/r04/evidence/slot_select.sha256)"
-
           adb shell input keyevent KEYCODE_1; sleep 4; no_anr; foreground; shot hub
           hub="$(cut -d' ' -f1 /tmp/r04/evidence/hub.sha256)"; test "$hub" != "$slot"
           adb shell input keyevent KEYCODE_1; sleep 7; no_anr; foreground; shot expedition
           expedition="$(cut -d' ' -f1 /tmp/r04/evidence/expedition.sha256)"; test "$expedition" != "$hub"
 
-          python3 - <<'PY' >/tmp/r04/evidence/touch-coordinates.txt
-from PIL import Image
-im=Image.open('/tmp/r04/evidence/expedition.png')
-w,h=im.size; s=min(w/1280.0,h/720.0); ox=(w-1280*s)/2; oy=(h-720*s)/2
-for x,y in [(108,612),(190,612),(1200,640),(1200,508)]: print(round(ox+x*s), round(oy+y*s))
-PY
+          python3 -c 'from PIL import Image; im=Image.open("/tmp/r04/evidence/expedition.png"); w,h=im.size; s=min(w/1280.0,h/720.0); ox=(w-1280*s)/2; oy=(h-720*s)/2; pts=[(108,612),(190,612),(1200,640),(1200,508)]; [print(round(ox+x*s),round(oy+y*s)) for x,y in pts]' > /tmp/r04/evidence/touch-coordinates.txt
           mapfile -t c </tmp/r04/evidence/touch-coordinates.txt
           read -r sx sy <<<"${c[0]}"; read -r ex ey <<<"${c[1]}"; read -r dx dy <<<"${c[2]}"; read -r px py <<<"${c[3]}"
           adb shell input swipe "$sx" "$sy" "$ex" "$ey" 800
@@ -247,7 +231,6 @@ PY
           test -z "$(adb shell pidof "$PACKAGE" | tr -d '\r' || true)"
           launch; sleep 4; no_anr; adb shell input keyevent KEYCODE_1; sleep 7; no_anr; foreground; shot recovered_expedition
           recovered="$(cut -d' ' -f1 /tmp/r04/evidence/recovered_expedition.sha256)"; test "$recovered" != "$slot"; test "$recovered" != "$hub"
-
           adb shell wm size 1024x768; sleep 2; adb shell am force-stop "$PACKAGE"; launch; sleep 4; no_anr
           adb shell input keyevent KEYCODE_1; sleep 6; no_anr; foreground; shot resized_reentry
           adb shell wm size reset || true
@@ -255,36 +238,35 @@ PY
           adb logcat -d > /tmp/r04/evidence/logcat-final.txt
           if grep -A6 -B2 -F 'FATAL EXCEPTION' /tmp/r04/evidence/logcat-final.txt | grep -F "Process: $PACKAGE" >/dev/null; then exit 31; fi
 
-          cat >/tmp/r04/evidence/r04-result.txt <<EOF
-TEST_CONTRACT_PREFLIGHT=VALID
-ACTION_PREFLIGHT=VALID
-R04_PRODUCT_SOURCE_SHA=$PRODUCT_SHA
-R04_ARTIFACT_ID=$ARTIFACT_ID
-R04_APK_SHA256=$APK_SHA256
-R04_REBUILD=NO
-R04_RUNTIME_API30=PASS
-R04_ARM64_TRANSLATION_ABI=PASS
-R04_RENDERER=SWIFTSHADER_CURRENT
-R04_FIRST_INSTALL=PASS
-R04_PACKAGE_IDENTITY=PASS
-R04_PRODUCTION_CERT_SELF_CONSISTENCY=PASS
-R04_GAME_READY=PASS
-R04_SLOT_TO_HUB=PASS
-R04_EXPEDITION_ENTRY=PASS
-R04_TOUCH_INJECTION=PASS
-R04_BACKGROUND_CHECKPOINT_PATH=EXERCISED
-R04_PROCESS_DEATH_METHOD=$death
-R04_PROCESS_RELAUNCH=PASS
-R04_SAVED_EXPEDITION_REENTRY=PASS
-R04_ANDROID_RESIZE_REENTRY=PASS
-R04_REMOTE_RUNTIME_PAGE_SIZE=4096
-R04_16KB_RUNTIME=NOT_EXERCISED_REUSE_W28_STATIC
-R04_PHYSICAL_DEVICE_THERMAL_LMK_HAPTICS=POST_DELIVERY_CHECK
-R04_HISTORICAL_IN_PLACE_UPDATE=NA_NO_PRIOR_USER_VERSION
-SECURITY_DELTA=NONE
-R04_ANDROID_RUNTIME=PASS
-EOF
-          cat /tmp/r04/evidence/r04-result.txt
+          {
+            echo TEST_CONTRACT_PREFLIGHT=VALID
+            echo ACTION_PREFLIGHT=VALID
+            echo R04_PRODUCT_SOURCE_SHA=$PRODUCT_SHA
+            echo R04_ARTIFACT_ID=$ARTIFACT_ID
+            echo R04_APK_SHA256=$APK_SHA256
+            echo R04_REBUILD=NO
+            echo R04_RUNTIME_API30=PASS
+            echo R04_ARM64_TRANSLATION_ABI=PASS
+            echo R04_RENDERER=SWIFTSHADER_CURRENT
+            echo R04_FIRST_INSTALL=PASS
+            echo R04_PACKAGE_IDENTITY=PASS
+            echo R04_PRODUCTION_CERT_SELF_CONSISTENCY=PASS
+            echo R04_GAME_READY=PASS
+            echo R04_SLOT_TO_HUB=PASS
+            echo R04_EXPEDITION_ENTRY=PASS
+            echo R04_TOUCH_INJECTION=PASS
+            echo R04_BACKGROUND_CHECKPOINT_PATH=EXERCISED
+            echo R04_PROCESS_DEATH_METHOD=$death
+            echo R04_PROCESS_RELAUNCH=PASS
+            echo R04_SAVED_EXPEDITION_REENTRY=PASS
+            echo R04_ANDROID_RESIZE_REENTRY=PASS
+            echo R04_REMOTE_RUNTIME_PAGE_SIZE=4096
+            echo R04_16KB_RUNTIME=NOT_EXERCISED_REUSE_W28_STATIC
+            echo R04_PHYSICAL_DEVICE_THERMAL_LMK_HAPTICS=POST_DELIVERY_CHECK
+            echo R04_HISTORICAL_IN_PLACE_UPDATE=NA_NO_PRIOR_USER_VERSION
+            echo SECURITY_DELTA=NONE
+            echo R04_ANDROID_RUNTIME=PASS
+          } | tee /tmp/r04/evidence/r04-result.txt
 
       - name: Upload R04 evidence
         if: always()
