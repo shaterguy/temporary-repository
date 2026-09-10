@@ -25,19 +25,21 @@ The app left the white Godot splash: readiness white fraction changed from `0.96
 
 GitHub `ubuntu-24.04-arm` was separately preflighted in run `34449593508`: host architecture was `aarch64`, but `/dev/kvm` was absent. Native ARM64 Android virtualization on that hosted runner is therefore unavailable.
 
-## Current fail-fast alternative
+## Translation-free ARM64 guest preflight
 
-The next run is environment capability preflight only. It does not rebuild or install the product APK and does not claim application behavior. It tests whether an x86_64 GitHub hosted runner can install an Android 11 Google APIs `arm64-v8a` system image and boot that ARM64 guest with emulator acceleration disabled, thereby avoiding `libndk_translation`.
+Run `34453215991` did not reach the intended environment capability test. The first failure was a harness ordering defect: the current hosted x64 runner did not have `$ANDROID_HOME/emulator/emulator` preinstalled, but the workflow invoked `emulator -version` before `sdkmanager` installed the `emulator` package. Classification: `HARNESS_EMULATOR_INSTALL_ORDER`; it provides no evidence for or against ARM64 guest support.
 
-TEST_CONTRACT_BASELINE: environment-only R04 capability test; expected PASS requires SDK package availability, AVD creation, an ADB-visible booted API 30 guest and `ro.product.cpu.abi=arm64-v8a`. Any package rejection, emulator architecture rejection, ADB timeout or boot timeout is a valid environment BLOCKED result, not an application FAIL.
+The corrected run preserves the same test contract and only changes provisioning order: first read the stable SDK package list, require `system-images;android-30;google_apis;arm64-v8a`, install `platform-tools`, `emulator`, and that ARM64 image, then invoke the emulator. If package availability and AVD creation succeed, it attempts an API 30 arm64-v8a guest with acceleration disabled so `libndk_translation` is not involved.
 
-ACTION_PREFLIGHT_BASELINE: repository `shaterguy/temporary-repository`, branch `verify/r04-android-runtime`, pre-mutation HEAD `aedfb261c965773b3a43591776755fcd234d49a3`, immutable product SHA and W28 artifact identity unchanged. Workflow contract changes, so a new push-triggered run is required rather than rerunning a previous run.
+TEST_CONTRACT_BASELINE: environment-only R04 capability test; expected PASS requires SDK package availability, AVD creation, an ADB-visible booted API 30 guest and `ro.product.cpu.abi=arm64-v8a`. Package absence, architecture rejection, ADB timeout or boot timeout is a valid environment BLOCKED result, not an application FAIL.
+
+ACTION_PREFLIGHT_BASELINE: repository `shaterguy/temporary-repository`, branch `verify/r04-android-runtime`, product SHA and W28 artifact identity unchanged. The harness provisioning sequence changed after the run-13 defect, so the affected new run uses a new commit/run identity rather than rerunning run 13.
 
 Prevention compliance:
-- PR-001 PASS: official Android documentation and existing run/tombstone evidence were read before creating this necessary environment run; no mutation is used merely to inspect tool schema or status.
-- PR-002 PASS: the commit changes the actual R04 validation contract; no no-op or trigger-only commit is created.
+- PR-001 PASS: read-only logs identified the first run-13 failure before mutation; the next mutation is only the minimal harness-order correction needed to execute the already-approved capability test.
+- PR-002 PASS: the commit changes actual provisioning behavior and is not a no-op/trigger-only commit.
 - PR-004 PASS: diagnostic artifact identity includes both `github.run_id` and `github.run_attempt`.
-- PR-007 PASS: product/version validation identity remains pinned and unchanged; this run changes only the runtime environment selector and cannot be mistaken for a release/version profile.
+- PR-007 PASS: product/version validation identity remains pinned; only the R04 environment selector/provisioning changes.
 
 ## Completion rule
 

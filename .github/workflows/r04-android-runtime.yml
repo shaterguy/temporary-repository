@@ -55,12 +55,16 @@ jobs:
           SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           AVDMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager"
           EMULATOR="$ANDROID_HOME/emulator/emulator"
-          "$EMULATOR" -version | tee /tmp/r04-arm64-preflight/emulator-version.txt
+          test -x "$SDKMANAGER"
+          test -x "$AVDMANAGER"
           "$SDKMANAGER" --list --channel=0 > /tmp/r04-arm64-preflight/sdk-list.txt
           grep -F "$ARM_IMAGE" /tmp/r04-arm64-preflight/sdk-list.txt | tee /tmp/r04-arm64-preflight/arm-image-match.txt
           yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
           "$SDKMANAGER" platform-tools emulator "$ARM_IMAGE" >/tmp/r04-arm64-preflight/sdk-install.txt
+          test -x "$EMULATOR"
+          "$EMULATOR" -version | tee /tmp/r04-arm64-preflight/emulator-version.txt
           export PATH="$ANDROID_HOME/platform-tools:$PATH"
+          adb version | tee /tmp/r04-arm64-preflight/adb-version.txt
           echo no | "$AVDMANAGER" create avd --force --name r04_arm64_api30 --package "$ARM_IMAGE" --device pixel_2 | tee /tmp/r04-arm64-preflight/avd-create.txt
           if test -d "$HOME/.config/.android/avd/r04_arm64_api30.avd"; then
             export ANDROID_AVD_HOME="$HOME/.config/.android/avd"
