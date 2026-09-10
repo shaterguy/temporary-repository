@@ -101,6 +101,30 @@ Prevention compliance:
 
 Immediately before target fast-forward, the target branch head and W28 artifact identity are read back once more. Any drift invalidates this preflight and blocks the target mutation rather than silently executing against a changed baseline.
 
+## Run 34462664481 result and reentry-harness correction
+
+Run `34462664481` completed with `failure` at `Verify production APK touch lifecycle and persistence`, but the SwANGLE renderer decision itself is now validated. The run reused the exact W28 artifact and APK, prepared API36 translation, installed the production-signed APK, rendered a visible nonblank frame and completed real touchscreen `SLOT_SELECT -> HUB -> EXPEDITION` transitions. It also advanced through movement, background checkpointing and the first process-relaunch path without native-crash/ANR evidence.
+
+The failure occurred only after the 1024x768 relaunch. The old `touch_resume_slot()` sprayed fixed coordinates and never proved that a slot-selection touch actually changed runtime state. Its subsequent `wait_save ... EXPEDITION background` predicate could immediately accept the previous background save, after which the separate monotonic-sequence assertion failed. The elapsed log timing is consistent with that stale-save path rather than the 20-second save wait. Classification: `HARNESS_RESIZED_REENTRY_STALE_SAVE_COORDINATE_PROOF_GAP`. No product-code mutation is justified by this result.
+
+The corrected harness keeps all product/render/package/signing assertions unchanged and strengthens only reentry proof:
+
+- read the current Android override/physical display size at runtime;
+- try only first-slot coordinates expressed as percentages of the current display, rather than a fixed 1280x720 coordinate assumption;
+- after each candidate touch, background the app and require a new `EXPEDITION/background` save with `sequence > previous_sequence`;
+- only then record the touch coordinate, return the app to foreground and continue lifecycle assertions;
+- apply the same fresh-checkpoint proof to both process-death reentry and 1024x768 reentry.
+
+This removes the stale-save false acceptance path and does not relax any acceptance criterion or introduce arbitrary sleep-only retries.
+
+## Turn-12 TEST_CONTRACT_PREFLIGHT and ACTION_PREFLIGHT
+
+`TEST_CONTRACT_PREFLIGHT_STATUS=PASS` remains valid for the strengthened harness. AC-14/NR-03/NR-04 mappings, immutable APK identity, API36 translated runtime, SwANGLE visible-frame checks, real Android touch input, persistence semantics and fatal/ANR/native-crash rejection are unchanged. Reentry now requires stronger evidence than run `34462664481` did.
+
+`ACTION_PREFLIGHT_STATUS=PASS` for the next execution identity subject to the final immediately-before-advance readback. The product branch and signing branch were re-read at `9d1743676e6c17fd573675d5065e346bef9546ea`; W28 artifact `10144017998` is unexpired through 2026-09-24 and still carries archive digest `sha256:63df625cba720ce3cdbc67edf3b71f74b1b0c872421a061e6cee5d5f069a70a5`; the target verification branch was re-read at `4c9facba2a391c1fe8ea9b70fbeb95182ebac12a`. The next execution is `NEW_RUN`, not a rerun of `34462664481`, because the workflow/harness identity changes.
+
+Prevention compliance remains `PASS`: PR-001 uses the completed run/log and remote state as read-only diagnosis before mutation; PR-002 uses a real harness correction rather than a no-op trigger; PR-004 retains run-id/run-attempt evidence naming; PR-007 leaves all product/toolchain version pins unchanged. `SECURITY_DELTA=NONE` because no product permission, network, data, dependency, package or signing boundary changes.
+
 ## Completion rule
 
 `R04_ANDROID_RUNTIME=PASS` may be emitted only after the immutable rebuilt production APK completes visible render, real touchscreen first-run navigation, expedition touch input, background checkpoint, process-death/relaunch persistence and resize/reentry without fatal/ANR/native-crash evidence.
