@@ -121,7 +121,7 @@ func _draw() -> void:
     draw_rect(outer, Color(0.91, 0.69, 0.36, 0.66 * alpha), false, 2.0)
     draw_texture_rect(texture, card, false, Color(1.0, 1.0, 1.0, alpha))
     draw_rect(card, Color(0.72, 0.84, 0.88, 0.38 * alpha), false, 1.0)
-    var font := ThemeDB.fallback_font
+    var font := get_theme_default_font()
     draw_string(
         font,
         card.position + Vector2(0.0, card.size.y + 24.0),

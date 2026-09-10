@@ -93,6 +93,9 @@ func _run() -> void:
         _expect(character_tutorial != null, "W23D main scene must mount character-role tutorial")
         _expect(foundation != null and not foundation.text.contains("구축"), "main shell must not expose development foundation copy")
         _expect(status != null and not status.text.contains("Foundation"), "main shell default status must be player-facing")
+        if shell is Control:
+            var ui_font: Font = (shell as Control).get_theme_default_font()
+            _expect(ui_font != null and ui_font.has_char("한".unicode_at(0)), "main shell theme font must provide Hangul glyphs")
         if event_hud != null:
             _expect(bool(event_hud.call("show_event", "ts_s01")), "W23D story HUD must accept canonical W23C event art")
             var snapshot: Dictionary = event_hud.call("event_snapshot")
@@ -129,6 +132,7 @@ func _finish() -> void:
         print("W23D_STORY_CARD_BOUNDS=PASS")
         print("W23D_TOUCH_CLEARANCE=PASS")
         print("W23D_LOCALIZATION=PASS")
+        print("W23D_KOREAN_GLYPHS=PASS")
         print("W23D_TUTORIAL_SCOPE=PASS")
         print("W23D_PRESENTATION_POLISH=PASS")
         quit(0)

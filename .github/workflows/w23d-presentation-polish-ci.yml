@@ -70,12 +70,24 @@ jobs:
           grep -Fq 'static func visible_for_mode(shell_mode: String)' game/ui/character_role_tutorial.gd
           grep -Fq 'static func prompt_for_step(step: String)' game/ui/first_expedition_tutorial.gd
           grep -Fq 'static func transition_profile()' game/presentation/w23_world_event_hud.gd
+          grep -Fq 'get_theme_default_font()' game/presentation/representative_hud.gd
+          grep -Fq 'get_theme_default_font()' game/presentation/w23_weapon_relic_hud.gd
+          grep -Fq 'get_theme_default_font()' game/presentation/w23_world_event_hud.gd
           grep -Fq 'W23D_READABILITY_MATRIX=1280x720,1920x1080,2340x1080,2640x1080' tests/integration/w23_presentation_polish_smoke.gd
           grep -Fq 'W23D_TOUCH_CLEARANCE=PASS' tests/integration/w23_presentation_polish_smoke.gd
           grep -Fq 'W23D_LOCALIZATION=PASS' tests/integration/w23_presentation_polish_smoke.gd
+          grep -Fq 'W23D_KOREAN_GLYPHS=PASS' tests/integration/w23_presentation_polish_smoke.gd
           grep -Fq 'W23D_TUTORIAL_SCOPE=PASS' tests/integration/w23_presentation_polish_smoke.gd
           grep -Fq 'W23D_CAPTURE=PASS' tests/visual/capture_w23_readability.gd
           test -z "$(find . -type f \( -name '*.jks' -o -name '*.keystore' -o -name '*.p12' -o -name '*.pem' -o -name '*.key' \) -print -quit)"
+
+      - name: Install Korean review font
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends fonts-noto-cjk
+          fc-match 'Noto Sans CJK KR' | grep -qi 'NotoSansCJK'
 
       - name: Download pinned Godot editor
         shell: bash
@@ -121,6 +133,7 @@ jobs:
           grep -Fxq 'W23D_STORY_CARD_BOUNDS=PASS' "$smoke_log"
           grep -Fxq 'W23D_TOUCH_CLEARANCE=PASS' "$smoke_log"
           grep -Fxq 'W23D_LOCALIZATION=PASS' "$smoke_log"
+          grep -Fxq 'W23D_KOREAN_GLYPHS=PASS' "$smoke_log"
           grep -Fxq 'W23D_TUTORIAL_SCOPE=PASS' "$smoke_log"
           grep -Fxq 'W23D_PRESENTATION_POLISH=PASS' "$smoke_log"
 

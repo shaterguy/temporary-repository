@@ -159,7 +159,7 @@ func _draw() -> void:
     if _weapon_texture != null:
         draw_texture_rect(_weapon_texture, weapon_rect, false, Color(1.0, 1.0, 1.0, 0.98))
 
-    var font := ThemeDB.fallback_font
+    var font := get_theme_default_font()
     var text_width := maxf(72.0, panel.size.x - 78.0)
     draw_string(
         font,

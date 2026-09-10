@@ -184,6 +184,6 @@ func _draw_panel(rect: Rect2, title: String, line: String, accent: Color, line_s
         draw_rect(rect, Color(0.04, 0.07, 0.11, 0.92), true)
         draw_rect(rect, Color(0.32, 0.39, 0.48, 0.95), false, 2.0)
     draw_rect(Rect2(rect.position + Vector2(12.0, 13.0), Vector2(5.0, rect.size.y - 26.0)), accent, true)
-    var font := ThemeDB.fallback_font
+    var font := get_theme_default_font()
     draw_string(font, rect.position + Vector2(28.0, 27.0), title, HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 42.0, 13, Color(0.75, 0.82, 0.90, 1.0))
     draw_string(font, rect.position + Vector2(28.0, rect.size.y - 20.0), line, HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 42.0, line_size, Color(0.96, 0.93, 0.86, 1.0))
