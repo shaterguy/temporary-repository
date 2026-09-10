@@ -8,6 +8,7 @@ on:
     paths:
       - 'game/ui/mobile_input_model.gd'
       - 'game/ui/mobile_input_overlay.gd'
+      - 'game/ui/pre_expedition_touch_controls.gd'
       - 'game/ui/main_shell.tscn'
       - 'game/core/save_store.gd'
       - 'platform/android/safe_area.gd'
@@ -20,6 +21,7 @@ on:
     paths:
       - 'game/ui/mobile_input_model.gd'
       - 'game/ui/mobile_input_overlay.gd'
+      - 'game/ui/pre_expedition_touch_controls.gd'
       - 'game/ui/main_shell.tscn'
       - 'game/core/save_store.gd'
       - 'platform/android/safe_area.gd'
@@ -60,13 +62,21 @@ jobs:
           test "$(jq -r '.identity.version_code' toolchain.lock)" = "1"
           test -f game/ui/mobile_input_model.gd
           test -f game/ui/mobile_input_overlay.gd
+          test -f game/ui/pre_expedition_touch_controls.gd
           test -f tests/unit/test_w25_mobile_input.gd
           test -f tests/unit/test_w25_save_recovery.gd
           test -f tests/integration/w25_mobile_hardening_smoke.gd
           test -f docs/verification/W25_ANDROID_HARDENING.md
           grep -Fq 'res://game/ui/main_shell_w24.gd' game/ui/main_shell.tscn
           grep -Fq 'res://game/ui/mobile_input_overlay.gd' game/ui/main_shell.tscn
+          grep -Fq 'res://game/ui/pre_expedition_touch_controls.gd' game/ui/main_shell.tscn
           grep -Fq 'W25MobileControls' game/ui/main_shell.tscn
+          grep -Fq 'TouchChoices' game/ui/main_shell.tscn
+          grep -Fq 'Choice1' game/ui/main_shell.tscn
+          grep -Fq 'Choice2' game/ui/main_shell.tscn
+          grep -Fq 'Choice3' game/ui/main_shell.tscn
+          grep -Fq 'select_save_slot' game/ui/pre_expedition_touch_controls.gd
+          grep -Fq 'select_world_choice' game/ui/pre_expedition_touch_controls.gd
           grep -Fq 'NOTIFICATION_APPLICATION_FOCUS_OUT' game/ui/mobile_input_overlay.gd
           grep -Fq 'NOTIFICATION_APPLICATION_PAUSED' game/ui/mobile_input_overlay.gd
           grep -Fq 'TEST_CONTRACT_PREFLIGHT=VALID' docs/verification/W25_ANDROID_HARDENING.md
@@ -112,6 +122,7 @@ jobs:
           if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$smoke_log"; then exit 1; fi
           if grep -Eq '^W25_FAIL:|^W25_ANDROID_HARDENING=FAIL' "$smoke_log"; then exit 1; fi
           grep -Fxq 'W25_LAYOUT_MATRIX=1280x720,1600x720,1760x720,1024x768' "$smoke_log"
+          grep -Fxq 'W25_PRE_EXPEDITION_TOUCH_NAV=PASS' "$smoke_log"
           grep -Fxq 'W25_MULTITOUCH=PASS' "$smoke_log"
           grep -Fxq 'W25_ACCESSIBILITY=PASS' "$smoke_log"
           grep -Fxq 'W25_LIFECYCLE_INPUT_RESET=PASS' "$smoke_log"

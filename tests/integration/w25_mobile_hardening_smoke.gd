@@ -4,6 +4,7 @@ const MobileInputUnit = preload("res://tests/unit/test_w25_mobile_input.gd")
 const SaveRecoveryUnit = preload("res://tests/unit/test_w25_save_recovery.gd")
 const W24_SHELL_SCRIPT_PATH: String = "res://game/ui/main_shell_w24.gd"
 const W25_OVERLAY_SCRIPT_PATH: String = "res://game/ui/mobile_input_overlay.gd"
+const PRE_EXPEDITION_TOUCH_SCRIPT_PATH: String = "res://game/ui/pre_expedition_touch_controls.gd"
 
 var _failures: Array[String] = []
 
@@ -22,10 +23,36 @@ func _run() -> void:
         _expect(overlay != null, "W25 mobile control overlay is not mounted")
         if overlay != null:
             _expect(str(overlay.get_script().resource_path) == W25_OVERLAY_SCRIPT_PATH, "W25 overlay script path drifted")
+        var touch_choices := shell.get_node_or_null("SafeArea/Content/TouchChoices")
+        var choice_1 := shell.get_node_or_null("SafeArea/Content/TouchChoices/Choice1")
+        var choice_2 := shell.get_node_or_null("SafeArea/Content/TouchChoices/Choice2")
+        var choice_3 := shell.get_node_or_null("SafeArea/Content/TouchChoices/Choice3")
+        _expect(touch_choices != null, "W25 pre-expedition touch choices are not mounted")
+        if touch_choices != null:
+            _expect(str(touch_choices.get_script().resource_path) == PRE_EXPEDITION_TOUCH_SCRIPT_PATH, "W25 pre-expedition touch script path drifted")
+        _expect(choice_1 is Button and choice_2 is Button and choice_3 is Button, "W25 pre-expedition touch buttons are incomplete")
+
         root.add_child(shell)
         await process_frame
-        shell.set("shell_mode", "EXPEDITION")
-        await process_frame
+        var campaign: Variant = shell.get("campaign")
+        if campaign != null:
+            campaign.set("save_root", "user://w25_touch_navigation_%d" % Time.get_ticks_usec())
+        _expect(str(shell.get("shell_mode")) == "SLOT_SELECT", "W25 shell did not begin in slot selection")
+        if touch_choices != null:
+            _expect(bool(touch_choices.visible), "W25 touch choices hidden during slot selection")
+        if choice_1 is Button and choice_2 is Button and choice_3 is Button:
+            _expect(bool(choice_1.visible) and bool(choice_2.visible) and bool(choice_3.visible), "W25 slot touch buttons are not all visible")
+            choice_1.emit_signal("pressed")
+            await process_frame
+            _expect(str(shell.get("shell_mode")) == "HUB", "W25 touch slot selection did not enter HUB")
+            _expect(bool(touch_choices.visible), "W25 touch choices hidden in HUB")
+            _expect(bool(choice_1.visible) and bool(choice_2.visible) and not bool(choice_3.visible), "W25 HUB touch choices did not reduce to two options")
+            choice_1.emit_signal("pressed")
+            await process_frame
+            await process_frame
+            _expect(str(shell.get("shell_mode")) == "EXPEDITION", "W25 touch world choice did not enter EXPEDITION")
+            _expect(not bool(touch_choices.visible), "W25 pre-expedition touch choices remained visible in expedition")
+
         overlay = shell.get_node_or_null("W25MobileControls")
         if overlay != null:
             var runtime: Dictionary = overlay.call("runtime_snapshot")
@@ -48,6 +75,7 @@ func _expect(condition: bool, message: String) -> void:
 func _finish() -> void:
     print("W25_LAYOUT_MATRIX=1280x720,1600x720,1760x720,1024x768")
     if _failures.is_empty():
+        print("W25_PRE_EXPEDITION_TOUCH_NAV=PASS")
         print("W25_MULTITOUCH=PASS")
         print("W25_ACCESSIBILITY=PASS")
         print("W25_LIFECYCLE_INPUT_RESET=PASS")

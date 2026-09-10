@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3]
+[gd_scene load_steps=13 format=3]
 
 [ext_resource type="Script" path="res://game/ui/main_shell_w24.gd" id="1_shell"]
 [ext_resource type="Texture2D" path="res://assets/runtime/w13/environment_twilight_shipyard.svg" id="2_w13_environment"]
@@ -9,6 +9,7 @@
 [ext_resource type="Script" path="res://game/presentation/w23_weapon_relic_hud.gd" id="7_w23_weapon_relic_hud"]
 [ext_resource type="Script" path="res://game/presentation/w23_world_event_hud.gd" id="8_w23_world_event_hud"]
 [ext_resource type="Script" path="res://game/ui/mobile_input_overlay.gd" id="9_w25_mobile_controls"]
+[ext_resource type="Script" path="res://game/ui/pre_expedition_touch_controls.gd" id="10_pre_expedition_touch"]
 
 [sub_resource type="SystemFont" id="SystemFont_ui"]
 font_names = PackedStringArray("Noto Sans CJK KR", "Noto Sans KR", "sans-serif")
@@ -99,6 +100,33 @@ size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 16
 text = "여정을 불러오는 중…"
 autowrap_mode = 3
+
+[node name="TouchChoices" type="HBoxContainer" parent="SafeArea/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_constants/separation = 12
+script = ExtResource("10_pre_expedition_touch")
+
+[node name="Choice1" type="Button" parent="SafeArea/Content/TouchChoices"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 64)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "슬롯 1"
+
+[node name="Choice2" type="Button" parent="SafeArea/Content/TouchChoices"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 64)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "슬롯 2"
+
+[node name="Choice3" type="Button" parent="SafeArea/Content/TouchChoices"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 64)
+layout_mode = 2
+size_flags_horizontal = 3
+text = "슬롯 3"
 
 [node name="W23WorldEventHud" type="Control" parent="."]
 unique_name_in_owner = true
