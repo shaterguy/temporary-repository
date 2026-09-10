@@ -113,11 +113,19 @@ jobs:
             export ANDROID_AVD_HOME="$HOME/.android/avd"
           fi
           "$EMULATOR" -list-avds | grep -Fxq r04_api30
+          test -e /dev/kvm
+          sudo chmod 666 /dev/kvm
+          test -r /dev/kvm
+          test -w /dev/kvm
           adb kill-server || true
           adb start-server
           nohup "$EMULATOR" -avd r04_api30 -no-window -no-audio -no-boot-anim -no-snapshot -wipe-data -gpu swiftshader -accel on -memory 4096 -cores 2 > /tmp/r04/evidence/emulator.log 2>&1 &
           echo $! >/tmp/r04/evidence/emulator.pid
-          timeout 150s adb wait-for-device
+          if ! timeout 150s adb wait-for-device; then
+            cat /tmp/r04/evidence/emulator.log || true
+            echo '::error::no adb device within 150 seconds'
+            exit 13
+          fi
           booted=0
           for _ in $(seq 1 120); do
             if test "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1; then booted=1; break; fi
@@ -179,12 +187,12 @@ jobs:
           }
           white_fraction() {
             python3 - "$1" <<'PY'
-          from PIL import Image
-          import sys
-          im=Image.open(sys.argv[1]).convert('RGB')
-          px=list(im.getdata()); n=len(px)
-          print(sum(1 for r,g,b in px if r>245 and g>245 and b>245)/n)
-          PY
+from PIL import Image
+import sys
+im=Image.open(sys.argv[1]).convert('RGB')
+px=list(im.getdata()); n=len(px)
+print(sum(1 for r,g,b in px if r>245 and g>245 and b>245)/n)
+PY
           }
           launch() {
             adb shell monkey -p "$PACKAGE" -c android.intent.category.LAUNCHER 1 | tee /tmp/r04/evidence/monkey-last.txt
@@ -201,9 +209,9 @@ jobs:
             wf="$(white_fraction /tmp/r04/evidence/startup_probe.png)"
             printf 'startup_probe_%02d_white_fraction=%s\n' "$i" "$wf" | tee -a /tmp/r04/evidence/readiness.txt
             if python3 - "$wf" <<'PY'
-          import sys
-          raise SystemExit(0 if float(sys.argv[1]) < 0.75 else 1)
-          PY
+import sys
+raise SystemExit(0 if float(sys.argv[1]) < 0.75 else 1)
+PY
             then ready=1; break; fi
           done
           if test "$ready" != 1; then
@@ -219,11 +227,11 @@ jobs:
           expedition="$(cut -d' ' -f1 /tmp/r04/evidence/expedition.sha256)"; test "$expedition" != "$hub"
 
           python3 - <<'PY' >/tmp/r04/evidence/touch-coordinates.txt
-          from PIL import Image
-          im=Image.open('/tmp/r04/evidence/expedition.png')
-          w,h=im.size; s=min(w/1280.0,h/720.0); ox=(w-1280*s)/2; oy=(h-720*s)/2
-          for x,y in [(108,612),(190,612),(1200,640),(1200,508)]: print(round(ox+x*s), round(oy+y*s))
-          PY
+from PIL import Image
+im=Image.open('/tmp/r04/evidence/expedition.png')
+w,h=im.size; s=min(w/1280.0,h/720.0); ox=(w-1280*s)/2; oy=(h-720*s)/2
+for x,y in [(108,612),(190,612),(1200,640),(1200,508)]: print(round(ox+x*s), round(oy+y*s))
+PY
           mapfile -t c </tmp/r04/evidence/touch-coordinates.txt
           read -r sx sy <<<"${c[0]}"; read -r ex ey <<<"${c[1]}"; read -r dx dy <<<"${c[2]}"; read -r px py <<<"${c[3]}"
           adb shell input swipe "$sx" "$sy" "$ex" "$ey" 800
@@ -248,34 +256,34 @@ jobs:
           if grep -A6 -B2 -F 'FATAL EXCEPTION' /tmp/r04/evidence/logcat-final.txt | grep -F "Process: $PACKAGE" >/dev/null; then exit 31; fi
 
           cat >/tmp/r04/evidence/r04-result.txt <<EOF
-          TEST_CONTRACT_PREFLIGHT=VALID
-          ACTION_PREFLIGHT=VALID
-          R04_PRODUCT_SOURCE_SHA=$PRODUCT_SHA
-          R04_ARTIFACT_ID=$ARTIFACT_ID
-          R04_APK_SHA256=$APK_SHA256
-          R04_REBUILD=NO
-          R04_RUNTIME_API30=PASS
-          R04_ARM64_TRANSLATION_ABI=PASS
-          R04_RENDERER=SWIFTSHADER_CURRENT
-          R04_FIRST_INSTALL=PASS
-          R04_PACKAGE_IDENTITY=PASS
-          R04_PRODUCTION_CERT_SELF_CONSISTENCY=PASS
-          R04_GAME_READY=PASS
-          R04_SLOT_TO_HUB=PASS
-          R04_EXPEDITION_ENTRY=PASS
-          R04_TOUCH_INJECTION=PASS
-          R04_BACKGROUND_CHECKPOINT_PATH=EXERCISED
-          R04_PROCESS_DEATH_METHOD=$death
-          R04_PROCESS_RELAUNCH=PASS
-          R04_SAVED_EXPEDITION_REENTRY=PASS
-          R04_ANDROID_RESIZE_REENTRY=PASS
-          R04_REMOTE_RUNTIME_PAGE_SIZE=4096
-          R04_16KB_RUNTIME=NOT_EXERCISED_REUSE_W28_STATIC
-          R04_PHYSICAL_DEVICE_THERMAL_LMK_HAPTICS=POST_DELIVERY_CHECK
-          R04_HISTORICAL_IN_PLACE_UPDATE=NA_NO_PRIOR_USER_VERSION
-          SECURITY_DELTA=NONE
-          R04_ANDROID_RUNTIME=PASS
-          EOF
+TEST_CONTRACT_PREFLIGHT=VALID
+ACTION_PREFLIGHT=VALID
+R04_PRODUCT_SOURCE_SHA=$PRODUCT_SHA
+R04_ARTIFACT_ID=$ARTIFACT_ID
+R04_APK_SHA256=$APK_SHA256
+R04_REBUILD=NO
+R04_RUNTIME_API30=PASS
+R04_ARM64_TRANSLATION_ABI=PASS
+R04_RENDERER=SWIFTSHADER_CURRENT
+R04_FIRST_INSTALL=PASS
+R04_PACKAGE_IDENTITY=PASS
+R04_PRODUCTION_CERT_SELF_CONSISTENCY=PASS
+R04_GAME_READY=PASS
+R04_SLOT_TO_HUB=PASS
+R04_EXPEDITION_ENTRY=PASS
+R04_TOUCH_INJECTION=PASS
+R04_BACKGROUND_CHECKPOINT_PATH=EXERCISED
+R04_PROCESS_DEATH_METHOD=$death
+R04_PROCESS_RELAUNCH=PASS
+R04_SAVED_EXPEDITION_REENTRY=PASS
+R04_ANDROID_RESIZE_REENTRY=PASS
+R04_REMOTE_RUNTIME_PAGE_SIZE=4096
+R04_16KB_RUNTIME=NOT_EXERCISED_REUSE_W28_STATIC
+R04_PHYSICAL_DEVICE_THERMAL_LMK_HAPTICS=POST_DELIVERY_CHECK
+R04_HISTORICAL_IN_PLACE_UPDATE=NA_NO_PRIOR_USER_VERSION
+SECURITY_DELTA=NONE
+R04_ANDROID_RUNTIME=PASS
+EOF
           cat /tmp/r04/evidence/r04-result.txt
 
       - name: Upload R04 evidence
