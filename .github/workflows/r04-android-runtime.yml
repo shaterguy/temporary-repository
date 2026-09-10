@@ -249,6 +249,10 @@ jobs:
             capture_logs
             echo '::error::app did not become top activity'; return 1
           }
+          visual_stats() {
+            local prefix="$1" idx="$2" file="/tmp/r04/evidence/${prefix}-probe-${idx}.png" out="/tmp/r04/evidence/${prefix}-readiness.txt"
+            python3 -c 'from PIL import Image; from collections import Counter; import sys,statistics; f,o,idx=sys.argv[1:4]; p=list(Image.open(f).convert("RGB").resize((160,90)).getdata()); white=sum(1 for r,g,b in p if r>235 and g>235 and b>235)/len(p); q=[(r//16,g//16,b//16) for r,g,b in p]; dominant=Counter(q).most_common(1)[0][1]/len(q); unique=len(set(q)); std=statistics.pstdev([v for rgb in p for v in rgb]); open(o,"a").write(f"{idx} white={white:.6f} dominant={dominant:.6f} unique={unique} std={std:.3f}\n"); sys.exit(0 if white<0.90 and dominant<0.95 and unique>=16 and std>=10.0 else 1)' "$file" "$out" "$idx"
+          }
           wait_visual_ready() {
             local prefix="$1" ready=0
             for i in $(seq 1 12); do
@@ -256,25 +260,7 @@ jobs:
               dismiss_immersive
               alive; top_activity
               shot "${prefix}-probe-${i}"
-              if python3 - "$prefix" "$i" <<'PY' >>"/tmp/r04/evidence/${prefix}-readiness.txt"
-from PIL import Image
-from collections import Counter
-import sys, statistics
-name, idx = sys.argv[1], sys.argv[2]
-im = Image.open(f'/tmp/r04/evidence/{name}-probe-{idx}.png').convert('RGB').resize((160,90))
-p = list(im.getdata())
-white = sum(1 for r,g,b in p if r>235 and g>235 and b>235)/len(p)
-q = [(r//16,g//16,b//16) for r,g,b in p]
-dominant = Counter(q).most_common(1)[0][1]/len(q)
-unique = len(set(q))
-std = statistics.pstdev([v for rgb in p for v in rgb])
-print(f'{idx} white={white:.6f} dominant={dominant:.6f} unique={unique} std={std:.3f}')
-sys.exit(0 if white < 0.90 and dominant < 0.95 and unique >= 16 and std >= 10.0 else 1)
-PY
-              then
-                ready=1
-                break
-              fi
+              if visual_stats "$prefix" "$i"; then ready=1; break; fi
               adb logcat -d -b all > /tmp/r04/evidence/logcat-visual-live.txt || true
               if grep -Fq 'active uniforms exceed GL_MAX_FRAGMENT_UNIFORM_VECTORS' /tmp/r04/evidence/logcat-visual-live.txt; then
                 echo '::error::renderer hit GLSL uniform-vector limit'; exit 43
@@ -302,12 +288,10 @@ PY
           launch
           wait_visual_ready initial
           shot slot_select
-
           tap_choice_one_until_save /tmp/r04/evidence/save-hub.json HUB new_game
           seq_hub="$(jq -r '.sequence' /tmp/r04/evidence/save-hub.json)"
           shot hub
           alive; top_activity; assert_no_runtime_crash
-
           tap_choice_one_until_save /tmp/r04/evidence/save-expedition.json EXPEDITION departure_initialized
           seq_exp="$(jq -r '.sequence' /tmp/r04/evidence/save-expedition.json)"
           test "$seq_exp" -gt "$seq_hub"
@@ -316,7 +300,6 @@ PY
           jq -e '.payload.suspended_expedition.runtime_state.schema == "w12-runtime-state-v1"' /tmp/r04/evidence/save-expedition.json >/dev/null
           shot expedition
           alive; top_activity; assert_no_runtime_crash
-
           adb shell input touchscreen swipe 108 612 190 612 900
           adb shell input touchscreen tap 1200 640
           adb shell input touchscreen tap 1200 508
@@ -330,7 +313,6 @@ PY
           python3 -c "import json,math,sys; p=json.load(open('/tmp/r04/evidence/save-background.json')); q=p['payload']['suspended_expedition']['runtime_state']['player']['position']; sys.exit(0 if len(q)==2 and math.hypot(float(q[0])-640.0,float(q[1])-360.0)>=1.0 else 1)"
           touch_pos="$(jq -c '.payload.suspended_expedition.runtime_state.player.position' /tmp/r04/evidence/save-background.json)"
           assert_no_runtime_crash
-
           adb shell am kill "$PACKAGE" || true
           sleep 2
           if alive; then adb shell am force-stop "$PACKAGE"; sleep 1; fi
@@ -346,7 +328,6 @@ PY
           test "$seq_rec" -gt "$seq_bg"
           test "$(jq -r '.payload.world.active_expedition_id' /tmp/r04/evidence/save-recovered.json)" = "$exp_id"
           test "$(jq -c '.payload.suspended_expedition.runtime_state.player.position' /tmp/r04/evidence/save-recovered.json)" = "$touch_pos"
-
           adb shell am force-stop "$PACKAGE"
           adb shell wm size 1024x768
           launch
@@ -361,34 +342,7 @@ PY
           test "$(jq -r '.payload.world.active_expedition_id' /tmp/r04/evidence/save-resized.json)" = "$exp_id"
           adb shell wm size reset || true
           assert_no_runtime_crash
-
-          printf '%s\n' \
-            'TEST_CONTRACT_PREFLIGHT=VALID' \
-            'ACTION_PREFLIGHT=VALID' \
-            "R04_PRODUCT_SOURCE_SHA=$PRODUCT_SHA" \
-            "R04_ARTIFACT_ID=$ARTIFACT_ID" \
-            "R04_APK_SHA256=$APK_SHA256" \
-            'R04_REBUILD=NO' \
-            'R04_RUNTIME_API36=PASS' \
-            'R04_ARM64_TRANSLATION_ABI=PASS' \
-            'R04_RENDERER=SOFTWARE' \
-            'R04_VISIBLE_NONBLANK_RENDER=PASS' \
-            'R04_FIRST_INSTALL=PASS' \
-            'R04_PACKAGE_IDENTITY=PASS' \
-            'R04_PRODUCTION_CERT_LINEAGE=PASS' \
-            'R04_TOUCH_SLOT_TO_HUB_SAVE_STATE=PASS' \
-            'R04_TOUCH_HUB_TO_EXPEDITION_SAVE_STATE=PASS' \
-            'R04_TOUCH_PLAYER_MOVEMENT=PASS' \
-            'R04_BACKGROUND_CHECKPOINT=PASS' \
-            'R04_PROCESS_RELAUNCH=PASS' \
-            'R04_SAVED_EXPEDITION_TOUCH_REENTRY=PASS' \
-            'R04_ANDROID_RESIZE_TOUCH_REENTRY=PASS' \
-            'R04_FATAL_SIGILL_ANR_CHECK=PASS' \
-            'R04_16KB_RUNTIME=NOT_EXERCISED_REUSE_W28_STATIC' \
-            'R04_PHYSICAL_DEVICE_THERMAL_LMK_HAPTICS=POST_DELIVERY_CHECK' \
-            'R04_HISTORICAL_IN_PLACE_UPDATE=NA_NO_PRIOR_USER_VERSION' \
-            'SECURITY_DELTA=NONE' \
-            'R04_ANDROID_RUNTIME=PASS' > /tmp/r04/evidence/r04-result.txt
+          printf '%s\n' 'TEST_CONTRACT_PREFLIGHT=VALID' 'ACTION_PREFLIGHT=VALID' "R04_PRODUCT_SOURCE_SHA=$PRODUCT_SHA" "R04_ARTIFACT_ID=$ARTIFACT_ID" "R04_APK_SHA256=$APK_SHA256" 'R04_REBUILD=NO' 'R04_RUNTIME_API36=PASS' 'R04_ARM64_TRANSLATION_ABI=PASS' 'R04_RENDERER=SOFTWARE' 'R04_VISIBLE_NONBLANK_RENDER=PASS' 'R04_FIRST_INSTALL=PASS' 'R04_PACKAGE_IDENTITY=PASS' 'R04_PRODUCTION_CERT_LINEAGE=PASS' 'R04_TOUCH_SLOT_TO_HUB_SAVE_STATE=PASS' 'R04_TOUCH_HUB_TO_EXPEDITION_SAVE_STATE=PASS' 'R04_TOUCH_PLAYER_MOVEMENT=PASS' 'R04_BACKGROUND_CHECKPOINT=PASS' 'R04_PROCESS_RELAUNCH=PASS' 'R04_SAVED_EXPEDITION_TOUCH_REENTRY=PASS' 'R04_ANDROID_RESIZE_TOUCH_REENTRY=PASS' 'R04_FATAL_SIGILL_ANR_CHECK=PASS' 'R04_16KB_RUNTIME=NOT_EXERCISED_REUSE_W28_STATIC' 'R04_PHYSICAL_DEVICE_THERMAL_LMK_HAPTICS=POST_DELIVERY_CHECK' 'R04_HISTORICAL_IN_PLACE_UPDATE=NA_NO_PRIOR_USER_VERSION' 'SECURITY_DELTA=NONE' 'R04_ANDROID_RUNTIME=PASS' > /tmp/r04/evidence/r04-result.txt
           cat /tmp/r04/evidence/r04-result.txt
 
       - name: Upload R04 evidence
