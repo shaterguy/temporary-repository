@@ -261,7 +261,8 @@ static func _make_variant(
     route_id: String
 ) -> Dictionary:
     var run_seed := _mix_seed(campaign_seed, post_final_cycle, expedition_attempt, choice_id)
-    var variant_id := str(VARIANT_IDS[run_seed % VARIANT_IDS.size()])
+    var variant_index := int(run_seed / 97) % VARIANT_IDS.size()
+    var variant_id := str(VARIANT_IDS[variant_index])
     var challenge_index := (int(run_seed / 7) + expedition_attempt) % CHALLENGE_IDS.size()
     var challenge_id := str(CHALLENGE_IDS[challenge_index])
     var profile: Dictionary = VARIANT_PROFILES.get(variant_id, {})
