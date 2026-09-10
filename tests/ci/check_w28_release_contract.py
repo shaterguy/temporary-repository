@@ -41,6 +41,27 @@ require(android["target_api"] == 36, "unexpected Android target API for Godot 4.
 require(android["sdk_platform"] == "android-36", "unexpected Android SDK platform")
 require(android["build_tools"] == "36.1.0", "unexpected Android build-tools")
 
+launcher_icons = {
+    "project": "res://assets/branding/launcher_main.svg",
+    "main": "res://assets/branding/launcher_main.svg",
+    "foreground": "res://assets/branding/launcher_adaptive_foreground.svg",
+    "background": "res://assets/branding/launcher_adaptive_background.svg",
+    "monochrome": "res://assets/branding/launcher_adaptive_monochrome.svg",
+}
+for role, res_path in launcher_icons.items():
+    icon_path = resolve_res_path(res_path)
+    require(icon_path.is_file(), f"missing {role} launcher icon: {res_path}")
+    icon_text = icon_path.read_text(encoding="utf-8")
+    require("<svg" in icon_text, f"{role} launcher icon must be SVG source")
+    require('width="512"' in icon_text and 'height="512"' in icon_text, f"{role} launcher icon must declare 512x512 source size")
+
+branding_source = resolve_res_path("res://assets/source/w28/LAUNCHER_BRANDING_DIRECTION.md")
+branding_license = resolve_res_path("res://assets/licenses/W28_ORIGINAL_BRANDING.md")
+require(branding_source.is_file(), "launcher branding source-direction record missing")
+require(branding_license.is_file(), "launcher branding license record missing")
+require("no third-party asset" in branding_license.read_text(encoding="utf-8").lower(), "launcher branding provenance must reject third-party assets")
+require("LicenseRef-LANTERNFALL-Original-Proprietary" in branding_license.read_text(encoding="utf-8"), "launcher branding license identity missing")
+
 preset_text = (ROOT / "export_presets.cfg").read_text(encoding="utf-8")
 for literal in (
     'name="Android Production"',
@@ -56,6 +77,10 @@ for literal in (
     'version/name="1.0.0-dev1"',
     'package/unique_name="com.shaterguy.lanternfall"',
     'package/signed=true',
+    'launcher_icons/main_192x192="res://assets/branding/launcher_main.svg"',
+    'launcher_icons/adaptive_foreground_432x432="res://assets/branding/launcher_adaptive_foreground.svg"',
+    'launcher_icons/adaptive_background_432x432="res://assets/branding/launcher_adaptive_background.svg"',
+    'launcher_icons/adaptive_monochrome_432x432="res://assets/branding/launcher_adaptive_monochrome.svg"',
     'keystore/debug=""',
     'keystore/debug_password=""',
     'keystore/release=""',
@@ -65,9 +90,12 @@ for literal in (
     require(literal in preset_text, f"missing export preset contract: {literal}")
 require("androiddebugkey" not in preset_text.lower(), "debug signing identity must not be embedded")
 require(not re.search(r'keystore/(?:release|release_user|release_password)=".+"', preset_text), "release signing material must stay out of source")
+require("res://icon.svg" not in preset_text, "Godot default project-icon path must not be used for Android branding")
 
 project_text = (ROOT / "project.godot").read_text(encoding="utf-8")
 require('textures/vram_compression/import_etc2_astc=true' in project_text, "Android ETC2/ASTC import setting missing")
+require('config/icon="res://assets/branding/launcher_main.svg"' in project_text, "project launcher icon must be explicit product branding")
+require('config/icon="res://icon.svg"' not in project_text, "Godot default project icon must not be used")
 
 workflow_path = ROOT / ".github/workflows/w28-production-signing.yml"
 workflow = workflow_path.read_text(encoding="utf-8")
@@ -132,13 +160,14 @@ for node in walk_dicts(content_manifest):
         manifest_groups += 1
 
 require(manifest_groups >= 8, f"too few licensed runtime manifest groups checked: {manifest_groups}")
-print("TEST_CONTRACT=w28-production-signing-contract-v2")
+print("TEST_CONTRACT=w28-production-signing-contract-v3")
 print("W28_PROD_PACKAGE=com.shaterguy.lanternfall")
 print("W28_VERSION_NAME=1.0.0-dev1")
 print("W28_VERSION_CODE=1")
 print("W28_ANDROID_MIN_API=24")
 print("W28_ANDROID_TARGET_API=36")
 print(f"W28_LICENSED_RUNTIME_MANIFESTS={manifest_groups}")
+print("W28_LAUNCHER_BRANDING=PASS")
 print("W28_SIGN_TRIGGER=DEDICATED_BRANCH_EXACT_DEV_HEAD")
 print("W28_SECRET_IN_SOURCE=NONE")
 print("W28_DEBUG_SIGNING_FALLBACK=NONE")

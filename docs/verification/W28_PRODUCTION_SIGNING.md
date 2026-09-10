@@ -3,18 +3,16 @@
 Task: `SR-20260909-150106-PPO12Y`
 Continuation: `SR-20260910-121926-5B5U4L`
 Baseline branch: `v1.0.0-dev1`
-Original W28 baseline commit: `775e7034aef9c5c0f018a65750504e15fe3d21fe`
-Current rebuild baseline: `157844b996767abbe11ca05a1226910dd68fd2d5`
-Test contract: `w28-production-signing-contract-v1`
+Launcher-repair input baseline: `9d1743676e6c17fd573675d5065e346bef9546ea`
+Test contract: `w28-production-signing-contract-v3`
 
 ## Contract preflight
 
 - `TEST_CONTRACT_PREFLIGHT=VALID`
 - `ACTION_PREFLIGHT=VALID`
-- `SECURITY_CLASS=HIGH_RISK_OPERATION`
-- `SECURITY_DELTA=MATERIAL`
-- Existing gameplay, save schema, world schema and package identities remain unchanged by the production-signing mechanism.
-- The current rebuild is required because R04 found and the W25 repair fixed a product-level Android touch-entry defect after the first W28 APK was produced.
+- Original signer mechanism remains `SECURITY_CLASS=HIGH_RISK_OPERATION`; launcher-only repair has `SECURITY_DELTA=NONE` because it does not change the key, certificate, secret backend, package identity, permissions or trust boundary.
+- Existing gameplay, save schema, world schema and package identities remain unchanged.
+- The production candidate must use explicit LANTERNFALL launcher branding and must not fall through to Godot engine default icons.
 - No debug keystore, generated-per-run key, unrelated project key, private key, password or base64 keystore is committed.
 
 ## Production identity
@@ -27,6 +25,19 @@ Test contract: `w28-production-signing-contract-v1`
 - Primary production ABI: `arm64-v8a`
 - Production export preset: `Android Production`
 - User-facing artifact name: `LANTERNFALL-1.0.0-dev1-production.apk`
+
+## Launcher branding gate
+
+The Android package uses project-original launcher art rooted at the W13 cold-twilight / warm-lantern visual grammar:
+
+- Project/main icon: `res://assets/branding/launcher_main.svg`
+- Adaptive foreground: `res://assets/branding/launcher_adaptive_foreground.svg`
+- Adaptive background: `res://assets/branding/launcher_adaptive_background.svg`
+- Adaptive monochrome/themed icon: `res://assets/branding/launcher_adaptive_monochrome.svg`
+- Source direction: `res://assets/source/w28/LAUNCHER_BRANDING_DIRECTION.md`
+- Provenance/license: `res://assets/licenses/W28_ORIGINAL_BRANDING.md`
+
+`tests/ci/check_w28_release_contract.py` requires all four 512×512 SVG sources, explicit `application/config/icon`, all Android launcher icon preset fields, the source and provenance records, zero Godot default `res://icon.svg` usage and the existing placeholder/license gates. Missing branding now fails in STATIC_PREFLIGHT before signer secrets are materialized.
 
 ## Durable signing boundary
 
@@ -43,11 +54,9 @@ The production workflow never creates a replacement signing key. It materializes
 
 ## Proven signer state
 
-The earlier source-state document incorrectly remained at `SIGNING_SECRET_BACKEND_STATUS=BLOCKED_UNAVAILABLE_IN_CONNECTED_GITHUB_TOOL` after the signer was actually provisioned through the repository's protected Actions environment. That status is now stale and retired.
+The durable signer is already proven by prior successful W28 runs. The certificate lineage remains SHA-256 `114bb489ccfdcd7137b70aeb3230bbdd29af08f0e3155ee817419e1afd8269ef`. Launcher repair must reuse that exact lineage; a new key or fallback signer is forbidden.
 
-Authoritative remote evidence is W28 production-signing run `34445663426` on source SHA `eb4b542275f13929334d72cc4e3eba492bb8ef9c`, which completed successfully and produced artifact ID `10139569453`. The resulting APK was `LANTERNFALL-1.0.0-dev1-production.apk`, SHA-256 `5ff25fec7915ce9c05c7d3cadccde4b00c9821dc0b5069228b8b239dc6a1bba5`, signed with certificate SHA-256 `114bb489ccfdcd7137b70aeb3230bbdd29af08f0e3155ee817419e1afd8269ef`, and passed the W28 package/version/signature/16 KB checks.
-
-That old APK is no longer the final candidate because R04 API36 runtime verification exposed the missing touch-only path from first launch into gameplay. The product repair is now on `v1.0.0-dev1`; therefore a new APK must be built from the exact current verified dev HEAD using the same protected signer and certificate lineage. The old APK remains historical evidence only.
+The prior APK from source SHA `9d1743676e6c17fd573675d5065e346bef9546ea` passed package/version/signature/16 KB checks but is rejected as the final product candidate because its export emitted `No project icon specified` and therefore could fall through to engine-default launcher branding. Its functional/runtime evidence remains reusable outside launcher/package surface impact.
 
 ## Remote production workflow
 
@@ -56,7 +65,7 @@ That old APK is no longer the final candidate because R04 API36 runtime verifica
 The workflow tiers are:
 
 1. CANDIDATE_SYNC: require exact SHA equality with current `v1.0.0-dev1`.
-2. STATIC_PREFLIGHT: validate W28 source contract, pinned Godot/toolchain hashes, production identity and no-source-secret rule.
+2. STATIC_PREFLIGHT: validate W28 source contract, explicit launcher branding, pinned Godot/toolchain hashes, production identity and no-source-secret rule.
 3. SECRET_GATE: require all four durable signer values and validate the expected certificate fingerprint shape without printing secrets.
 4. ARTIFACT_BUILD: install the pinned Godot 4.7.2 editor/export templates and Android Build Tools `36.1.0`, materialize the protected keystore only under `/tmp`, and perform `--export-release` using the release-keystore environment overrides.
 5. ARTIFACT_VERIFY: verify package/version with `aapt`, APK signature and certificate fingerprint with `apksigner`, 16 KB ZIP/native ELF compatibility with `zipalign`/`readelf`, and record APK SHA-256 and size.
@@ -64,19 +73,18 @@ The workflow tiers are:
 
 ## Runtime asset/license gate
 
-`tests/ci/check_w28_release_contract.py` walks all runtime-manifest groups declared by `content_manifest.json`, requires each group to declare an existing project license record, rejects placeholders, and preserves the rule that every runtime asset needs license tracking. This release-contract audit remains valid and does not substitute for device-specific post-delivery observations.
+The existing runtime-manifest audit still walks all runtime groups declared by `content_manifest.json`, requires each group to declare an existing project license record and rejects placeholders. Launcher branding is packaging-specific and is checked separately against its W28 source/provenance records, so it does not distort gameplay content counts.
 
-## Current rebuild gate
+## Current repair gate
 
-`v1.0.0-dev1` must first have the affected source/test regressions green. W25 has already passed the new touch-first `SLOT_SELECT -> HUB -> EXPEDITION` contract and W27 has passed after aligning its stale Build Tools assertion to authoritative `toolchain.lock=36.1.0`. Foundation and the other triggered affected regression workflows on the current candidate must remain green.
+Only launcher/package surface and the W28 release contract are stale. Existing R01 visual gameplay review, R02 load soak, W25 touch-first path, W27 performance/build-tool alignment and R04 gameplay/touch/save/resize evidence remain reusable because no gameplay, save, input, performance, dependency, package identity or signing lineage changes.
 
-After these checks, `sign/w28-production` is fast-forwarded, never force-pushed, to the exact current `v1.0.0-dev1` HEAD. The resulting new production APK must match the established production certificate fingerprint `114bb489ccfdcd7137b70aeb3230bbdd29af08f0e3155ee817419e1afd8269ef`. Any signer mismatch, build failure, package/version drift or 16 KB failure blocks R04 continuation.
+After the updated `v1.0.0-dev1` candidate passes foundation and W28 contract CI, `sign/w28-production` is fast-forwarded, never force-pushed, to the exact same HEAD. The resulting new production APK must match certificate SHA-256 `114bb489ccfdcd7137b70aeb3230bbdd29af08f0e3155ee817419e1afd8269ef`, retain package/version/API/16 KB compatibility and contain the explicit launcher branding. Any signer mismatch, build failure, package/version drift, icon preflight failure or 16 KB failure blocks final verification.
 
 ## Prevention compliance
 
-- `PR-001=PASS`: previous successful signing run and current branch/workflow state were read back before any signing-branch mutation.
-- `PR-002=PASS`: no no-op/trigger-only commit is used; the signing branch is moved only when a new product artifact is actually required.
-- `PR-004=PASS`: uploaded production artifact identity contains both `github.run_id` and `github.run_attempt`.
-- `PR-007=PASS`: authoritative Android Build Tools and package/version selectors are aligned to `toolchain.lock` and the same W28 workflow used for the first successful production artifact.
+- `PR-001`: use read-only repository/workflow/run state before every mutation; no probe workflow or failure-inducing run.
+- `PR-002`: the repair commit carries actual launcher/config/contract changes; no no-op trigger commit is permitted.
+- `PR-004`: production artifact identity contains both `github.run_id` and `github.run_attempt`; changed source identity requires a new run rather than rerunning an old attempt.
 
-`PREVENTION_COMPLIANCE_STATUS=PASS`
+Final compliance is determined from the actual diff, run identities and readback evidence.

@@ -6,10 +6,13 @@ on:
       - 'v*-dev*'
       - 'v*-rc*'
     paths:
+      - 'project.godot'
       - 'export_presets.cfg'
       - 'toolchain.lock'
       - 'content_manifest.json'
+      - 'assets/branding/**'
       - 'assets/runtime/**'
+      - 'assets/source/w28/**'
       - 'assets/licenses/**'
       - 'tests/ci/check_w28_release_contract.py'
       - 'docs/verification/W28_PRODUCTION_SIGNING.md'
@@ -17,10 +20,13 @@ on:
       - '.github/workflows/w28-production-signing.yml'
   pull_request:
     paths:
+      - 'project.godot'
       - 'export_presets.cfg'
       - 'toolchain.lock'
       - 'content_manifest.json'
+      - 'assets/branding/**'
       - 'assets/runtime/**'
+      - 'assets/source/w28/**'
       - 'assets/licenses/**'
       - 'tests/ci/check_w28_release_contract.py'
       - 'docs/verification/W28_PRODUCTION_SIGNING.md'
@@ -43,7 +49,7 @@ jobs:
       - name: Checkout exact candidate
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Validate production signing and license contract
+      - name: Validate production signing, launcher branding and license contract
         shell: bash
         run: |
           set -euo pipefail

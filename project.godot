@@ -7,6 +7,7 @@ config_version=5
 config/name="LANTERNFALL: 잔광의 항로"
 run/main_scene="res://game/ui/main_shell.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
+config/icon="res://assets/branding/launcher_main.svg"
 
 [autoload]
 
