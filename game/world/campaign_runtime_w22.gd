@@ -44,7 +44,7 @@ func begin_endgame_retry() -> Dictionary:
     var candidate = W22WorldCampaignScript.new()
     if not candidate.restore_snapshot(world.snapshot()):
         return {"ok": false, "status": "CANDIDATE_RESTORE_FAILED"}
-    var deferred_modifier := candidate.next_expedition_modifier.duplicate(true)
+    var deferred_modifier: Dictionary = candidate.next_expedition_modifier.duplicate(true)
     candidate.next_expedition_modifier = {}
     var begin_result: Dictionary = candidate.begin_retry_expedition()
     candidate.next_expedition_modifier = deferred_modifier
@@ -143,7 +143,7 @@ func prepare_endgame_recon() -> Dictionary:
     if int(candidate.salvage) < W26_ENDGAME_RECON_COST:
         return {"ok": false, "status": "INSUFFICIENT_SALVAGE", "applied": false, "required": W26_ENDGAME_RECON_COST, "salvage": candidate.salvage}
     candidate.salvage -= W26_ENDGAME_RECON_COST
-    var modifier := candidate.next_expedition_modifier.duplicate(true)
+    var modifier: Dictionary = candidate.next_expedition_modifier.duplicate(true)
     modifier["endgame_recon_id"] = W26_ENDGAME_RECON_ID
     modifier["endgame_recon_shift"] = W26_RECON_SHIFT
     candidate.next_expedition_modifier = modifier
