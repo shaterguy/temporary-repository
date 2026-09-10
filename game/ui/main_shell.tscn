@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://game/ui/main_shell_w24.gd" id="1_shell"]
 [ext_resource type="Texture2D" path="res://assets/runtime/w13/environment_twilight_shipyard.svg" id="2_w13_environment"]
@@ -10,6 +10,13 @@
 [ext_resource type="Script" path="res://game/presentation/w23_world_event_hud.gd" id="8_w23_world_event_hud"]
 [ext_resource type="Script" path="res://game/ui/mobile_input_overlay.gd" id="9_w25_mobile_controls"]
 
+[sub_resource type="SystemFont" id="SystemFont_ui"]
+font_names = PackedStringArray("Noto Sans CJK KR", "Noto Sans KR", "sans-serif")
+allow_system_fallback = true
+
+[sub_resource type="Theme" id="Theme_ui"]
+default_font = SubResource("SystemFont_ui")
+
 [node name="MainShell" type="Control"]
 layout_mode = 3
 anchors_preset = 15
@@ -17,6 +24,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+theme = SubResource("Theme_ui")
 script = ExtResource("1_shell")
 
 [node name="Background" type="ColorRect" parent="."]
@@ -87,8 +95,10 @@ text = "항로 복구 시스템 기반 구축 중"
 [node name="Status" type="Label" parent="SafeArea/Content"]
 unique_name_in_owner = true
 layout_mode = 2
+size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 16
 text = "Foundation build"
+autowrap_mode = 3
 
 [node name="W23WorldEventHud" type="Control" parent="."]
 unique_name_in_owner = true

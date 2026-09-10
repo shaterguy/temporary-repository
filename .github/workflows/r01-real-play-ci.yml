@@ -6,12 +6,14 @@ on:
       - 'v*-dev*'
       - 'v*-rc*'
     paths:
+      - 'game/ui/main_shell.tscn'
       - 'tests/integration/r01_real_play_smoke.gd'
       - 'tests/visual/capture_r01_real_play.gd'
       - 'docs/verification/R01_REAL_PLAY_INTEGRATION.md'
       - '.github/workflows/r01-real-play-ci.yml'
   pull_request:
     paths:
+      - 'game/ui/main_shell.tscn'
       - 'tests/integration/r01_real_play_smoke.gd'
       - 'tests/visual/capture_r01_real_play.gd'
       - 'docs/verification/R01_REAL_PLAY_INTEGRATION.md'
@@ -52,11 +54,15 @@ jobs:
           grep -Fq 'TEST_CONTRACT_PREFLIGHT=VALID' docs/verification/R01_REAL_PLAY_INTEGRATION.md
           grep -Fq 'ACTION_PREFLIGHT=VALID' docs/verification/R01_REAL_PLAY_INTEGRATION.md
           grep -Fq 'PREVENTION_COMPLIANCE_STATUS=PASS' docs/verification/R01_REAL_PLAY_INTEGRATION.md
+          grep -Fq 'SystemFont' game/ui/main_shell.tscn
+          grep -Fq 'autowrap_mode = 3' game/ui/main_shell.tscn
           grep -Fq 'select_save_slot' tests/integration/r01_real_play_smoke.gd
           grep -Fq 'select_world_choice' tests/integration/r01_real_play_smoke.gd
           grep -Fq 'InputEventScreenTouch' tests/integration/r01_real_play_smoke.gd
           grep -Fq 'InputEventScreenDrag' tests/integration/r01_real_play_smoke.gd
           grep -Fq 'R01_REAL_PLAY_SMOKE=PASS' tests/integration/r01_real_play_smoke.gd
+          grep -Fq 'R01_KOREAN_GLYPH_FONT=PASS' tests/visual/capture_r01_real_play.gd
+          grep -Fq 'R01_STATUS_WRAPPING=PASS' tests/visual/capture_r01_real_play.gd
           grep -Fq 'R01_REAL_PLAY_CAPTURE=PASS' tests/visual/capture_r01_real_play.gd
           if grep -Fq 'set("shell_mode"' tests/integration/r01_real_play_smoke.gd tests/visual/capture_r01_real_play.gd; then
             echo '::error::R01 evidence may not set shell_mode manually'
@@ -68,6 +74,15 @@ jobs:
           fi
           test -z "$(find . -type f \( -name '*.jks' -o -name '*.keystore' -o -name '*.p12' -o -name '*.pem' -o -name '*.key' \) -print -quit)"
           mkdir -p artifacts/r01
+
+      - name: Provision Korean review font
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends fonts-noto-cjk
+          fc-match 'Noto Sans CJK KR' | tee artifacts/r01/font-match.log
+          grep -Eiq 'NotoSansCJK|Noto Sans CJK' artifacts/r01/font-match.log
 
       - name: Download pinned Godot editor
         shell: bash
@@ -129,6 +144,8 @@ jobs:
           if grep -Eq '^R01_CAPTURE_FAIL:|^R01_REAL_PLAY_CAPTURE=FAIL' "$render_log"; then exit 1; fi
           grep -Fxq 'R01_CAPTURE_1280x720=PASS' "$render_log"
           grep -Fxq 'R01_CAPTURE_2340x1080=PASS' "$render_log"
+          grep -Fxq 'R01_KOREAN_GLYPH_FONT=PASS' "$render_log"
+          grep -Fxq 'R01_STATUS_WRAPPING=PASS' "$render_log"
           grep -Fxq 'R01_REVIEW_IMAGE_COUNT=6' "$render_log"
           grep -Fxq 'R01_REAL_PLAY_CAPTURE=PASS' "$render_log"
           test "$(find artifacts/r01 -maxdepth 1 -type f -name '*.png' | wc -l)" = "6"
@@ -145,10 +162,14 @@ jobs:
             echo 'R01_TEST_CONTRACT_PREFLIGHT=PASS'
             echo 'R01_ACTION_PREFLIGHT=PASS'
             echo 'R01_PREVENTION_COMPLIANCE=PASS'
+            echo 'R01_KOREAN_GLYPH_FONT=PASS'
+            echo 'R01_STATUS_WRAPPING=PASS'
+            sha256sum game/ui/main_shell.tscn
             sha256sum tests/integration/r01_real_play_smoke.gd
             sha256sum tests/visual/capture_r01_real_play.gd
             sha256sum docs/verification/R01_REAL_PLAY_INTEGRATION.md
             sha256sum .github/workflows/r01-real-play-ci.yml
+            sha256sum artifacts/r01/font-match.log
             sha256sum artifacts/r01/*.png
           } > artifacts/r01/evidence.txt
           cat artifacts/r01/evidence.txt

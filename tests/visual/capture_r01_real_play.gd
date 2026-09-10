@@ -4,6 +4,8 @@ const CampaignRuntimeW22Script = preload("res://game/world/campaign_runtime_w22.
 const SaveStoreScript = preload("res://game/core/save_store.gd")
 const OUTPUT_DIR: String = "res://artifacts/r01"
 const VIEWPORT_MATRIX := [Vector2i(1280, 720), Vector2i(2340, 1080)]
+const KOREAN_PROBE_CODEPOINT: int = 0xC794
+const SAFE_AREA_MARGIN_TOTAL: float = 96.0
 
 var _failures: Array[String] = []
 
@@ -39,6 +41,7 @@ func _capture() -> void:
         await process_frame
         await process_frame
         await process_frame
+        _assert_readability(shell, viewport_size, "slot")
 
         if not bool(shell.call("select_save_slot", 0)):
             _failures.append("R01 capture could not enter real HUB at %dx%d" % [viewport_size.x, viewport_size.y])
@@ -49,6 +52,7 @@ func _capture() -> void:
         await process_frame
         await process_frame
         _expect(str(shell.get("shell_mode")) == "HUB", "R01 capture HUB state mismatch at %dx%d" % [viewport_size.x, viewport_size.y])
+        _assert_readability(shell, viewport_size, "hub")
         _save_capture(viewport, "%s/hub-%dx%d.png" % [OUTPUT_DIR, viewport_size.x, viewport_size.y], viewport_size, "hub")
 
         if not bool(shell.call("select_world_choice", 0)):
@@ -81,6 +85,7 @@ func _capture() -> void:
         _expect(bool(touch_snapshot.get("enabled", false)), "R01 capture overlay is not enabled in real expedition")
         _expect(Vector2(touch_snapshot.get("movement", Vector2.ZERO)).length() > 0.6, "R01 capture real touch movement is not active")
         _expect(bool(touch_snapshot.get("dodge", false)), "R01 capture real dodge touch is not active")
+        _assert_readability(shell, viewport_size, "expedition")
         _save_capture(viewport, "%s/expedition-touch-%dx%d.png" % [OUTPUT_DIR, viewport_size.x, viewport_size.y], viewport_size, "expedition-touch")
         _push_touch(viewport, 202, dodge_center, false)
         _push_touch(viewport, 101, stick_center, false)
@@ -101,6 +106,7 @@ func _capture() -> void:
         if event_hud != null:
             var event_snapshot: Dictionary = event_hud.call("event_snapshot")
             _expect(str(event_snapshot.get("event_id", "")) == event_id and not event_id.is_empty(), "R01 capture story HUD is not showing the real pending event")
+        _assert_readability(shell, viewport_size, "story")
         _save_capture(viewport, "%s/story-%dx%d.png" % [OUTPUT_DIR, viewport_size.x, viewport_size.y], viewport_size, "story")
 
         _expect(bool(shell.call("select_world_choice", 0)), "R01 capture could not resolve real story choice")
@@ -116,6 +122,22 @@ func _capture() -> void:
         _clear_save(test_root)
 
     _finish()
+
+
+func _assert_readability(shell: Node, viewport_size: Vector2i, state: String) -> void:
+    var subtitle := shell.get_node_or_null("SafeArea/Content/Subtitle") as Label
+    var status := shell.get_node_or_null("SafeArea/Content/Status") as Label
+    _expect(subtitle != null, "R01 %s subtitle label missing" % state)
+    _expect(status != null, "R01 %s status label missing" % state)
+    if subtitle != null:
+        var subtitle_font: Font = subtitle.get_theme_font("font")
+        _expect(subtitle_font != null and subtitle_font.has_char(KOREAN_PROBE_CODEPOINT), "R01 %s resolved font lacks Korean glyph U+C794" % state)
+    if status != null:
+        var status_font: Font = status.get_theme_font("font")
+        _expect(status_font != null and status_font.has_char(KOREAN_PROBE_CODEPOINT), "R01 %s status font lacks Korean glyph U+C794" % state)
+        _expect(int(status.autowrap_mode) != 0, "R01 %s status autowrap is disabled" % state)
+        var max_status_width := float(viewport_size.x) - SAFE_AREA_MARGIN_TOTAL + 1.0
+        _expect(status.size.x <= max_status_width, "R01 %s status exceeds safe-area width: %.1f > %.1f" % [state, status.size.x, max_status_width])
 
 
 func _push_touch(viewport: Viewport, pointer_id: int, position: Vector2, pressed: bool) -> void:
@@ -155,6 +177,8 @@ func _expect(condition: bool, message: String) -> void:
 
 func _finish() -> void:
     if _failures.is_empty():
+        print("R01_KOREAN_GLYPH_FONT=PASS")
+        print("R01_STATUS_WRAPPING=PASS")
         print("R01_REVIEW_IMAGE_COUNT=6")
         print("R01_REAL_PLAY_CAPTURE=PASS")
         quit(0)
