@@ -63,9 +63,13 @@ require(not re.search(r'keystore/(?:release|release_user|release_password)=".+"'
 
 workflow_path = ROOT / ".github/workflows/w28-production-signing.yml"
 workflow = workflow_path.read_text(encoding="utf-8")
-require("workflow_dispatch:" in workflow, "production signing workflow must be manually gated")
-require("\n  push:" not in workflow and "\n  pull_request:" not in workflow, "production signing workflow must not auto-run on source events")
-require("if: github.ref == 'refs/heads/v1.0.0-dev1'" in workflow, "production signer must be ref-gated to the canonical dev branch")
+require("\n  push:\n" in workflow, "production signing workflow must use the dedicated signing-branch push trigger")
+require("- 'sign/w28-production'" in workflow, "production signing branch filter missing")
+require("workflow_dispatch:" not in workflow, "dev-only workflow_dispatch would be unusable until the workflow exists on the default branch")
+require("\n  pull_request:" not in workflow, "production signing workflow must never expose signer secrets to PR execution")
+require("if: github.ref == 'refs/heads/sign/w28-production'" in workflow, "production signer must be ref-gated to the dedicated signing branch")
+require("refs/heads/v1.0.0-dev1:refs/remotes/origin/v1.0.0-dev1" in workflow, "signer must fetch the canonical dev head")
+require('test "$candidate_sha" = "$dev_sha"' in workflow, "signing candidate must exactly equal current dev head before secret use")
 for secret_name in (
     "LANTERNFALL_PROD_KEYSTORE_B64",
     "LANTERNFALL_PROD_KEY_ALIAS",
@@ -122,6 +126,7 @@ print("W28_PROD_PACKAGE=com.shaterguy.lanternfall")
 print("W28_VERSION_NAME=1.0.0-dev1")
 print("W28_VERSION_CODE=1")
 print(f"W28_LICENSED_RUNTIME_MANIFESTS={manifest_groups}")
+print("W28_SIGN_TRIGGER=DEDICATED_BRANCH_EXACT_DEV_HEAD")
 print("W28_SECRET_IN_SOURCE=NONE")
 print("W28_DEBUG_SIGNING_FALLBACK=NONE")
 print("W28_RELEASE_CONTRACT=PASS")
