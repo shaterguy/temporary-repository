@@ -272,6 +272,21 @@ jobs:
             done
             return 1
           }
+          wait_save_after_sequence() {
+            local out="$1"
+            local state="$2"
+            local reason="$3"
+            local previous="$4"
+            local current
+            for _ in $(seq 1 15); do
+              if save_matches "$out" "$state" "$reason"; then
+                current="$(jq -r '.sequence' "$out")"
+                if test "$current" -gt "$previous"; then return 0; fi
+              fi
+              sleep 0.2
+            done
+            return 1
+          }
           touch_choice_one() {
             local out="$1"
             local state="$2"
@@ -287,13 +302,43 @@ jobs:
             return 1
           }
           touch_resume_slot() {
-            for y in $(seq 150 18 474); do
-              adb shell input touchscreen tap 240 "$y"
-              sleep 0.10
-              if alive && top_activity; then
-                if adb shell dumpsys window windows | grep -Fq "$PACKAGE"; then :; fi
-              fi
+            local out="$1"
+            local previous="$2"
+            local label="$3"
+            local size_line width height x_pct y_pct x y current
+            size_line="$(adb shell wm size | tr -d '\r' | sed -n -E 's/^Override size: ([0-9]+)x([0-9]+)$/\1 \2/p' | tail -1)"
+            if test -z "$size_line"; then
+              size_line="$(adb shell wm size | tr -d '\r' | sed -n -E 's/^Physical size: ([0-9]+)x([0-9]+)$/\1 \2/p' | tail -1)"
+            fi
+            read -r width height <<<"$size_line"
+            test -n "${width:-}"
+            test -n "${height:-}"
+            test "$width" -gt 0
+            test "$height" -gt 0
+            printf 'label=%s width=%s height=%s previous_sequence=%s\n' "$label" "$width" "$height" "$previous" | tee -a /tmp/r04/evidence/touch-resume-profile.txt
+            for y_pct in 36 32 40 28 44 48 52 56 60 64 68; do
+              for x_pct in 20 24 28 32; do
+                x=$(( width * x_pct / 100 ))
+                y=$(( height * y_pct / 100 ))
+                adb shell input touchscreen tap "$x" "$y"
+                sleep 0.25
+                adb shell input keyevent KEYCODE_HOME
+                if wait_save_after_sequence "$out" EXPEDITION background "$previous"; then
+                  current="$(jq -r '.sequence' "$out")"
+                  printf 'label=%s x=%s y=%s width=%s height=%s previous_sequence=%s new_sequence=%s\n' "$label" "$x" "$y" "$width" "$height" "$previous" "$current" | tee -a /tmp/r04/evidence/touch-resume-coordinates.txt
+                  launch
+                  sleep 0.5
+                  alive
+                  top_activity
+                  return 0
+                fi
+                launch
+                sleep 0.25
+                alive
+                top_activity
+              done
             done
+            return 1
           }
 
           launch
@@ -335,13 +380,11 @@ jobs:
           ! alive
           launch
           wait_visual relaunch
-          touch_resume_slot
+          touch_resume_slot /tmp/r04/evidence/save-recovered.json "$seq_bg" relaunch
           sleep 2
           alive
           top_activity
           no_crash
-          adb shell input keyevent KEYCODE_HOME
-          wait_save /tmp/r04/evidence/save-recovered.json EXPEDITION background
           seq_rec="$(jq -r '.sequence' /tmp/r04/evidence/save-recovered.json)"
           test "$seq_rec" -gt "$seq_bg"
           test "$(jq -r '.payload.world.active_expedition_id' /tmp/r04/evidence/save-recovered.json)" = "$exp_id"
@@ -351,14 +394,12 @@ jobs:
           adb shell wm size 1024x768
           launch
           wait_visual resized
-          touch_resume_slot
+          touch_resume_slot /tmp/r04/evidence/save-resized.json "$seq_rec" resized
           sleep 2
           alive
           top_activity
           shot resized-reentry
           no_crash
-          adb shell input keyevent KEYCODE_HOME
-          wait_save /tmp/r04/evidence/save-resized.json EXPEDITION background
           seq_resize="$(jq -r '.sequence' /tmp/r04/evidence/save-resized.json)"
           test "$seq_resize" -gt "$seq_rec"
           test "$(jq -r '.payload.world.active_expedition_id' /tmp/r04/evidence/save-resized.json)" = "$exp_id"
