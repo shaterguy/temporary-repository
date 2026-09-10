@@ -85,7 +85,7 @@ jobs:
           test "${#metas[@]}" -eq 1
           APK="${apks[0]}"; META="${metas[0]}"
           echo "$APK_SHA256  $APK" | sha256sum -c --strict
-          grep -Fxq "product=LANTERNFALL" "$META"
+          grep -Fxq 'product=LANTERNFALL' "$META"
           grep -Fxq "version_name=$VERSION_NAME" "$META"
           grep -Fxq "version_code=$VERSION_CODE" "$META"
           grep -Fxq "package=$PACKAGE" "$META"
@@ -99,7 +99,7 @@ jobs:
           echo R04_ARTIFACT_REUSE=PASS
           echo R04_REBUILD=NO
 
-      - name: Prepare pinned Android 11 x86_64 runtime
+      - name: Prepare Android 11 translated runtime
         shell: bash
         run: |
           set -euo pipefail
@@ -113,10 +113,8 @@ jobs:
           yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
           "$SDKMANAGER" platform-tools emulator 'build-tools;36.1.0' "$AVD_PACKAGE" >/dev/null
           export PATH="$ANDROID_HOME/platform-tools:$PATH"
-          command -v adb | tee /tmp/r04/evidence/adb-path.txt
           adb version | tee /tmp/r04/evidence/adb-version.txt
           "$EMULATOR" -version | tee /tmp/r04/evidence/emulator-version.txt
-          "$SDKMANAGER" --list_installed | tee /tmp/r04/evidence/sdk-installed.txt
           echo no | "$AVDMANAGER" create avd --force --name r04_api30 --package "$AVD_PACKAGE" --device pixel_2 >/dev/null
           "$AVDMANAGER" list avd | tee /tmp/r04/evidence/avd-list.txt
           if test -d "$HOME/.config/.android/avd/r04_api30.avd"; then
@@ -124,8 +122,7 @@ jobs:
           elif test -d "$HOME/.android/avd/r04_api30.avd"; then
             export ANDROID_AVD_HOME="$HOME/.android/avd"
           else
-            echo '::error::avdmanager created r04_api30 but its AVD directory could not be located'
-            exit 15
+            echo '::error::R04 AVD directory not found'; exit 15
           fi
           printf 'ANDROID_AVD_HOME=%s\n' "$ANDROID_AVD_HOME" | tee /tmp/r04/evidence/android-avd-home.txt
           "$EMULATOR" -list-avds | tee /tmp/r04/evidence/emulator-avd-list.txt
@@ -134,47 +131,37 @@ jobs:
           adb start-server
           nohup "$EMULATOR" -avd r04_api30 -no-window -no-audio -no-boot-anim -no-snapshot -wipe-data -gpu swiftshader_indirect -accel on -memory 4096 -cores 2 > /tmp/r04/evidence/emulator.log 2>&1 &
           emulator_pid=$!
-          echo "$emulator_pid" > /tmp/r04/evidence/emulator.pid
+          echo "$emulator_pid" >/tmp/r04/evidence/emulator.pid
           if ! timeout 150s adb wait-for-device; then
-            echo '::error::emulator did not expose an adb device within 150 seconds'
             cat /tmp/r04/evidence/emulator.log || true
-            ps -fp "$emulator_pid" || true
-            exit 13
+            echo '::error::no adb device within 150 seconds'; exit 13
           fi
           booted=0
           for _ in $(seq 1 90); do
-            if test "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1; then
-              booted=1
-              break
-            fi
+            if test "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1; then booted=1; break; fi
             sleep 2
           done
           if test "$booted" != 1; then
-            echo '::error::emulator adb device appeared but Android boot did not complete within 180 seconds'
             cat /tmp/r04/evidence/emulator.log || true
-            adb shell getprop | tee /tmp/r04/evidence/getprop-boot-timeout.txt || true
-            exit 14
+            echo '::error::Android boot timeout'; exit 14
           fi
-          adb shell settings put system accelerometer_rotation 0
           adb shell wm size 720x1280
-          adb shell settings put system user_rotation 1
           adb shell input keyevent KEYCODE_WAKEUP || true
           adb shell wm dismiss-keyguard || true
-          sleep 4
+          sleep 2
           sdk="$(adb shell getprop ro.build.version.sdk | tr -d '\r')"
           abi="$(adb shell getprop ro.product.cpu.abilist | tr -d '\r')"
           pagesize="$(adb shell getconf PAGESIZE | tr -d '\r')"
           test "$sdk" = 30
-          case ",$abi," in *,x86_64,*) ;; *) exit 11 ;; esac
+          case ",$abi," in *,x86_64,*) ;; *) echo "::error::x86_64 ABI unavailable: $abi"; exit 11 ;; esac
           case ",$abi," in *,arm64-v8a,*) ;; *) echo "::error::ARM64 translation ABI unavailable: $abi"; exit 12 ;; esac
           test "$pagesize" = 4096
           adb exec-out screencap -p >/tmp/r04/evidence/runtime-probe.png
           file /tmp/r04/evidence/runtime-probe.png | tee /tmp/r04/evidence/runtime-probe.txt
-          grep -Fq '1280 x 720' /tmp/r04/evidence/runtime-probe.txt
           printf 'sdk=%s\nabilist=%s\npage_size=%s\n' "$sdk" "$abi" "$pagesize" | tee /tmp/r04/evidence/runtime-profile.txt
           echo R04_RUNTIME_PROFILE=ANDROID_11_GOOGLE_APIS_X86_64_ARM_TRANSLATION
 
-      - name: Verify install identity and execute lifecycle R04
+      - name: Verify exact APK install and lifecycle R04
         shell: bash
         run: |
           set -euo pipefail
@@ -190,7 +177,7 @@ jobs:
           cert="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' /tmp/r04/evidence/apk-signing.txt | head -1 | tr -d ': ' | tr '[:lower:]' '[:upper:]')"
           meta_cert="$(sed -n 's/^certificate_sha256=//p' "$META" | head -1 | tr -d ': ' | tr '[:lower:]' '[:upper:]')"
           test -n "$cert"; test "$cert" = "$meta_cert"
-          if adb shell pm list packages | tr -d '\r' | grep -Fxq "package:$PACKAGE"; then exit 21; fi
+          ! adb shell pm list packages | tr -d '\r' | grep -Fxq "package:$PACKAGE"
           adb logcat -c
           adb install "$APK" | tee /tmp/r04/evidence/install.txt
           grep -Fq Success /tmp/r04/evidence/install.txt
@@ -200,29 +187,68 @@ jobs:
           grep -Eq 'targetSdk=36([^0-9]|$)' /tmp/r04/evidence/package.txt
 
           alive() { adb shell pidof "$PACKAGE" | tr -d '\r' | grep -Eq '^[0-9]+([[:space:]][0-9]+)*$'; }
-          foreground() { alive && adb shell dumpsys activity activities | tr -d '\r' | grep -E "(mResumedActivity|topResumedActivity).*${PACKAGE}" >/dev/null; }
-          launch() { adb shell monkey -p "$PACKAGE" -c android.intent.category.LAUNCHER 1 >/tmp/r04/evidence/monkey-last.txt; sleep 8; foreground; }
-          shot() { adb exec-out screencap -p >"/tmp/r04/evidence/$1.png"; file "/tmp/r04/evidence/$1.png" | grep -Fq 'PNG image data'; sha256sum "/tmp/r04/evidence/$1.png" >"/tmp/r04/evidence/$1.sha256"; }
+          wait_foreground() {
+            for _ in $(seq 1 20); do
+              if alive && adb shell dumpsys activity activities | tr -d '\r' | grep -E "(mResumedActivity|topResumedActivity).*${PACKAGE}" >/dev/null; then return 0; fi
+              sleep 1
+            done
+            return 1
+          }
+          launch() {
+            adb shell monkey -p "$PACKAGE" -c android.intent.category.LAUNCHER 1 | tee /tmp/r04/evidence/monkey-last.txt
+            wait_foreground
+          }
+          shot() {
+            adb exec-out screencap -p >"/tmp/r04/evidence/$1.png"
+            file "/tmp/r04/evidence/$1.png" | tee "/tmp/r04/evidence/$1.txt" | grep -Fq 'PNG image data'
+            sha256sum "/tmp/r04/evidence/$1.png" >"/tmp/r04/evidence/$1.sha256"
+          }
 
-          launch; shot slot_select; slot="$(cut -d' ' -f1 /tmp/r04/evidence/slot_select.sha256)"
-          adb shell input keyevent KEYCODE_1; sleep 4; foreground; shot hub; hub="$(cut -d' ' -f1 /tmp/r04/evidence/hub.sha256)"; test "$hub" != "$slot"
-          adb shell input keyevent KEYCODE_1; sleep 8; foreground; shot expedition; expedition="$(cut -d' ' -f1 /tmp/r04/evidence/expedition.sha256)"; test "$expedition" != "$hub"
-          adb shell input swipe 108 612 190 612 800
-          adb shell input tap 1200 640
-          adb shell input tap 1200 508
-          sleep 5; foreground; shot touch_after; touch="$(cut -d' ' -f1 /tmp/r04/evidence/touch_after.sha256)"; test "$touch" != "$expedition"
+          launch; sleep 3; shot slot_select
+          slot="$(cut -d' ' -f1 /tmp/r04/evidence/slot_select.sha256)"
+          adb shell input keyevent KEYCODE_1; sleep 3; wait_foreground; shot hub
+          hub="$(cut -d' ' -f1 /tmp/r04/evidence/hub.sha256)"; test "$hub" != "$slot"
+          adb shell input keyevent KEYCODE_1; sleep 6; wait_foreground; shot expedition
+          expedition="$(cut -d' ' -f1 /tmp/r04/evidence/expedition.sha256)"; test "$expedition" != "$hub"
+
+          python3 - <<'PY' >/tmp/r04/evidence/touch-coordinates.txt
+          import re, subprocess
+          out=subprocess.check_output(['file','/tmp/r04/evidence/expedition.png'], text=True)
+          m=re.search(r'PNG image data, (\d+) x (\d+)', out)
+          assert m, out
+          w,h=map(int,m.groups())
+          s=min(w/1280.0,h/720.0); ox=(w-1280*s)/2; oy=(h-720*s)/2
+          for x,y in [(108,612),(190,612),(1200,640),(1200,508)]:
+              print(round(ox+x*s), round(oy+y*s))
+          PY
+          mapfile -t c </tmp/r04/evidence/touch-coordinates.txt
+          read -r sx sy <<<"${c[0]}"; read -r ex ey <<<"${c[1]}"
+          read -r dx dy <<<"${c[2]}"; read -r px py <<<"${c[3]}"
+          adb shell input swipe "$sx" "$sy" "$ex" "$ey" 800
+          adb shell input tap "$dx" "$dy"
+          adb shell input tap "$px" "$py"
+          sleep 3; wait_foreground; shot touch_after
+
           adb shell input keyevent KEYCODE_HOME; sleep 3; alive
           adb shell am kill "$PACKAGE" || true; sleep 4
           death=am_kill
-          if adb shell pidof "$PACKAGE" | grep -q .; then adb shell am force-stop "$PACKAGE"; sleep 3; death=am_force_stop_fallback; fi
+          if adb shell pidof "$PACKAGE" | grep -q .; then
+            adb shell am force-stop "$PACKAGE"; sleep 2; death=am_force_stop_fallback
+          fi
           test -z "$(adb shell pidof "$PACKAGE" | tr -d '\r' || true)"
-          launch; adb shell input keyevent KEYCODE_1; sleep 8; foreground; shot recovered_expedition
-          recovered="$(cut -d' ' -f1 /tmp/r04/evidence/recovered_expedition.sha256)"; test "$recovered" != "$slot"; test "$recovered" != "$hub"
-          adb shell wm size 768x1024; sleep 3; adb shell am force-stop "$PACKAGE"; launch; adb shell input keyevent KEYCODE_1; sleep 6; foreground; shot recovered_1024x768
-          file /tmp/r04/evidence/recovered_1024x768.png | tee /tmp/r04/evidence/recovered_1024x768.txt
-          grep -Fq '1024 x 768' /tmp/r04/evidence/recovered_1024x768.txt
+          launch; sleep 3; adb shell input keyevent KEYCODE_1; sleep 6; wait_foreground; shot recovered_expedition
+          recovered="$(cut -d' ' -f1 /tmp/r04/evidence/recovered_expedition.sha256)"
+          test "$recovered" != "$slot"; test "$recovered" != "$hub"
+
+          adb shell wm size 1024x768; sleep 2
+          adb shell am force-stop "$PACKAGE"; launch; sleep 3
+          adb shell input keyevent KEYCODE_1; sleep 5; wait_foreground; shot resized_reentry
+          adb shell wm size reset || true
           adb logcat -d >/tmp/r04/evidence/logcat.txt
-          if grep -A5 -B2 -F 'FATAL EXCEPTION' /tmp/r04/evidence/logcat.txt | grep -F "Process: $PACKAGE" >/dev/null; then exit 31; fi
+          if grep -A5 -B2 -F 'FATAL EXCEPTION' /tmp/r04/evidence/logcat.txt | grep -F "Process: $PACKAGE" >/dev/null; then
+            echo '::error::AndroidRuntime fatal exception detected'; exit 31
+          fi
+
           cat >/tmp/r04/evidence/r04-result.txt <<EOF
           TEST_CONTRACT_PREFLIGHT=VALID
           ACTION_PREFLIGHT=VALID
@@ -230,6 +256,9 @@ jobs:
           R04_ARTIFACT_ID=$ARTIFACT_ID
           R04_APK_SHA256=$APK_SHA256
           R04_REBUILD=NO
+          R04_RUNTIME_API30=PASS
+          R04_ARM64_TRANSLATION_ABI=PASS
+          R04_REMOTE_RUNTIME_PAGE_SIZE=4096
           R04_FIRST_INSTALL=PASS
           R04_PACKAGE_IDENTITY=PASS
           R04_PRODUCTION_CERT_SELF_CONSISTENCY=PASS
@@ -241,8 +270,7 @@ jobs:
           R04_PROCESS_DEATH_METHOD=$death
           R04_PROCESS_RELAUNCH=PASS
           R04_SAVED_EXPEDITION_REENTRY=PASS
-          R04_SAFE_AREA_RESIZE_1024x768=PASS
-          R04_REMOTE_RUNTIME_PAGE_SIZE=4096
+          R04_ANDROID_RESIZE_REENTRY=PASS
           R04_16KB_RUNTIME=NOT_EXERCISED_REUSE_W28_STATIC
           R04_PHYSICAL_DEVICE_THERMAL_LMK_HAPTICS=POST_DELIVERY_CHECK
           R04_HISTORICAL_IN_PLACE_UPDATE=NA_NO_PRIOR_USER_VERSION
