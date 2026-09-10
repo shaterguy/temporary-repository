@@ -1,0 +1,218 @@
+name: w28-production-signing
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: w28-production-signing-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  production-apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      GODOT_VERSION: "4.7.2-stable"
+      GODOT_VERSION_DIR: "4.7.2.stable"
+      GODOT_ARCHIVE_SHA256: "cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4"
+      GODOT_ARCHIVE_URL: "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip"
+      GODOT_TEMPLATES_SHA256: "f298490b8d44d934be425a5a65a51bf15f422428b229a06a6e11d9ffea248011"
+      GODOT_TEMPLATES_URL: "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_export_templates.tpz"
+      GODOT_BIN: "/tmp/godot/Godot_v4.7.2-stable_linux.x86_64"
+      ANDROID_BUILD_TOOLS: "35.0.1"
+      ANDROID_PLATFORM: "android-35"
+      APK_PATH: "artifacts/w28/LANTERNFALL-1.0.0-dev1-production.apk"
+
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Static release contract preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tests/ci/check_w28_release_contract.py
+          test "$(jq -r '.engine.version' toolchain.lock)" = "$GODOT_VERSION"
+          test "$(jq -r '.engine.linux_x86_64_sha256' toolchain.lock)" = "$GODOT_ARCHIVE_SHA256"
+          test "$(jq -r '.engine.export_templates_sha256' toolchain.lock)" = "$GODOT_TEMPLATES_SHA256"
+          test "$(jq -r '.android.build_tools' toolchain.lock)" = "$ANDROID_BUILD_TOOLS"
+          test "$(jq -r '.android.sdk_platform' toolchain.lock)" = "$ANDROID_PLATFORM"
+          test "$(jq -r '.identity.prod_application_id' toolchain.lock)" = "com.shaterguy.lanternfall"
+          test "$(jq -r '.identity.version_name' toolchain.lock)" = "1.0.0-dev1"
+          test "$(jq -r '.identity.version_code' toolchain.lock)" = "1"
+          echo "TEST_CONTRACT_PREFLIGHT=VALID"
+          echo "ACTION_PREFLIGHT=VALID"
+
+      - name: Require durable production signing secrets
+        shell: bash
+        env:
+          KEYSTORE_B64: ${{ secrets.LANTERNFALL_PROD_KEYSTORE_B64 }}
+          KEY_ALIAS: ${{ secrets.LANTERNFALL_PROD_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.LANTERNFALL_PROD_KEY_PASSWORD }}
+          EXPECTED_CERT_SHA256: ${{ secrets.LANTERNFALL_PROD_CERT_SHA256 }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_B64"
+          test -n "$KEY_ALIAS"
+          test -n "$KEY_PASSWORD"
+          test -n "$EXPECTED_CERT_SHA256"
+          normalized="$(printf '%s' "$EXPECTED_CERT_SHA256" | tr -d ': ' | tr '[:lower:]' '[:upper:]')"
+          [[ "$normalized" =~ ^[0-9A-F]{64}$ ]]
+          echo "W28_DURABLE_SIGNING_SECRETS=PRESENT"
+
+      - name: Prepare pinned Android export toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${ANDROID_HOME:-}"
+          test -n "${JAVA_HOME_17_X64:-}"
+          export JAVA_HOME="$JAVA_HOME_17_X64"
+          echo "JAVA_HOME=$JAVA_HOME" >> "$GITHUB_ENV"
+          java -version
+          keytool -help >/dev/null
+
+          sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$sdkmanager"
+          if [ ! -x "$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS/apksigner" ]; then
+            yes | "$sdkmanager" --licenses >/dev/null 2>&1 || true
+            "$sdkmanager" "platform-tools" "build-tools;$ANDROID_BUILD_TOOLS" "platforms;$ANDROID_PLATFORM"
+          fi
+          test -x "$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS/apksigner"
+          test -x "$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS/zipalign"
+          test -x "$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS/aapt"
+
+          rm -rf /tmp/godot /tmp/godot-templates /tmp/godot.zip /tmp/godot-templates.tpz
+          mkdir -p /tmp/godot /tmp/godot-templates
+          curl --fail --location --proto '=https' --tlsv1.2 "$GODOT_ARCHIVE_URL" --output /tmp/godot.zip
+          echo "$GODOT_ARCHIVE_SHA256  /tmp/godot.zip" | sha256sum --check --strict
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x "$GODOT_BIN"
+          "$GODOT_BIN" --version
+
+          curl --fail --location --proto '=https' --tlsv1.2 "$GODOT_TEMPLATES_URL" --output /tmp/godot-templates.tpz
+          echo "$GODOT_TEMPLATES_SHA256  /tmp/godot-templates.tpz" | sha256sum --check --strict
+          unzip -q /tmp/godot-templates.tpz -d /tmp/godot-templates
+          template_dir="$HOME/.local/share/godot/export_templates/$GODOT_VERSION_DIR"
+          mkdir -p "$template_dir"
+          cp -a /tmp/godot-templates/templates/. "$template_dir/"
+          test -s "$template_dir/android_release.apk"
+
+          mkdir -p "$HOME/.config/godot"
+          cat > "$HOME/.config/godot/editor_settings-4.7.tres" <<EOF
+          [gd_resource type="EditorSettings" format=3]
+
+          [resource]
+          export/android/java_sdk_path = "$JAVA_HOME"
+          export/android/android_sdk_path = "$ANDROID_HOME"
+          EOF
+
+      - name: Materialize protected production keystore
+        shell: bash
+        env:
+          KEYSTORE_B64: ${{ secrets.LANTERNFALL_PROD_KEYSTORE_B64 }}
+          KEY_ALIAS: ${{ secrets.LANTERNFALL_PROD_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.LANTERNFALL_PROD_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          umask 077
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > /tmp/lanternfall-prod.keystore
+          test -s /tmp/lanternfall-prod.keystore
+          keytool -list -keystore /tmp/lanternfall-prod.keystore -alias "$KEY_ALIAS" -storepass "$KEY_PASSWORD" >/dev/null
+          echo "W28_PRODUCTION_KEYSTORE=VALID"
+
+      - name: Export production-signed APK
+        shell: bash
+        env:
+          GODOT_ANDROID_KEYSTORE_RELEASE_PATH: /tmp/lanternfall-prod.keystore
+          GODOT_ANDROID_KEYSTORE_RELEASE_USER: ${{ secrets.LANTERNFALL_PROD_KEY_ALIAS }}
+          GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD: ${{ secrets.LANTERNFALL_PROD_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$(dirname "$APK_PATH")"
+          import_log="$(mktemp)"
+          set +e
+          "$GODOT_BIN" --headless --path . --import 2>&1 | tee "$import_log"
+          import_status=${PIPESTATUS[0]}
+          set -e
+          test "$import_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$import_log"; then
+            echo "::error::Godot import reported script compilation errors"
+            exit 1
+          fi
+          "$GODOT_BIN" --headless --path . --export-release "Android Production" "$APK_PATH"
+          test -s "$APK_PATH"
+
+      - name: Verify APK identity signing and 16 KB compatibility
+        shell: bash
+        env:
+          EXPECTED_CERT_SHA256: ${{ secrets.LANTERNFALL_PROD_CERT_SHA256 }}
+        run: |
+          set -euo pipefail
+          aapt_bin="$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS/aapt"
+          apksigner_bin="$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS/apksigner"
+          zipalign_bin="$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS/zipalign"
+
+          "$aapt_bin" dump badging "$APK_PATH" | tee /tmp/w28-badging.txt
+          grep -Eq "^package: name='com[.]shaterguy[.]lanternfall' versionCode='1' versionName='1[.]0[.]0-dev1'" /tmp/w28-badging.txt
+          "$apksigner_bin" verify --verbose --print-certs "$APK_PATH" | tee /tmp/w28-signing.txt
+          cert_sha256="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' /tmp/w28-signing.txt | head -n 1 | tr -d ': ' | tr '[:lower:]' '[:upper:]')"
+          expected_sha256="$(printf '%s' "$EXPECTED_CERT_SHA256" | tr -d ': ' | tr '[:lower:]' '[:upper:]')"
+          [[ "$cert_sha256" =~ ^[0-9A-F]{64}$ ]]
+          test "$cert_sha256" = "$expected_sha256"
+          "$zipalign_bin" -c -P 16 -v 4 "$APK_PATH"
+
+          rm -rf /tmp/w28-apk-libs
+          mkdir -p /tmp/w28-apk-libs
+          unzip -q "$APK_PATH" 'lib/arm64-v8a/*.so' -d /tmp/w28-apk-libs
+          mapfile -t native_libs < <(find /tmp/w28-apk-libs/lib/arm64-v8a -type f -name '*.so' | sort)
+          test "${#native_libs[@]}" -gt 0
+          for so_file in "${native_libs[@]}"; do
+            load_count=0
+            while read -r align; do
+              test -n "$align"
+              load_count=$((load_count + 1))
+              if (( align < 0x4000 )); then
+                echo "::error::$so_file has LOAD alignment $align below 0x4000"
+                exit 1
+              fi
+            done < <(readelf -lW "$so_file" | awk '$1 == "LOAD" {print $NF}')
+            test "$load_count" -gt 0
+          done
+
+          apk_sha256="$(sha256sum "$APK_PATH" | awk '{print $1}')"
+          apk_size="$(stat -c '%s' "$APK_PATH")"
+          {
+            echo "product=LANTERNFALL"
+            echo "version_name=1.0.0-dev1"
+            echo "version_code=1"
+            echo "package=com.shaterguy.lanternfall"
+            echo "certificate_sha256=$cert_sha256"
+            echo "apk_sha256=$apk_sha256"
+            echo "apk_size_bytes=$apk_size"
+            echo "native_16kb_compatible=true"
+          } > artifacts/w28/LANTERNFALL-1.0.0-dev1-production.metadata.txt
+          echo "W28_PROD_PACKAGE=com.shaterguy.lanternfall"
+          echo "W28_CERT_SHA256=$cert_sha256"
+          echo "W28_APK_SHA256=$apk_sha256"
+          echo "W28_APK_SIZE_BYTES=$apk_size"
+          echo "W28_16KB_COMPATIBILITY=PASS"
+          echo "W28_PRODUCTION_APK=PASS"
+
+      - name: Upload verified production APK
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: lanternfall-1.0.0-dev1-production-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            artifacts/w28/LANTERNFALL-1.0.0-dev1-production.apk
+            artifacts/w28/LANTERNFALL-1.0.0-dev1-production.metadata.txt
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Remove signing material
+        if: always()
+        shell: bash
+        run: |
+          rm -f /tmp/lanternfall-prod.keystore

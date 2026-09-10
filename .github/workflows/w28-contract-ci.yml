@@ -1,0 +1,54 @@
+name: w28-contract-ci
+
+on:
+  push:
+    branches:
+      - 'v*-dev*'
+      - 'v*-rc*'
+    paths:
+      - 'export_presets.cfg'
+      - 'toolchain.lock'
+      - 'content_manifest.json'
+      - 'assets/runtime/**'
+      - 'assets/licenses/**'
+      - 'tests/ci/check_w28_release_contract.py'
+      - 'docs/verification/W28_PRODUCTION_SIGNING.md'
+      - '.github/workflows/w28-contract-ci.yml'
+      - '.github/workflows/w28-production-signing.yml'
+  pull_request:
+    paths:
+      - 'export_presets.cfg'
+      - 'toolchain.lock'
+      - 'content_manifest.json'
+      - 'assets/runtime/**'
+      - 'assets/licenses/**'
+      - 'tests/ci/check_w28_release_contract.py'
+      - 'docs/verification/W28_PRODUCTION_SIGNING.md'
+      - '.github/workflows/w28-contract-ci.yml'
+      - '.github/workflows/w28-production-signing.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: w28-contract-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  w28-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Validate production signing and license contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tests/ci/check_w28_release_contract.py
+          test -z "$(find . -type f \( -name '*.jks' -o -name '*.keystore' -o -name '*.p12' -o -name '*.pem' -o -name '*.key' \) -print -quit)"
+          echo "TEST_CONTRACT_PREFLIGHT=VALID"
+          echo "ACTION_PREFLIGHT=VALID"
+          echo "W28_CONTRACT_CI=PASS"
