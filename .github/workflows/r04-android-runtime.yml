@@ -112,6 +112,9 @@ jobs:
           sudo chmod 666 /dev/kvm
           yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
           "$SDKMANAGER" platform-tools emulator 'build-tools;36.1.0' "$AVD_PACKAGE" >/dev/null
+          export PATH="$ANDROID_HOME/platform-tools:$PATH"
+          command -v adb | tee /tmp/r04/evidence/adb-path.txt
+          adb version | tee /tmp/r04/evidence/adb-version.txt
           "$EMULATOR" -version | tee /tmp/r04/evidence/emulator-version.txt
           "$SDKMANAGER" --list_installed | tee /tmp/r04/evidence/sdk-installed.txt
           echo no | "$AVDMANAGER" create avd --force --name r04_api30 --package "$AVD_PACKAGE" --device pixel_2 >/dev/null
@@ -146,6 +149,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          export PATH="$ANDROID_HOME/platform-tools:$PATH"
           APK="$(cat /tmp/r04/apk-path)"; META="$(cat /tmp/r04/meta-path)"
           AAPT="$ANDROID_HOME/build-tools/36.1.0/aapt"
           APKSIGNER="$ANDROID_HOME/build-tools/36.1.0/apksigner"
