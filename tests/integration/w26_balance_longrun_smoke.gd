@@ -131,9 +131,19 @@ func _test_weapon_bounds() -> void:
         _failures.append("W26 phase_afterglow did not create the intended four-target dodge-fan tradeoff")
     var ward = CausalWeaponScript.new()
     ward.equip_curated_weapon("ward_halo")
-    var ward_actions: Array[Dictionary] = ward.resolve_event({"type": "circuit_activated", "cause_id": "w26-ward-halo", "chain_depth": 0}, _broad_weapon_context())
-    if ward_actions.is_empty() or int(ward_actions[0].get("damage", 0)) < 15:
-        _failures.append("W26 ark_resonance did not reach the intended focused-hit floor")
+    var ward_actions: Array[Dictionary] = ward.resolve_event({"type": "circuit_activated", "cause_id": "w26-ward-halo-active", "chain_depth": 0}, _broad_weapon_context())
+    var ward_inactive = CausalWeaponScript.new()
+    ward_inactive.equip_curated_weapon("ward_halo")
+    var inactive_context: Dictionary = _broad_weapon_context()
+    inactive_context["ark_pressure_active"] = false
+    var ward_inactive_actions: Array[Dictionary] = ward_inactive.resolve_event({"type": "circuit_activated", "cause_id": "w26-ward-halo-inactive", "chain_depth": 0}, inactive_context)
+    if ward_actions.is_empty() or ward_inactive_actions.is_empty():
+        _failures.append("W26 ward_halo could not resolve both Ark-pressure comparison states")
+    else:
+        var active_damage := int(ward_actions[0].get("damage", 0))
+        var inactive_damage := int(ward_inactive_actions[0].get("damage", 0))
+        if active_damage <= inactive_damage or active_damage * 100 < inactive_damage * 125:
+            _failures.append("W26 ark_resonance did not provide at least 25% conditional focused-hit uplift")
     _weapon_ok = _failures.size() == before
 
 func _test_economy_and_recon() -> void:
