@@ -1,0 +1,170 @@
+name: w27-performance-ci
+
+on:
+  push:
+    branches:
+      - 'v*-dev*'
+      - 'v*-rc*'
+    paths:
+      - 'game/combat/enemy_pool.gd'
+      - 'game/combat/spatial_hash.gd'
+      - 'game/core/save_store.gd'
+      - 'game/world/campaign_runtime.gd'
+      - 'game/world/campaign_runtime_w22.gd'
+      - 'game/ui/main_shell.tscn'
+      - 'game/ui/main_shell*.gd'
+      - 'game/ui/mobile_input_overlay.gd'
+      - 'project.godot'
+      - 'toolchain.lock'
+      - 'tests/integration/w27_performance_soak_smoke.gd'
+      - 'docs/verification/W27_PERFORMANCE_SOAK_16KB.md'
+      - '.github/workflows/w27-performance-ci.yml'
+  pull_request:
+    paths:
+      - 'game/combat/enemy_pool.gd'
+      - 'game/combat/spatial_hash.gd'
+      - 'game/core/save_store.gd'
+      - 'game/world/campaign_runtime.gd'
+      - 'game/world/campaign_runtime_w22.gd'
+      - 'game/ui/main_shell.tscn'
+      - 'game/ui/main_shell*.gd'
+      - 'game/ui/mobile_input_overlay.gd'
+      - 'project.godot'
+      - 'toolchain.lock'
+      - 'tests/integration/w27_performance_soak_smoke.gd'
+      - 'docs/verification/W27_PERFORMANCE_SOAK_16KB.md'
+      - '.github/workflows/w27-performance-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: w27-performance-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  w27-performance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GODOT_VERSION: "4.7.2-stable"
+      GODOT_ARCHIVE_SHA256: "cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4"
+      GODOT_ARCHIVE_URL: "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip"
+      GODOT_BIN: "/tmp/godot/Godot_v4.7.2-stable_linux.x86_64"
+      GODOT_TEMPLATES_URL: "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_export_templates.tpz"
+      GODOT_TEMPLATES_SHA256: "f298490b8d44d934be425a5a65a51bf15f422428b229a06a6e11d9ffea248011"
+      ANDROID_BUILD_TOOLS: "35.0.1"
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Static W27 contract preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(jq -r '.engine.version' toolchain.lock)" = "$GODOT_VERSION"
+          test "$(jq -r '.engine.linux_x86_64_sha256' toolchain.lock)" = "$GODOT_ARCHIVE_SHA256"
+          test "$(jq -r '.engine.export_templates_sha256' toolchain.lock)" = "$GODOT_TEMPLATES_SHA256"
+          test "$(jq -r '.android.build_tools' toolchain.lock)" = "$ANDROID_BUILD_TOOLS"
+          test "$(jq -r '.android.primary_abi' toolchain.lock)" = "arm64-v8a"
+          test "$(jq -r '.identity.version_name' toolchain.lock)" = "1.0.0-dev1"
+          test "$(jq -r '.identity.version_code' toolchain.lock)" = "1"
+          test "$(jq -r '.identity.prod_application_id' toolchain.lock)" = "com.shaterguy.lanternfall"
+          test "$(jq -r '.identity.dev_application_id' toolchain.lock)" = "com.shaterguy.lanternfall.dev"
+          test -f tests/integration/w27_performance_soak_smoke.gd
+          test -f docs/verification/W27_PERFORMANCE_SOAK_16KB.md
+          grep -Fq 'TEST_CONTRACT_PREFLIGHT=VALID' docs/verification/W27_PERFORMANCE_SOAK_16KB.md
+          grep -Fq 'ACTION_PREFLIGHT=VALID' docs/verification/W27_PERFORMANCE_SOAK_16KB.md
+          test -z "$(find . -type f \( -name '*.so' -o -name '*.gdextension' \) -print -quit)"
+          test -z "$(find . -type f \( -name '*.jks' -o -name '*.keystore' -o -name '*.p12' -o -name '*.pem' -o -name '*.key' \) -print -quit)"
+
+      - name: Download pinned Godot editor
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/godot
+          curl --fail --location --proto '=https' --tlsv1.2 "$GODOT_ARCHIVE_URL" --output /tmp/godot.zip
+          echo "$GODOT_ARCHIVE_SHA256  /tmp/godot.zip" | sha256sum --check --strict
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x "$GODOT_BIN"
+          "$GODOT_BIN" --version
+
+      - name: Import W27 candidate headlessly
+        shell: bash
+        run: |
+          set -euo pipefail
+          import_log="$(mktemp)"
+          set +e
+          "$GODOT_BIN" --headless --path . --import 2>&1 | tee "$import_log"
+          godot_status=${PIPESTATUS[0]}
+          set -e
+          test "$godot_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$import_log"; then
+            echo "::error::Godot import reported W27 script compilation errors"
+            exit 1
+          fi
+
+      - name: Run W27 performance memory and save soak
+        shell: bash
+        run: |
+          set -euo pipefail
+          soak_log="$(mktemp)"
+          set +e
+          "$GODOT_BIN" --headless --path . --script tests/integration/w27_performance_soak_smoke.gd 2>&1 | tee "$soak_log"
+          godot_status=${PIPESTATUS[0]}
+          set -e
+          test "$godot_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$soak_log"; then exit 1; fi
+          if grep -Eq '^W27_FAIL:|^W27_PERFORMANCE_SOAK=FAIL' "$soak_log"; then exit 1; fi
+          grep -Fxq 'W27_POOL_LIVE_SET=384' "$soak_log"
+          grep -Fxq 'W27_POOL_WAVES=80' "$soak_log"
+          grep -Fxq 'W27_SHELL_SOAK_CYCLES=24' "$soak_log"
+          grep -Fxq 'W27_SAVE_CHECKPOINTS=96' "$soak_log"
+          grep -Fxq 'W27_REAL_DEVICE_FRAME_PACING=PENDING' "$soak_log"
+          grep -Fxq 'W27_REAL_DEVICE_THERMAL_LMK=PENDING' "$soak_log"
+          grep -Fxq 'W27_POOL_REUSE=PASS' "$soak_log"
+          grep -Fxq 'W27_SPATIAL_PRESSURE=PASS' "$soak_log"
+          grep -Fxq 'W27_SCENE_LIFECYCLE=PASS' "$soak_log"
+          grep -Fxq 'W27_MEMORY_GROWTH=PASS' "$soak_log"
+          grep -Fxq 'W27_SAVE_SOAK=PASS' "$soak_log"
+          grep -Fxq 'W27_PERFORMANCE_SOAK=PASS' "$soak_log"
+
+      - name: Verify pinned Android template 16 KB compatibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --proto '=https' --tlsv1.2 "$GODOT_TEMPLATES_URL" --output /tmp/godot-templates.tpz
+          echo "$GODOT_TEMPLATES_SHA256  /tmp/godot-templates.tpz" | sha256sum --check --strict
+          rm -rf /tmp/w27-templates /tmp/w27-apk
+          mkdir -p /tmp/w27-templates /tmp/w27-apk
+          unzip -q /tmp/godot-templates.tpz -d /tmp/w27-templates
+          template_apk="$(find /tmp/w27-templates -type f -name 'android_release.apk' -print -quit)"
+          test -n "$template_apk"
+
+          zipalign_bin="$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS/zipalign"
+          if [ ! -x "$zipalign_bin" ]; then
+            "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "build-tools;$ANDROID_BUILD_TOOLS"
+          fi
+          test -x "$zipalign_bin"
+          "$zipalign_bin" -c -P 16 -v 4 "$template_apk"
+
+          unzip -q "$template_apk" 'lib/arm64-v8a/*.so' -d /tmp/w27-apk
+          mapfile -t native_libs < <(find /tmp/w27-apk/lib/arm64-v8a -type f -name '*.so' | sort)
+          test "${#native_libs[@]}" -gt 0
+          for so_file in "${native_libs[@]}"; do
+            load_count=0
+            while read -r align; do
+              test -n "$align"
+              load_count=$((load_count + 1))
+              if (( align < 0x4000 )); then
+                echo "::error::$so_file has LOAD alignment $align below 0x4000"
+                exit 1
+              fi
+            done < <(readelf -lW "$so_file" | awk '$1 == "LOAD" {print $NF}')
+            test "$load_count" -gt 0
+          done
+          echo "W27_PROJECT_NATIVE_EXTENSIONS=NONE"
+          echo "W27_16KB_ZIPALIGN=PASS"
+          echo "W27_16KB_ELF=PASS"
+          echo "W27_TEMPLATE_NATIVE_LIBS=${#native_libs[@]}"
