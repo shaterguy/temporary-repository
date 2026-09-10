@@ -1,4 +1,4 @@
-name: r04-arm64-system-image-preflight
+name: r04-android-api36-runtime
 
 on:
   push:
@@ -8,6 +8,7 @@ on:
       - 'docs/verification/R04_ANDROID_RUNTIME.md'
 
 permissions:
+  actions: read
   contents: read
 
 concurrency:
@@ -15,12 +16,21 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  arm64-system-image-preflight:
+  api36-runtime:
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    timeout-minutes: 18
     env:
       PRODUCT_SHA: eb4b542275f13929334d72cc4e3eba492bb8ef9c
-      ARM_IMAGE: system-images;android-30;google_apis;arm64-v8a
+      ARTIFACT_ID: '10139569453'
+      ARTIFACT_ARCHIVE_SHA256: de7d0e1c0095eb80f26b9d7d8eec17b872a6e3928e5c7f510ac5b9352fff1169
+      APK_SHA256: 5ff25fec7915ce9c05c7d3cadccde4b00c9821dc0b5069228b8b239dc6a1bba5
+      APK_NAME: LANTERNFALL-1.0.0-dev1-production.apk
+      METADATA_NAME: LANTERNFALL-1.0.0-dev1-production.metadata.txt
+      PACKAGE: com.shaterguy.lanternfall
+      VERSION_NAME: 1.0.0-dev1
+      VERSION_CODE: '1'
+      AVD_PACKAGE: system-images;android-36;google_apis;x86_64
+      GH_TOKEN: ${{ github.token }}
     steps:
       - name: Checkout verification branch
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -38,6 +48,8 @@ jobs:
           test "${changed[0]}" = '.github/workflows/r04-android-runtime.yml'
           test "${changed[1]}" = 'docs/verification/R04_ANDROID_RUNTIME.md'
           test "$(jq -r '.android.primary_abi' toolchain.lock)" = arm64-v8a
+          test "$(jq -r '.android.target_api' toolchain.lock)" = 36
+          test "$(jq -r '.identity.prod_application_id' toolchain.lock)" = "$PACKAGE"
           grep -Fq 'TEST_CONTRACT_PREFLIGHT_STATUS=PASS' docs/verification/R04_ANDROID_RUNTIME.md
           grep -Fq 'ACTION_PREFLIGHT_STATUS=PASS' docs/verification/R04_ANDROID_RUNTIME.md
           grep -Fq 'PREVENTION_COMPLIANCE_STATUS=PASS' docs/verification/R04_ANDROID_RUNTIME.md
@@ -45,67 +57,352 @@ jobs:
           echo ACTION_PREFLIGHT=VALID
           echo R04_PRODUCT_DIFF=UNCHANGED
 
-      - name: Probe ARM64 system image on x64 host without translation
+      - name: Reuse exact W28 production APK
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p /tmp/r04-arm64-preflight
+          mkdir -p /tmp/r04/artifact /tmp/r04/evidence
+          curl --fail --location --retry 3 --retry-delay 2 \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'Accept: application/vnd.github+json' \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/artifacts/$ARTIFACT_ID/zip" \
+            -o /tmp/r04/w28.zip
+          echo "$ARTIFACT_ARCHIVE_SHA256  /tmp/r04/w28.zip" | sha256sum -c --strict
+          unzip -q /tmp/r04/w28.zip -d /tmp/r04/artifact
+          mapfile -t apks < <(find /tmp/r04/artifact -type f -name "$APK_NAME" | sort)
+          mapfile -t metas < <(find /tmp/r04/artifact -type f -name "$METADATA_NAME" | sort)
+          test "${#apks[@]}" -eq 1
+          test "${#metas[@]}" -eq 1
+          APK="${apks[0]}"; META="${metas[0]}"
+          echo "$APK_SHA256  $APK" | sha256sum -c --strict
+          grep -Fxq "version_name=$VERSION_NAME" "$META"
+          grep -Fxq "version_code=$VERSION_CODE" "$META"
+          grep -Fxq "package=$PACKAGE" "$META"
+          grep -Fxq "apk_sha256=$APK_SHA256" "$META"
+          grep -Fxq 'native_16kb_compatible=true' "$META"
+          printf '%s\n' "$APK" >/tmp/r04/apk-path
+          printf '%s\n' "$META" >/tmp/r04/meta-path
+          cp "$META" /tmp/r04/evidence/w28-production.metadata.txt
+          echo R04_ARTIFACT_REUSE=PASS
+          echo R04_REBUILD=NO
+
+      - name: Prepare Android 16 API36 translated runtime
+        shell: bash
+        run: |
+          set -euo pipefail
           sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends libpulse0
+          sudo apt-get install -y --no-install-recommends libpulse0 python3-pil
           SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           AVDMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager"
           EMULATOR="$ANDROID_HOME/emulator/emulator"
-          test -x "$SDKMANAGER"
-          test -x "$AVDMANAGER"
-          "$SDKMANAGER" --list --channel=0 > /tmp/r04-arm64-preflight/sdk-list.txt
-          grep -F "$ARM_IMAGE" /tmp/r04-arm64-preflight/sdk-list.txt | tee /tmp/r04-arm64-preflight/arm-image-match.txt
+          test -e /dev/kvm
+          sudo chmod 666 /dev/kvm
+          "$SDKMANAGER" --list --channel=0 >/tmp/r04/evidence/sdk-list.txt
+          grep -F "$AVD_PACKAGE" /tmp/r04/evidence/sdk-list.txt | tee /tmp/r04/evidence/api36-image-match.txt
           yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
-          "$SDKMANAGER" platform-tools emulator "$ARM_IMAGE" >/tmp/r04-arm64-preflight/sdk-install.txt
-          test -x "$EMULATOR"
-          "$EMULATOR" -version | tee /tmp/r04-arm64-preflight/emulator-version.txt
+          "$SDKMANAGER" platform-tools emulator 'build-tools;36.1.0' "$AVD_PACKAGE" >/tmp/r04/evidence/sdk-install.txt
           export PATH="$ANDROID_HOME/platform-tools:$PATH"
-          adb version | tee /tmp/r04-arm64-preflight/adb-version.txt
-          echo no | "$AVDMANAGER" create avd --force --name r04_arm64_api30 --package "$ARM_IMAGE" --device pixel_2 | tee /tmp/r04-arm64-preflight/avd-create.txt
-          if test -d "$HOME/.config/.android/avd/r04_arm64_api30.avd"; then
+          adb version | tee /tmp/r04/evidence/adb-version.txt
+          "$EMULATOR" -version | tee /tmp/r04/evidence/emulator-version.txt
+          echo no | "$AVDMANAGER" create avd --force --name r04_api36 --package "$AVD_PACKAGE" --device pixel_2 | tee /tmp/r04/evidence/avd-create.txt
+          if test -d "$HOME/.config/.android/avd/r04_api36.avd"; then
             export ANDROID_AVD_HOME="$HOME/.config/.android/avd"
-          else
+          elif test -d "$HOME/.android/avd/r04_api36.avd"; then
             export ANDROID_AVD_HOME="$HOME/.android/avd"
+          else
+            echo '::error::R04 API36 AVD directory not found'; exit 15
           fi
-          "$EMULATOR" -list-avds | tee /tmp/r04-arm64-preflight/avd-list.txt
-          "$EMULATOR" -list-avds | grep -Fxq r04_arm64_api30
-          find "$ANDROID_HOME/emulator/qemu" -maxdepth 2 -type f -name 'qemu-system-*' -printf '%P\n' | sort | tee /tmp/r04-arm64-preflight/qemu-binaries.txt
+          printf 'ANDROID_AVD_HOME=%s\n' "$ANDROID_AVD_HOME" | tee /tmp/r04/evidence/android-avd-home.txt
+          "$EMULATOR" -list-avds | tee /tmp/r04/evidence/emulator-avd-list.txt
+          "$EMULATOR" -list-avds | grep -Fxq r04_api36
           adb kill-server || true
           adb start-server
-          nohup "$EMULATOR" -avd r04_arm64_api30 -no-window -no-audio -no-boot-anim -no-snapshot -wipe-data -gpu swiftshader -accel off -memory 3072 -cores 2 > /tmp/r04-arm64-preflight/emulator.log 2>&1 &
-          echo $! >/tmp/r04-arm64-preflight/emulator.pid
-          if ! timeout 120s adb wait-for-device; then
-            cat /tmp/r04-arm64-preflight/emulator.log
-            echo R04_X64_HOST_ARM64_GUEST=UNAVAILABLE
-            exit 21
+          nohup "$EMULATOR" -avd r04_api36 -no-window -no-audio -no-boot-anim -no-snapshot -wipe-data -gpu swiftshader -accel on -memory 4096 -cores 2 > /tmp/r04/evidence/emulator.log 2>&1 &
+          echo $! >/tmp/r04/evidence/emulator.pid
+          if ! timeout 150s adb wait-for-device; then
+            cat /tmp/r04/evidence/emulator.log || true
+            echo '::error::no API36 adb device within 150 seconds'; exit 13
           fi
           booted=0
-          for _ in $(seq 1 90); do
+          for _ in $(seq 1 100); do
             if test "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1; then booted=1; break; fi
             sleep 2
           done
           if test "$booted" != 1; then
-            adb shell getprop > /tmp/r04-arm64-preflight/getprop-timeout.txt || true
-            cat /tmp/r04-arm64-preflight/emulator.log
-            echo R04_X64_HOST_ARM64_GUEST=BOOT_TIMEOUT
-            exit 22
+            adb shell getprop >/tmp/r04/evidence/getprop-boot-timeout.txt || true
+            cat /tmp/r04/evidence/emulator.log || true
+            echo '::error::API36 boot timeout'; exit 14
           fi
-          abi="$(adb shell getprop ro.product.cpu.abi | tr -d '\r')"
           sdk="$(adb shell getprop ro.build.version.sdk | tr -d '\r')"
-          printf 'sdk=%s\nprimary_abi=%s\n' "$sdk" "$abi" | tee /tmp/r04-arm64-preflight/guest.txt
-          test "$sdk" = 30
-          test "$abi" = arm64-v8a
-          echo R04_X64_HOST_ARM64_GUEST=PASS
+          abi="$(adb shell getprop ro.product.cpu.abilist | tr -d '\r')"
+          bridge="$(adb shell getprop ro.dalvik.vm.native.bridge | tr -d '\r')"
+          pagesize="$(adb shell getconf PAGESIZE | tr -d '\r')"
+          test "$sdk" = 36
+          case ",$abi," in *,x86_64,*) ;; *) echo "::error::x86_64 ABI unavailable: $abi"; exit 11 ;; esac
+          case ",$abi," in *,arm64-v8a,*) ;; *) echo "::error::ARM64 translation ABI unavailable: $abi"; exit 12 ;; esac
+          printf 'sdk=%s\nabilist=%s\nnative_bridge=%s\npage_size=%s\n' "$sdk" "$abi" "$bridge" "$pagesize" | tee /tmp/r04/evidence/runtime-profile.txt
+          adb shell wm size 1280x720
+          adb shell input keyevent KEYCODE_WAKEUP || true
+          adb shell wm dismiss-keyguard || true
+          sleep 2
+          adb exec-out screencap -p >/tmp/r04/evidence/runtime-probe.png
+          file /tmp/r04/evidence/runtime-probe.png | tee /tmp/r04/evidence/runtime-probe.txt
+          echo R04_API36_TRANSLATION_RUNTIME=READY
 
-      - name: Upload preflight evidence
+      - name: Verify exact APK and R04 lifecycle
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PATH="$ANDROID_HOME/platform-tools:$PATH"
+          APK="$(cat /tmp/r04/apk-path)"; META="$(cat /tmp/r04/meta-path)"
+          AAPT="$ANDROID_HOME/build-tools/36.1.0/aapt"
+          APKSIGNER="$ANDROID_HOME/build-tools/36.1.0/apksigner"
+          "$AAPT" dump badging "$APK" | tee /tmp/r04/evidence/apk-badging.txt
+          grep -Eq "^package: name='$PACKAGE' versionCode='$VERSION_CODE' versionName='$VERSION_NAME'" /tmp/r04/evidence/apk-badging.txt
+          grep -Fxq "sdkVersion:'24'" /tmp/r04/evidence/apk-badging.txt
+          grep -Fxq "targetSdkVersion:'36'" /tmp/r04/evidence/apk-badging.txt
+          grep -Fq "native-code: 'arm64-v8a'" /tmp/r04/evidence/apk-badging.txt
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee /tmp/r04/evidence/apk-signing.txt
+          cert="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' /tmp/r04/evidence/apk-signing.txt | head -1 | tr -d ': ' | tr '[:lower:]' '[:upper:]')"
+          meta_cert="$(sed -n 's/^certificate_sha256=//p' "$META" | head -1 | tr -d ': ' | tr '[:lower:]' '[:upper:]')"
+          test -n "$cert"; test "$cert" = "$meta_cert"
+          ! adb shell pm list packages | tr -d '\r' | grep -Fxq "package:$PACKAGE"
+          adb logcat -c
+          adb install "$APK" | tee /tmp/r04/evidence/install.txt
+          grep -Fq Success /tmp/r04/evidence/install.txt
+          adb shell dumpsys package "$PACKAGE" | tr -d '\r' >/tmp/r04/evidence/package.txt
+          grep -Eq "versionCode=$VERSION_CODE([^0-9]|$)" /tmp/r04/evidence/package.txt
+          grep -Fq "versionName=$VERSION_NAME" /tmp/r04/evidence/package.txt
+          grep -Eq 'targetSdk=36([^0-9]|$)' /tmp/r04/evidence/package.txt
+
+          root_out="$(adb root 2>&1 || true)"
+          printf '%s\n' "$root_out" | tee /tmp/r04/evidence/adb-root.txt
+          timeout 30s adb wait-for-device
+          root_uid="$(adb shell id -u | tr -d '\r')"
+          if test "$root_uid" = 0; then
+            DATA_MODE=root
+          elif adb shell run-as "$PACKAGE" id >/dev/null 2>&1; then
+            DATA_MODE=run_as
+          else
+            echo '::error::private save-state inspection unavailable on API36 runtime'; exit 23
+          fi
+          printf 'data_mode=%s\n' "$DATA_MODE" | tee /tmp/r04/evidence/data-mode.txt
+          SAVE_ABS="/data/user/0/$PACKAGE/files/saves/slot_0.json"
+
+          alive() { test -n "$(adb shell pidof "$PACKAGE" 2>/dev/null | tr -d '\r')"; }
+          foreground() {
+            adb shell dumpsys activity activities | tr -d '\r' | grep -E "(mResumedActivity|topResumedActivity).*${PACKAGE}" >/dev/null || \
+            adb shell dumpsys window windows | tr -d '\r' | grep -E "(mCurrentFocus|mFocusedApp).*${PACKAGE}" >/dev/null
+          }
+          dump_save() {
+            local out="$1"
+            if test "$DATA_MODE" = root; then
+              adb exec-out cat "$SAVE_ABS" >"$out"
+            else
+              adb exec-out run-as "$PACKAGE" cat files/saves/slot_0.json >"$out"
+            fi
+            jq -e . "$out" >/dev/null
+          }
+          wait_save() {
+            local out="$1" state="$2" reason="${3:-}"
+            for _ in $(seq 1 30); do
+              if dump_save "$out" 2>/dev/null; then
+                if jq -e --arg s "$state" '.payload.world.state == $s' "$out" >/dev/null; then
+                  if test -z "$reason" || jq -e --arg r "$reason" '.payload.profile.last_checkpoint_reason == $r' "$out" >/dev/null; then
+                    return 0
+                  fi
+                fi
+              fi
+              sleep 0.5
+            done
+            return 1
+          }
+          capture_logs() {
+            adb logcat -d -b all > /tmp/r04/evidence/logcat.txt || true
+            adb shell dumpsys activity processes > /tmp/r04/evidence/activity-processes.txt || true
+            adb shell dumpsys window windows > /tmp/r04/evidence/window.txt || true
+            if test "$DATA_MODE" = root; then
+              adb shell 'ls -l /data/tombstones 2>/dev/null || true' > /tmp/r04/evidence/tombstones-list.txt || true
+              adb shell 'for f in /data/tombstones/tombstone_*; do [ -f "$f" ] && tail -n 180 "$f"; done' > /tmp/r04/evidence/tombstones-tail.txt || true
+            fi
+          }
+          assert_no_runtime_crash() {
+            capture_logs
+            python3 - <<'PY'
+from pathlib import Path
+pkg='com.shaterguy.lanternfall'
+texts=[]
+for name in ('logcat.txt','tombstones-tail.txt'):
+    p=Path('/tmp/r04/evidence')/name
+    if p.exists(): texts.append(p.read_text(errors='replace'))
+text='\n'.join(texts)
+markers=('Fatal signal 4','SIGILL','libndk_translation.so','ANR in '+pkg,'Input dispatching timed out')
+if pkg in text and any(m in text for m in markers):
+    raise SystemExit('R04_RUNTIME_CRASH_MARKER')
+PY
+          }
+          shot() {
+            local name="$1"
+            adb exec-out screencap -p >"/tmp/r04/evidence/$name.png"
+            file "/tmp/r04/evidence/$name.png" | tee "/tmp/r04/evidence/$name.txt" | grep -Fq 'PNG image data'
+            sha256sum "/tmp/r04/evidence/$name.png" >"/tmp/r04/evidence/$name.sha256"
+          }
+          launch() {
+            adb shell monkey -p "$PACKAGE" -c android.intent.category.LAUNCHER 1 > /tmp/r04/evidence/monkey-last.txt
+            for _ in $(seq 1 30); do
+              if alive && foreground; then return 0; fi
+              sleep 1
+            done
+            capture_logs
+            return 1
+          }
+          wait_game_ready() {
+            local prefix="$1" ready=0
+            for i in $(seq 1 12); do
+              sleep 5
+              if ! alive || ! foreground; then capture_logs; return 1; fi
+              shot "${prefix}-probe-${i}"
+              fraction="$(python3 - "$prefix" "$i" <<'PY'
+from PIL import Image
+import sys
+p=f'/tmp/r04/evidence/{sys.argv[1]}-probe-{sys.argv[2]}.png'
+im=Image.open(p).convert('RGB').resize((160,90))
+pix=list(im.getdata())
+white=sum(1 for r,g,b in pix if r>235 and g>235 and b>235)/len(pix)
+print(f'{white:.7f}')
+PY
+)"
+              printf '%s %s\n' "$i" "$fraction" >>"/tmp/r04/evidence/${prefix}-readiness.txt"
+              if python3 - "$fraction" <<'PY'
+import sys
+raise SystemExit(0 if float(sys.argv[1]) < 0.90 else 1)
+PY
+              then ready=1; break; fi
+            done
+            test "$ready" = 1
+            assert_no_runtime_crash
+          }
+
+          launch
+          wait_game_ready initial
+          shot slot_select
+          python3 - <<'PY'
+from PIL import Image
+im=Image.open('/tmp/r04/evidence/slot_select.png')
+if im.width <= im.height: raise SystemExit('R04_EXPECTED_LANDSCAPE_LAYOUT')
+PY
+
+          adb shell input keyevent KEYCODE_1
+          wait_save /tmp/r04/evidence/save-hub.json HUB new_game
+          seq_hub="$(jq -r '.sequence' /tmp/r04/evidence/save-hub.json)"
+          shot hub
+          alive; foreground; assert_no_runtime_crash
+
+          adb shell input keyevent KEYCODE_1
+          wait_save /tmp/r04/evidence/save-expedition.json EXPEDITION departure_initialized
+          seq_exp="$(jq -r '.sequence' /tmp/r04/evidence/save-expedition.json)"
+          test "$seq_exp" -gt "$seq_hub"
+          exp_id="$(jq -r '.payload.world.active_expedition_id' /tmp/r04/evidence/save-expedition.json)"
+          test -n "$exp_id"; test "$exp_id" != null
+          jq -e '.payload.suspended_expedition.runtime_state.schema == "w12-runtime-state-v1"' /tmp/r04/evidence/save-expedition.json >/dev/null
+          shot expedition
+          alive; foreground; assert_no_runtime_crash
+
+          # Source-defined default mobile layout at 1280x720: stick=(108,612), dodge=(1200,640), phase=(1200,508).
+          adb shell input touchscreen swipe 108 612 190 612 900
+          adb shell input touchscreen tap 1200 640
+          adb shell input touchscreen tap 1200 508
+          sleep 1
+          alive; foreground
+          adb shell input keyevent KEYCODE_HOME
+          wait_save /tmp/r04/evidence/save-background.json EXPEDITION background
+          seq_bg="$(jq -r '.sequence' /tmp/r04/evidence/save-background.json)"
+          test "$seq_bg" -gt "$seq_exp"
+          test "$(jq -r '.payload.world.active_expedition_id' /tmp/r04/evidence/save-background.json)" = "$exp_id"
+          python3 - <<'PY'
+import json, math
+p=json.load(open('/tmp/r04/evidence/save-background.json'))
+pos=p['payload']['suspended_expedition']['runtime_state']['player']['position']
+if len(pos)!=2 or math.hypot(float(pos[0])-640.0,float(pos[1])-360.0) < 1.0:
+    raise SystemExit('R04_TOUCH_DID_NOT_CHANGE_PLAYER_POSITION')
+PY
+          touch_pos="$(jq -c '.payload.suspended_expedition.runtime_state.player.position' /tmp/r04/evidence/save-background.json)"
+          assert_no_runtime_crash
+
+          adb shell am kill "$PACKAGE" || true
+          sleep 2
+          if alive; then adb shell am force-stop "$PACKAGE"; sleep 1; fi
+          ! alive
+          launch
+          wait_game_ready relaunch
+          adb shell input keyevent KEYCODE_1
+          sleep 2
+          alive; foreground; assert_no_runtime_crash
+          adb shell input keyevent KEYCODE_HOME
+          wait_save /tmp/r04/evidence/save-recovered.json EXPEDITION background
+          seq_rec="$(jq -r '.sequence' /tmp/r04/evidence/save-recovered.json)"
+          test "$seq_rec" -gt "$seq_bg"
+          test "$(jq -r '.payload.world.active_expedition_id' /tmp/r04/evidence/save-recovered.json)" = "$exp_id"
+          recovered_pos="$(jq -c '.payload.suspended_expedition.runtime_state.player.position' /tmp/r04/evidence/save-recovered.json)"
+          test "$recovered_pos" = "$touch_pos"
+
+          adb shell am force-stop "$PACKAGE"
+          adb shell wm size 1024x768
+          launch
+          wait_game_ready resized
+          adb shell input keyevent KEYCODE_1
+          sleep 2
+          alive; foreground; shot resized_reentry; assert_no_runtime_crash
+          adb shell input keyevent KEYCODE_HOME
+          wait_save /tmp/r04/evidence/save-resized.json EXPEDITION background
+          seq_resize="$(jq -r '.sequence' /tmp/r04/evidence/save-resized.json)"
+          test "$seq_resize" -gt "$seq_rec"
+          test "$(jq -r '.payload.world.active_expedition_id' /tmp/r04/evidence/save-resized.json)" = "$exp_id"
+          adb shell wm size reset || true
+          assert_no_runtime_crash
+
+          cat >/tmp/r04/evidence/r04-result.txt <<EOF
+          TEST_CONTRACT_PREFLIGHT=VALID
+          ACTION_PREFLIGHT=VALID
+          R04_PRODUCT_SOURCE_SHA=$PRODUCT_SHA
+          R04_ARTIFACT_ID=$ARTIFACT_ID
+          R04_APK_SHA256=$APK_SHA256
+          R04_REBUILD=NO
+          R04_RUNTIME_API36=PASS
+          R04_ARM64_TRANSLATION_ABI=PASS
+          R04_FIRST_INSTALL=PASS
+          R04_PACKAGE_IDENTITY=PASS
+          R04_PRODUCTION_CERT_SELF_CONSISTENCY=PASS
+          R04_STABLE_LAUNCH=PASS
+          R04_SLOT_TO_HUB_SAVE_STATE=PASS
+          R04_EXPEDITION_ENTRY_SAVE_STATE=PASS
+          R04_TOUCH_PLAYER_MOVEMENT=PASS
+          R04_BACKGROUND_CHECKPOINT=PASS
+          R04_PROCESS_RELAUNCH=PASS
+          R04_SAVED_EXPEDITION_REENTRY=PASS
+          R04_ANDROID_RESIZE_REENTRY=PASS
+          R04_FATAL_SIGILL_ANR_CHECK=PASS
+          R04_16KB_RUNTIME=NOT_EXERCISED_REUSE_W28_STATIC
+          R04_PHYSICAL_DEVICE_THERMAL_LMK_HAPTICS=POST_DELIVERY_CHECK
+          R04_HISTORICAL_IN_PLACE_UPDATE=NA_NO_PRIOR_USER_VERSION
+          SECURITY_DELTA=NONE
+          R04_ANDROID_RUNTIME=PASS
+          EOF
+          cat /tmp/r04/evidence/r04-result.txt
+
+      - name: Upload R04 evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: lanternfall-r04-arm64-preflight-${{ github.run_id }}-${{ github.run_attempt }}
-          path: /tmp/r04-arm64-preflight/
+          name: lanternfall-r04-api36-${{ github.run_id }}-${{ github.run_attempt }}
+          path: /tmp/r04/evidence/
           if-no-files-found: warn
           retention-days: 14
+
+      - name: Completion marker
+        shell: bash
+        run: |
+          test -f /tmp/r04/evidence/r04-result.txt
+          grep -Fxq 'R04_ANDROID_RUNTIME=PASS' /tmp/r04/evidence/r04-result.txt
+          echo R04_ANDROID_RUNTIME=PASS
