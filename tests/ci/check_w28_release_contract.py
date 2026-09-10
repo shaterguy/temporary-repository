@@ -65,6 +65,7 @@ workflow_path = ROOT / ".github/workflows/w28-production-signing.yml"
 workflow = workflow_path.read_text(encoding="utf-8")
 require("workflow_dispatch:" in workflow, "production signing workflow must be manually gated")
 require("\n  push:" not in workflow and "\n  pull_request:" not in workflow, "production signing workflow must not auto-run on source events")
+require("if: github.ref == 'refs/heads/v1.0.0-dev1'" in workflow, "production signer must be ref-gated to the canonical dev branch")
 for secret_name in (
     "LANTERNFALL_PROD_KEYSTORE_B64",
     "LANTERNFALL_PROD_KEY_ALIAS",
@@ -80,6 +81,7 @@ require("zipalign" in workflow and "-P 16" in workflow, "16 KB zip alignment ver
 require("github.run_attempt" in workflow, "artifact identity must include run attempt")
 require("androiddebugkey" not in workflow.lower(), "debug-key fallback must not exist in production workflow")
 require("keytool -genkey" not in workflow.lower(), "workflow must not generate replacement signing keys per run")
+require("-storepass:env KEY_PASSWORD" in workflow, "keystore password must not be passed as a command-line value")
 
 for pattern in ("*.jks", "*.keystore", "*.p12", "*.pem", "*.key"):
     require(not any(ROOT.rglob(pattern)), f"signing/private-key file committed: {pattern}")
