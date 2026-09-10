@@ -36,13 +36,18 @@ require(identity["version_code"] == 1, "unexpected version_code")
 require(identity["prod_application_id"] == "com.shaterguy.lanternfall", "unexpected PROD application id")
 require(identity["dev_application_id"] == "com.shaterguy.lanternfall.dev", "unexpected DEV application id")
 require(android["primary_abi"] == "arm64-v8a", "unexpected primary ABI")
-require(android["build_tools"] == "35.0.1", "unexpected Android build-tools")
+require(android["min_api"] == 24, "unexpected Android min API for Godot 4.7.2 prebuilt template")
+require(android["target_api"] == 36, "unexpected Android target API for Godot 4.7.2 prebuilt template")
+require(android["sdk_platform"] == "android-36", "unexpected Android SDK platform")
+require(android["build_tools"] == "36.1.0", "unexpected Android build-tools")
 
 preset_text = (ROOT / "export_presets.cfg").read_text(encoding="utf-8")
 for literal in (
     'name="Android Production"',
     'platform="Android"',
     'gradle_build/use_gradle_build=false',
+    'gradle_build/min_sdk=""',
+    'gradle_build/target_sdk=""',
     'architectures/armeabi-v7a=false',
     'architectures/arm64-v8a=true',
     'architectures/x86=false',
@@ -61,6 +66,9 @@ for literal in (
 require("androiddebugkey" not in preset_text.lower(), "debug signing identity must not be embedded")
 require(not re.search(r'keystore/(?:release|release_user|release_password)=".+"', preset_text), "release signing material must stay out of source")
 
+project_text = (ROOT / "project.godot").read_text(encoding="utf-8")
+require('textures/vram_compression/import_etc2_astc=true' in project_text, "Android ETC2/ASTC import setting missing")
+
 workflow_path = ROOT / ".github/workflows/w28-production-signing.yml"
 workflow = workflow_path.read_text(encoding="utf-8")
 require("\n  push:\n" in workflow, "production signing workflow must use the dedicated signing-branch push trigger")
@@ -70,6 +78,8 @@ require("\n  pull_request:" not in workflow, "production signing workflow must n
 require("if: github.ref == 'refs/heads/sign/w28-production'" in workflow, "production signer must be ref-gated to the dedicated signing branch")
 require("refs/heads/v1.0.0-dev1:refs/remotes/origin/v1.0.0-dev1" in workflow, "signer must fetch the canonical dev head")
 require('test "$candidate_sha" = "$dev_sha"' in workflow, "signing candidate must exactly equal current dev head before secret use")
+require('ANDROID_BUILD_TOOLS: "36.1.0"' in workflow, "workflow Android build-tools must match Godot 4.7.2")
+require('ANDROID_PLATFORM: "android-36"' in workflow, "workflow Android platform must match Godot 4.7.2")
 for secret_name in (
     "LANTERNFALL_PROD_KEYSTORE_B64",
     "LANTERNFALL_PROD_KEY_ALIAS",
@@ -82,6 +92,7 @@ require("GODOT_ANDROID_KEYSTORE_RELEASE_USER" in workflow, "Godot release alias 
 require("GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD" in workflow, "Godot release password env override missing")
 require("apksigner" in workflow and "--print-certs" in workflow, "APK certificate verification missing")
 require("zipalign" in workflow and "-P 16" in workflow, "16 KB zip alignment verification missing")
+require("sdkVersion:'24'" in workflow and "targetSdkVersion:'36'" in workflow, "APK SDK identity verification missing")
 require("github.run_attempt" in workflow, "artifact identity must include run attempt")
 require("androiddebugkey" not in workflow.lower(), "debug-key fallback must not exist in production workflow")
 require("keytool -genkey" not in workflow.lower(), "workflow must not generate replacement signing keys per run")
@@ -121,10 +132,12 @@ for node in walk_dicts(content_manifest):
         manifest_groups += 1
 
 require(manifest_groups >= 8, f"too few licensed runtime manifest groups checked: {manifest_groups}")
-print("TEST_CONTRACT=w28-production-signing-contract-v1")
+print("TEST_CONTRACT=w28-production-signing-contract-v2")
 print("W28_PROD_PACKAGE=com.shaterguy.lanternfall")
 print("W28_VERSION_NAME=1.0.0-dev1")
 print("W28_VERSION_CODE=1")
+print("W28_ANDROID_MIN_API=24")
+print("W28_ANDROID_TARGET_API=36")
 print(f"W28_LICENSED_RUNTIME_MANIFESTS={manifest_groups}")
 print("W28_SIGN_TRIGGER=DEDICATED_BRANCH_EXACT_DEV_HEAD")
 print("W28_SECRET_IN_SOURCE=NONE")
