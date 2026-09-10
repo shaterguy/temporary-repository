@@ -177,11 +177,11 @@ func _test_economy_and_recon() -> void:
         var control_context: Dictionary = control.expedition_context()
         if not bool(control_begin.get("ok", false)):
             _failures.append("W26 recon control could not depart")
-        var sequence_before := runtime.sequence
+        var sequence_before: int = runtime.sequence
         var prepared: Dictionary = runtime.prepare_endgame_recon()
         if not bool(prepared.get("ok", false)) or not bool(prepared.get("applied", false)) or int(runtime.world.salvage) != 80 or runtime.sequence != sequence_before + 1:
             _failures.append("W26 recon preparation did not charge exactly 20 salvage and persist once")
-        var after_prepare_sequence := runtime.sequence
+        var after_prepare_sequence: int = runtime.sequence
         var duplicate: Dictionary = runtime.prepare_endgame_recon()
         if not bool(duplicate.get("ok", false)) or bool(duplicate.get("applied", true)) or int(runtime.world.salvage) != 80 or runtime.sequence != after_prepare_sequence:
             _failures.append("W26 duplicate recon preparation charged or saved twice")
@@ -212,7 +212,7 @@ func _test_economy_and_recon() -> void:
         if not bool(retry_runtime.begin_expedition("deep_rescue_patrol").get("ok", false)):
             _failures.append("W26 retry fixture could not depart")
         else:
-            var failed_context := retry_runtime.world.expedition_context()
+            var failed_context: Dictionary = retry_runtime.world.expedition_context()
             var failed: Dictionary = retry_runtime.settle_current("failed", _complete_observation(), {})
             if not bool(failed.get("ok", false)):
                 _failures.append("W26 retry fixture could not settle failure")
@@ -228,7 +228,7 @@ func _test_economy_and_recon() -> void:
                 if not bool(retry_result.get("ok", false)):
                     _failures.append("W26 same-seed retry could not start with deferred recon")
                 else:
-                    var retry_context := retry_runtime.world.expedition_context()
+                    var retry_context: Dictionary = retry_runtime.world.expedition_context()
                     for key: String in ["run_seed", "variant_id", "challenge_id"]:
                         if retry_context.get(key) != failed_context.get(key):
                             _failures.append("W26 deferred recon changed same-seed retry field %s" % key)
