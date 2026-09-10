@@ -3,8 +3,12 @@ extends Node
 const Catalog = preload("res://game/audio/audio_catalog.gd")
 const AudioLibrary = preload("res://game/audio/representative_audio_library.gd")
 const BossAudioCatalog = preload("res://game/audio/boss_audio_catalog.gd")
+const ProductionCatalog = preload("res://game/audio/production_audio_catalog.gd")
+const ProductionAudio = preload("res://game/audio/production_audio_synth.gd")
 const MAX_SFX_VOICES: int = 8
 const POLL_SECONDS: float = 0.25
+const DEFAULT_REGION_ID: String = "twilight_shipyard"
+const DEFAULT_BOSS_ID: String = "drowned_navigator"
 
 var music_volume: float = 0.82
 var sfx_volume: float = 0.88
@@ -21,6 +25,9 @@ var _boss_target: float = 0.0
 var _clock: float = 0.0
 var _poll_elapsed: float = 0.0
 var _encounter: Node
+var _active_region_id: String = DEFAULT_REGION_ID
+var _active_region_profile: String = DEFAULT_REGION_ID
+var _active_boss_id: String = ""
 
 func _ready() -> void:
     process_mode = Node.PROCESS_MODE_ALWAYS
@@ -75,7 +82,7 @@ func set_music_volume(linear: float) -> void:
 func set_sfx_volume(linear: float) -> void:
     sfx_volume = clampf(linear, 0.0, 1.0)
     _set_bus_linear(&"SFX", sfx_volume)
-    _set_bus_linear(&"Warning", sfx_volume)
+    _set_bus_linear(&"Warning", warning_linear_for_sfx(sfx_volume))
 
 func set_vibration_enabled(enabled: bool) -> void:
     vibration_enabled = enabled
@@ -84,12 +91,63 @@ func settings_snapshot() -> Dictionary:
     return {"music":music_volume,"sfx":sfx_volume,"vibration":vibration_enabled}
 
 func policy_snapshot() -> Dictionary:
-    return {"max_sfx_voices":MAX_SFX_VOICES,"combat_priority":int(Catalog.cue_spec(Catalog.COMBAT).priority),"warning_priority":int(Catalog.cue_spec(Catalog.WARNING).priority)}
+    return {
+        "max_sfx_voices": MAX_SFX_VOICES,
+        "combat_priority": int(Catalog.cue_spec(Catalog.COMBAT).get("priority", 0)),
+        "warning_priority": int(Catalog.cue_spec(Catalog.WARNING).get("priority", 0)),
+        "production_ui_warning_priority": int(ProductionCatalog.cue_spec(ProductionCatalog.ui_cue_id("reject")).get("priority", 0)),
+        "voice_steal_policy": "oldest-lower-priority-only",
+        "warning_low_volume_curve": "boosted-but-zero-preserving",
+    }
+
+func production_snapshot() -> Dictionary:
+    var snapshot := ProductionCatalog.coverage_snapshot()
+    snapshot["active_region_id"] = _active_region_id
+    snapshot["active_region_profile"] = _active_region_profile
+    snapshot["active_boss_id"] = _active_boss_id
+    return snapshot
+
+static func warning_linear_for_sfx(linear: float) -> float:
+    var value := clampf(linear, 0.0, 1.0)
+    if value <= 0.0001:
+        return 0.0
+    return clampf(pow(value, 0.72) * 1.08, 0.0, 1.0)
+
+func set_region(region_id: String) -> bool:
+    var profile_id := ProductionCatalog.region_profile_id(region_id)
+    if profile_id.is_empty():
+        return false
+    var changed := profile_id != _active_region_profile
+    _active_region_id = region_id
+    _active_region_profile = profile_id
+    if not changed:
+        return true
+    _replace_music_stream(_region_player, ProductionCatalog.region_music_cue(profile_id, "bed"))
+    _replace_music_stream(_tension_player, ProductionCatalog.region_music_cue(profile_id, "tension"))
+    return true
+
+func set_boss_music(boss_id: String) -> bool:
+    var cue_id := ProductionCatalog.boss_music_cue(boss_id)
+    if cue_id.is_empty():
+        return false
+    if boss_id != _active_boss_id:
+        _active_boss_id = boss_id
+        _replace_music_stream(_boss_player, cue_id)
+    _boss_target = 1.0
+    return true
+
+func clear_boss_music() -> void:
+    _active_boss_id = ""
+    _boss_target = 0.0
+
+func play_ui_action(action_id: String) -> bool:
+    var cue_id := ProductionCatalog.ui_cue_id(action_id)
+    if cue_id.is_empty():
+        return false
+    return play_cue(cue_id)
 
 func play_cue(cue_id: String) -> bool:
-    var spec := Catalog.cue_spec(cue_id)
-    if spec.is_empty():
-        spec = BossAudioCatalog.cue_spec(cue_id)
+    var spec := _cue_spec(cue_id)
     if spec.is_empty() or str(spec.get("bus", "")) == "Music" or _sfx_players.is_empty():
         return false
     if float(_cooldowns.get(cue_id, 0.0)) > 0.0:
@@ -111,9 +169,10 @@ func _is_script_entry() -> bool:
     return OS.get_cmdline_args().has("--script")
 
 func _create_music_players() -> void:
-    _region_player = _new_music_player("RegionMusic", Catalog.REGION, -7.0)
-    _tension_player = _new_music_player("TensionMusic", Catalog.TENSION, -42.0)
-    _boss_player = _new_music_player("BossMusic", Catalog.BOSS, -48.0)
+    _active_region_profile = ProductionCatalog.region_profile_id(_active_region_id)
+    _region_player = _new_music_player("RegionMusic", ProductionCatalog.region_music_cue(_active_region_id, "bed"), -7.0)
+    _tension_player = _new_music_player("TensionMusic", ProductionCatalog.region_music_cue(_active_region_id, "tension"), -42.0)
+    _boss_player = _new_music_player("BossMusic", ProductionCatalog.boss_music_cue(DEFAULT_BOSS_ID), -48.0)
 
 func _new_music_player(node_name: String, cue_id: String, volume_db: float) -> AudioStreamPlayer:
     var player := AudioStreamPlayer.new()
@@ -124,6 +183,13 @@ func _new_music_player(node_name: String, cue_id: String, volume_db: float) -> A
     add_child(player)
     player.play()
     return player
+
+func _replace_music_stream(player: AudioStreamPlayer, cue_id: String) -> void:
+    if not is_instance_valid(player) or cue_id.is_empty():
+        return
+    player.stop()
+    player.stream = _stream_for(cue_id)
+    player.play()
 
 func _create_sfx_pool() -> void:
     for index in range(MAX_SFX_VOICES):
@@ -149,9 +215,22 @@ func _select_voice(priority: int) -> int:
             candidate = index
     return candidate
 
+func _cue_spec(cue_id: String) -> Dictionary:
+    var spec := Catalog.cue_spec(cue_id)
+    if spec.is_empty():
+        spec = BossAudioCatalog.cue_spec(cue_id)
+    if spec.is_empty():
+        spec = ProductionCatalog.cue_spec(cue_id)
+    return spec
+
 func _stream_for(cue_id: String) -> AudioStreamWAV:
     if not _stream_cache.has(cue_id):
-        _stream_cache[cue_id] = BossAudioCatalog.render_cue(cue_id) if BossAudioCatalog.is_boss_cue(cue_id) else AudioLibrary.render_cue(cue_id)
+        if BossAudioCatalog.is_boss_cue(cue_id):
+            _stream_cache[cue_id] = BossAudioCatalog.render_cue(cue_id)
+        elif ProductionCatalog.has_cue(cue_id):
+            _stream_cache[cue_id] = ProductionAudio.render_cue(cue_id)
+        else:
+            _stream_cache[cue_id] = AudioLibrary.render_cue(cue_id)
     return _stream_cache[cue_id]
 
 func _ensure_bus(bus_name: StringName) -> void:
@@ -180,20 +259,13 @@ func _on_node_added(node: Node) -> void:
 func _bind_runtime_node(node: Node) -> void:
     if not is_instance_valid(node):
         return
-    match String(node.name):
-        "W12SurvivorRuntime":
-            _connect_once(node, &"weapon_action", Callable(self, "_on_weapon_action"))
-            _connect_once(node, &"hit_feedback", Callable(self, "_on_hit_feedback"))
-        "W12ArkRuntime":
-            _connect_once(node, &"route_state_changed", Callable(self, "_on_route_state_changed"))
-        "W12LightCircuitRuntime":
-            _connect_once(node, &"circuit_activated", Callable(self, "_on_circuit_activated"))
-            _connect_once(node, &"circuit_rejected", Callable(self, "_on_circuit_rejected"))
-        "W12PhaseBattlefieldRuntime":
-            _connect_once(node, &"phase_changed", Callable(self, "_on_phase_changed"))
-            _connect_once(node, &"phase_rejected", Callable(self, "_on_phase_rejected"))
-        "W12SwarmRuntime":
-            _encounter = node
+    _connect_once(node, &"weapon_action", Callable(self, "_on_weapon_action"))
+    _connect_once(node, &"hit_feedback", Callable(self, "_on_hit_feedback"))
+    _connect_once(node, &"route_state_changed", Callable(self, "_on_route_state_changed"))
+    _connect_once(node, &"circuit_activated", Callable(self, "_on_circuit_activated"))
+    _connect_once(node, &"circuit_rejected", Callable(self, "_on_circuit_rejected"))
+    _connect_once(node, &"phase_changed", Callable(self, "_on_phase_changed"))
+    _connect_once(node, &"phase_rejected", Callable(self, "_on_phase_rejected"))
     if node.has_method("active_enemy_count") and node.has_method("boss_event_log"):
         _encounter = node
         _connect_once(node, &"boss_presentation_cue", Callable(self, "_on_boss_presentation_cue"))
@@ -216,14 +288,20 @@ func _poll_encounter() -> void:
             if str(state.get("archetype", "")) == "boss":
                 boss_active = true
                 break
-    _boss_target = 1.0 if boss_active else 0.0
+    _boss_target = 1.0 if boss_active and not _active_boss_id.is_empty() else 0.0
 
-func _on_boss_presentation_cue(cue_id: String, _boss_id: String, _event_type: String) -> void:
+func _on_boss_presentation_cue(cue_id: String, boss_id: String, _event_type: String) -> void:
     if BossAudioCatalog.is_boss_cue(cue_id):
+        set_boss_music(boss_id)
         play_cue(cue_id)
 
 func _on_weapon_action(action: Dictionary) -> void:
-    if str(action.get("type", "")) == "weapon_damage":
+    if str(action.get("type", "")) != "weapon_damage":
+        return
+    var production_cue := ProductionCatalog.weapon_cue_id(str(action.get("weapon_id", "")))
+    if not production_cue.is_empty():
+        play_cue(production_cue)
+    else:
         play_cue(Catalog.COMBAT)
 
 func _on_hit_feedback(_damage: int, remaining_health: int, _generation: int) -> void:

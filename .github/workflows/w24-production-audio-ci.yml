@@ -1,0 +1,163 @@
+name: w24-production-audio-ci
+
+on:
+  push:
+    branches:
+      - 'v*-dev*'
+      - 'v*-rc*'
+    paths:
+      - 'game/audio/**'
+      - 'game/ui/main_shell_w24.gd'
+      - 'game/ui/main_shell.tscn'
+      - 'assets/runtime/w24/**'
+      - 'assets/source/w24/**'
+      - 'assets/licenses/W24_ORIGINAL_AUDIO.md'
+      - 'tests/integration/w24_production_audio_smoke.gd'
+      - 'tests/audio/render_w24.gd'
+      - 'docs/verification/W24_PRODUCTION_AUDIO.md'
+      - '.github/workflows/w24-production-audio-ci.yml'
+  pull_request:
+    paths:
+      - 'game/audio/**'
+      - 'game/ui/main_shell_w24.gd'
+      - 'game/ui/main_shell.tscn'
+      - 'assets/runtime/w24/**'
+      - 'assets/source/w24/**'
+      - 'assets/licenses/W24_ORIGINAL_AUDIO.md'
+      - 'tests/integration/w24_production_audio_smoke.gd'
+      - 'tests/audio/render_w24.gd'
+      - 'docs/verification/W24_PRODUCTION_AUDIO.md'
+      - '.github/workflows/w24-production-audio-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: w24-production-audio-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  production-audio-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GODOT_VERSION: "4.7.2-stable"
+      GODOT_ARCHIVE_SHA256: "cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4"
+      GODOT_ARCHIVE_URL: "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip"
+      GODOT_BIN: "/tmp/godot/Godot_v4.7.2-stable_linux.x86_64"
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Static W24 contract preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(jq -r '.engine.version' toolchain.lock)" = "$GODOT_VERSION"
+          test "$(jq -r '.engine.linux_x86_64_sha256' toolchain.lock)" = "$GODOT_ARCHIVE_SHA256"
+          test "$(jq -r '.identity.version_name' toolchain.lock)" = "1.0.0-dev1"
+          test "$(jq -r '.identity.version_code' toolchain.lock)" = "1"
+          test -f game/audio/production_audio_catalog.gd
+          test -f game/audio/production_audio_synth.gd
+          test -f game/audio/audio_director.gd
+          test -f game/ui/main_shell_w24.gd
+          test -f assets/runtime/w24/audio_manifest.json
+          test -f assets/source/w24/AUDIO_DIRECTION.md
+          test -f assets/licenses/W24_ORIGINAL_AUDIO.md
+          test -f tests/integration/w24_production_audio_smoke.gd
+          test -f tests/audio/render_w24.gd
+          test -f docs/verification/W24_PRODUCTION_AUDIO.md
+          grep -Fq 'res://game/ui/main_shell_w24.gd' game/ui/main_shell.tscn
+          grep -Fq 'const ProductionCatalog = preload("res://game/audio/production_audio_catalog.gd")' game/audio/audio_director.gd
+          grep -Fq 'TEST_CONTRACT_PREFLIGHT=VALID' docs/verification/W24_PRODUCTION_AUDIO.md
+          grep -Fq 'ACTION_PREFLIGHT=VALID' docs/verification/W24_PRODUCTION_AUDIO.md
+          test "$(jq -r '.primary_production_cues' assets/runtime/w24/audio_manifest.json)" = "44"
+          test "$(jq -r '.reused_boss_event_cues' assets/runtime/w24/audio_manifest.json)" = "50"
+          test "$(jq -r '.effective_runtime_cues' assets/runtime/w24/audio_manifest.json)" = "97"
+          test "$(jq -r '.placeholder_count' assets/runtime/w24/audio_manifest.json)" = "0"
+          test "$(jq -r '.review.expected_wav_count' assets/runtime/w24/audio_manifest.json)" = "44"
+          test "$(jq -r '.review.human_listening' assets/runtime/w24/audio_manifest.json)" = "required-pending"
+          test -z "$(find . -type f \( -name '*.jks' -o -name '*.keystore' -o -name '*.p12' -o -name '*.pem' -o -name '*.key' \) -print -quit)"
+
+      - name: Download pinned Godot editor
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/godot
+          curl --fail --location --proto '=https' --tlsv1.2 "$GODOT_ARCHIVE_URL" --output /tmp/godot.zip
+          echo "$GODOT_ARCHIVE_SHA256  /tmp/godot.zip" | sha256sum --check --strict
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x "$GODOT_BIN"
+          "$GODOT_BIN" --version
+
+      - name: Import project headlessly
+        shell: bash
+        run: |
+          set -euo pipefail
+          import_log="$(mktemp)"
+          set +e
+          "$GODOT_BIN" --headless --path . --import 2>&1 | tee "$import_log"
+          godot_status=${PIPESTATUS[0]}
+          set -e
+          test "$godot_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$import_log"; then
+            echo "::error::Godot import reported script compilation errors"
+            exit 1
+          fi
+
+      - name: Run W24 production-audio smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          smoke_log="$(mktemp)"
+          set +e
+          "$GODOT_BIN" --headless --path . --script tests/integration/w24_production_audio_smoke.gd 2>&1 | tee "$smoke_log"
+          godot_status=${PIPESTATUS[0]}
+          set -e
+          test "$godot_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$smoke_log"; then exit 1; fi
+          if grep -Eq '^W24_FAIL:|^W24_PRODUCTION_AUDIO=FAIL' "$smoke_log"; then exit 1; fi
+          grep -Fxq 'W24_REGION_FAMILIES=5' "$smoke_log"
+          grep -Fxq 'W24_REGION_RUNTIME_IDS=11' "$smoke_log"
+          grep -Fxq 'W24_BOSS_MUSIC=10' "$smoke_log"
+          grep -Fxq 'W24_BOSS_EVENT_CUES=50' "$smoke_log"
+          grep -Fxq 'W24_WEAPON_SFX=18' "$smoke_log"
+          grep -Fxq 'W24_UI_SFX=6' "$smoke_log"
+          grep -Fxq 'W24_PRIMARY_CUES=44' "$smoke_log"
+          grep -Fxq 'W24_EFFECTIVE_CUES=97' "$smoke_log"
+          grep -Fxq 'W24_WARNING_LOW_VOLUME=PASS' "$smoke_log"
+          grep -Fxq 'W24_MAIN_SHELL_AUDIO_BRIDGE=PASS' "$smoke_log"
+          grep -Fxq 'W24_PRODUCTION_AUDIO=PASS' "$smoke_log"
+
+      - name: Render W24 listening evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/w24
+          audio_log="$(mktemp)"
+          set +e
+          "$GODOT_BIN" --headless --path . --script tests/audio/render_w24.gd 2>&1 | tee "$audio_log"
+          godot_status=${PIPESTATUS[0]}
+          set -e
+          test "$godot_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$audio_log"; then exit 1; fi
+          grep -Fxq 'W24_AUDIO_RENDER=PASS' "$audio_log"
+          grep -Fxq 'W24_AUDIO_RATE=32000' "$audio_log"
+          grep -Fxq 'W24_AUDIO_FORMAT=PCM16_MONO' "$audio_log"
+          grep -Fxq 'W24_LOW_VOLUME_MIX_GAIN_DB=-18' "$audio_log"
+          grep -Fxq 'W24_LOW_VOLUME_WARNING_RELATIVE_DB=6' "$audio_log"
+          grep -Fxq 'W24_TOTAL_REVIEW_FILES=44' "$audio_log"
+          test "$(find artifacts/w24 -maxdepth 1 -type f -name '*.wav' | wc -l)" = "44"
+          find artifacts/w24 -maxdepth 1 -type f -name '*.wav' -size 0 -print -quit | grep -q '^$'
+          sha256sum artifacts/w24/*.wav > artifacts/w24/SHA256SUMS.txt
+
+      - name: Upload W24 listening evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: w24-production-audio-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            artifacts/w24/*.wav
+            artifacts/w24/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
