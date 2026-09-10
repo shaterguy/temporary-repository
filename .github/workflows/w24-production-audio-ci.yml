@@ -149,7 +149,7 @@ jobs:
           grep -Fxq 'W24_LOW_VOLUME_WARNING_RELATIVE_DB=6' "$audio_log"
           grep -Fxq 'W24_TOTAL_REVIEW_FILES=44' "$audio_log"
           test "$(find artifacts/w24 -maxdepth 1 -type f -name '*.wav' | wc -l)" = "44"
-          find artifacts/w24 -maxdepth 1 -type f -name '*.wav' -size 0 -print -quit | grep -q '^$'
+          test -z "$(find artifacts/w24 -maxdepth 1 -type f -name '*.wav' -size 0 -print -quit)"
           sha256sum artifacts/w24/*.wav > artifacts/w24/SHA256SUMS.txt
 
       - name: Upload W24 listening evidence
