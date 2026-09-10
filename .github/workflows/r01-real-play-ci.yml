@@ -1,0 +1,162 @@
+name: r01-real-play-integration-ci
+
+on:
+  push:
+    branches:
+      - 'v*-dev*'
+      - 'v*-rc*'
+    paths:
+      - 'tests/integration/r01_real_play_smoke.gd'
+      - 'tests/visual/capture_r01_real_play.gd'
+      - 'docs/verification/R01_REAL_PLAY_INTEGRATION.md'
+      - '.github/workflows/r01-real-play-ci.yml'
+  pull_request:
+    paths:
+      - 'tests/integration/r01_real_play_smoke.gd'
+      - 'tests/visual/capture_r01_real_play.gd'
+      - 'docs/verification/R01_REAL_PLAY_INTEGRATION.md'
+      - '.github/workflows/r01-real-play-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r01-real-play-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  real-play-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    env:
+      GODOT_VERSION: "4.7.2-stable"
+      GODOT_ARCHIVE_SHA256: "cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4"
+      GODOT_ARCHIVE_URL: "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip"
+      GODOT_BIN: "/tmp/godot/Godot_v4.7.2-stable_linux.x86_64"
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Static R01 test-contract preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(jq -r '.engine.version' toolchain.lock)" = "$GODOT_VERSION"
+          test "$(jq -r '.engine.linux_x86_64_sha256' toolchain.lock)" = "$GODOT_ARCHIVE_SHA256"
+          test "$(jq -r '.identity.version_name' toolchain.lock)" = "1.0.0-dev1"
+          test "$(jq -r '.identity.version_code' toolchain.lock)" = "1"
+          test -f tests/integration/r01_real_play_smoke.gd
+          test -f tests/visual/capture_r01_real_play.gd
+          test -f docs/verification/R01_REAL_PLAY_INTEGRATION.md
+          grep -Fq 'TEST_CONTRACT_PREFLIGHT=VALID' docs/verification/R01_REAL_PLAY_INTEGRATION.md
+          grep -Fq 'ACTION_PREFLIGHT=VALID' docs/verification/R01_REAL_PLAY_INTEGRATION.md
+          grep -Fq 'PREVENTION_COMPLIANCE_STATUS=PASS' docs/verification/R01_REAL_PLAY_INTEGRATION.md
+          grep -Fq 'select_save_slot' tests/integration/r01_real_play_smoke.gd
+          grep -Fq 'select_world_choice' tests/integration/r01_real_play_smoke.gd
+          grep -Fq 'InputEventScreenTouch' tests/integration/r01_real_play_smoke.gd
+          grep -Fq 'InputEventScreenDrag' tests/integration/r01_real_play_smoke.gd
+          grep -Fq 'R01_REAL_PLAY_SMOKE=PASS' tests/integration/r01_real_play_smoke.gd
+          grep -Fq 'R01_REAL_PLAY_CAPTURE=PASS' tests/visual/capture_r01_real_play.gd
+          if grep -Fq 'set("shell_mode"' tests/integration/r01_real_play_smoke.gd tests/visual/capture_r01_real_play.gd; then
+            echo '::error::R01 evidence may not set shell_mode manually'
+            exit 1
+          fi
+          if grep -Fq 'set_transient_input' tests/integration/r01_real_play_smoke.gd tests/visual/capture_r01_real_play.gd; then
+            echo '::error::R01 touch evidence may not call set_transient_input directly'
+            exit 1
+          fi
+          test -z "$(find . -type f \( -name '*.jks' -o -name '*.keystore' -o -name '*.p12' -o -name '*.pem' -o -name '*.key' \) -print -quit)"
+          mkdir -p artifacts/r01
+
+      - name: Download pinned Godot editor
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/godot
+          curl --fail --location --proto '=https' --tlsv1.2 "$GODOT_ARCHIVE_URL" --output /tmp/godot.zip
+          echo "$GODOT_ARCHIVE_SHA256  /tmp/godot.zip" | sha256sum --check --strict
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x "$GODOT_BIN"
+          "$GODOT_BIN" --version
+
+      - name: Import exact candidate headlessly
+        shell: bash
+        run: |
+          set -euo pipefail
+          import_log="artifacts/r01/import.log"
+          set +e
+          "$GODOT_BIN" --headless --path . --import 2>&1 | tee "$import_log"
+          godot_status=${PIPESTATUS[0]}
+          set -e
+          test "$godot_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$import_log"; then
+            echo '::error::Godot import reported R01 script compilation errors'
+            exit 1
+          fi
+
+      - name: Run R01 real-play fast integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          smoke_log="artifacts/r01/real-play.log"
+          set +e
+          "$GODOT_BIN" --headless --path . --script tests/integration/r01_real_play_smoke.gd 2>&1 | tee "$smoke_log"
+          godot_status=${PIPESTATUS[0]}
+          set -e
+          test "$godot_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$smoke_log"; then exit 1; fi
+          if grep -Eq '^R01_FAIL:|^R01_REAL_PLAY_SMOKE=FAIL' "$smoke_log"; then exit 1; fi
+          grep -Fxq 'R01_REAL_SLOT_TO_HUB=PASS' "$smoke_log"
+          grep -Fxq 'R01_REAL_HUB_TO_EXPEDITION=PASS' "$smoke_log"
+          grep -Fxq 'R01_REAL_TOUCH_TO_COMBAT=PASS' "$smoke_log"
+          grep -Fxq 'R01_ACTIVE_SAVE_RELOAD=PASS' "$smoke_log"
+          grep -Fxq 'R01_SETTLEMENT_STORY_NEXT_RUN=PASS' "$smoke_log"
+          grep -Fxq 'R01_REAL_PLAY_SMOKE=PASS' "$smoke_log"
+
+      - name: Render actual R01 runtime review states
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v xvfb-run >/dev/null
+          render_log="artifacts/r01/render.log"
+          set +e
+          xvfb-run -a "$GODOT_BIN" --path . --rendering-method gl_compatibility --script tests/visual/capture_r01_real_play.gd 2>&1 | tee "$render_log"
+          godot_status=${PIPESTATUS[0]}
+          set -e
+          test "$godot_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$render_log"; then exit 1; fi
+          if grep -Eq '^R01_CAPTURE_FAIL:|^R01_REAL_PLAY_CAPTURE=FAIL' "$render_log"; then exit 1; fi
+          grep -Fxq 'R01_CAPTURE_1280x720=PASS' "$render_log"
+          grep -Fxq 'R01_CAPTURE_2340x1080=PASS' "$render_log"
+          grep -Fxq 'R01_REVIEW_IMAGE_COUNT=6' "$render_log"
+          grep -Fxq 'R01_REAL_PLAY_CAPTURE=PASS' "$render_log"
+          test "$(find artifacts/r01 -maxdepth 1 -type f -name '*.png' | wc -l)" = "6"
+
+      - name: Build R01 evidence manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "R01_GITHUB_SHA=$GITHUB_SHA"
+            echo "R01_RUN_ID=$GITHUB_RUN_ID"
+            echo "R01_RUN_ATTEMPT=$GITHUB_RUN_ATTEMPT"
+            echo "R01_REF=$GITHUB_REF"
+            echo 'R01_TEST_CONTRACT_PREFLIGHT=PASS'
+            echo 'R01_ACTION_PREFLIGHT=PASS'
+            echo 'R01_PREVENTION_COMPLIANCE=PASS'
+            sha256sum tests/integration/r01_real_play_smoke.gd
+            sha256sum tests/visual/capture_r01_real_play.gd
+            sha256sum docs/verification/R01_REAL_PLAY_INTEGRATION.md
+            sha256sum .github/workflows/r01-real-play-ci.yml
+            sha256sum artifacts/r01/*.png
+          } > artifacts/r01/evidence.txt
+          cat artifacts/r01/evidence.txt
+
+      - name: Upload R01 real-play evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: r01-real-play-review-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/r01/
+          if-no-files-found: error
+          retention-days: 14
