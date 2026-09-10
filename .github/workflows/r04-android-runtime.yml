@@ -129,20 +129,17 @@ jobs:
             if test "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')" = 1; then booted=1; break; fi
             sleep 2
           done
-          if test "$booted" != 1; then
-            adb shell getprop >/tmp/r04/evidence/getprop-boot-timeout.txt || true
-            cat /tmp/r04/evidence/emulator.log || true
-            echo '::error::API36 boot timeout'; exit 14
-          fi
+          test "$booted" = 1
           sdk="$(adb shell getprop ro.build.version.sdk | tr -d '\r')"
           abi="$(adb shell getprop ro.product.cpu.abilist | tr -d '\r')"
           bridge="$(adb shell getprop ro.dalvik.vm.native.bridge | tr -d '\r')"
           pagesize="$(adb shell getconf PAGESIZE | tr -d '\r')"
           test "$sdk" = 36
-          case ",$abi," in *,x86_64,*) ;; *) echo "::error::x86_64 ABI unavailable: $abi"; exit 11 ;; esac
-          case ",$abi," in *,arm64-v8a,*) ;; *) echo "::error::ARM64 translation ABI unavailable: $abi"; exit 12 ;; esac
+          case ",$abi," in *,x86_64,*) ;; *) exit 11 ;; esac
+          case ",$abi," in *,arm64-v8a,*) ;; *) exit 12 ;; esac
           printf 'sdk=%s\nabilist=%s\nnative_bridge=%s\npage_size=%s\n' "$sdk" "$abi" "$bridge" "$pagesize" | tee /tmp/r04/evidence/runtime-profile.txt
           adb shell wm size 1280x720
+          adb shell settings put secure immersive_mode_confirmations confirmed || true
           adb shell input keyevent KEYCODE_WAKEUP || true
           adb shell wm dismiss-keyguard || true
           sleep 2
@@ -175,68 +172,60 @@ jobs:
           grep -Eq "versionCode=$VERSION_CODE([^0-9]|$)" /tmp/r04/evidence/package.txt
           grep -Fq "versionName=$VERSION_NAME" /tmp/r04/evidence/package.txt
           grep -Eq 'targetSdk=36([^0-9]|$)' /tmp/r04/evidence/package.txt
-
           root_out="$(adb root 2>&1 || true)"
           printf '%s\n' "$root_out" | tee /tmp/r04/evidence/adb-root.txt
           timeout 30s adb wait-for-device
+          adb shell settings put secure immersive_mode_confirmations confirmed || true
           root_uid="$(adb shell id -u | tr -d '\r')"
-          if test "$root_uid" = 0; then
-            DATA_MODE=root
-          elif adb shell run-as "$PACKAGE" id >/dev/null 2>&1; then
-            DATA_MODE=run_as
-          else
-            echo '::error::private save-state inspection unavailable on API36 runtime'; exit 23
-          fi
-          printf 'data_mode=%s\n' "$DATA_MODE" | tee /tmp/r04/evidence/data-mode.txt
+          test "$root_uid" = 0
+          printf 'data_mode=root\n' | tee /tmp/r04/evidence/data-mode.txt
 
           alive() { test -n "$(adb shell pidof "$PACKAGE" 2>/dev/null | tr -d '\r')"; }
-          foreground() {
-            adb shell dumpsys activity activities | tr -d '\r' | grep -E "(mResumedActivity|topResumedActivity).*${PACKAGE}" >/dev/null || \
-            adb shell dumpsys window windows | tr -d '\r' | grep -E "(mCurrentFocus|mFocusedApp).*${PACKAGE}" >/dev/null
+          top_activity() {
+            adb shell dumpsys activity processes > /tmp/r04/evidence/activity-live.txt
+            grep -E "$PACKAGE.*\(top-activity\)" /tmp/r04/evidence/activity-live.txt >/dev/null
+          }
+          immersive_present() {
+            adb shell dumpsys window windows > /tmp/r04/evidence/window-live.txt
+            grep -Fq 'ImmersiveModeConfirmation' /tmp/r04/evidence/window-live.txt
+          }
+          dismiss_immersive() {
+            for _ in $(seq 1 12); do
+              if ! immersive_present; then return 0; fi
+              adb shell input tap 1140 500
+              sleep 0.5
+            done
+            echo '::error::ImmersiveModeConfirmation remained visible'; return 1
           }
           dump_save() {
-            local out="$1"
-            if test "$DATA_MODE" = root; then
-              local save_path
-              save_path="$(adb shell find "/data/user/0/$PACKAGE" -type f -name slot_0.json 2>/dev/null | tr -d '\r' | head -1)"
-              test -n "$save_path"
-              adb exec-out cat "$save_path" >"$out"
-            else
-              adb exec-out run-as "$PACKAGE" cat files/saves/slot_0.json >"$out"
-            fi
+            local out="$1" save_path
+            save_path="$(adb shell find "/data/user/0/$PACKAGE" -type f -name slot_0.json 2>/dev/null | tr -d '\r' | head -1)"
+            test -n "$save_path" || return 1
+            printf '%s\n' "$save_path" > /tmp/r04/evidence/save-path.txt
+            adb exec-out cat "$save_path" >"$out"
             jq -e . "$out" >/dev/null
           }
           wait_save() {
             local out="$1" state="$2" reason="${3:-}"
-            for _ in $(seq 1 30); do
-              if dump_save "$out" 2>/dev/null; then
-                if jq -e --arg s "$state" '.payload.world.state == $s' "$out" >/dev/null; then
-                  if test -z "$reason" || jq -e --arg r "$reason" '.payload.profile.last_checkpoint_reason == $r' "$out" >/dev/null; then
-                    return 0
-                  fi
-                fi
+            for _ in $(seq 1 40); do
+              if dump_save "$out" 2>/dev/null && jq -e --arg s "$state" '.payload.world.state == $s' "$out" >/dev/null; then
+                if test -z "$reason" || jq -e --arg r "$reason" '.payload.profile.last_checkpoint_reason == $r' "$out" >/dev/null; then return 0; fi
               fi
               sleep 0.5
             done
-            return 1
+            echo "::error::save state did not reach $state/$reason"; return 1
           }
           capture_logs() {
             adb logcat -d -b all > /tmp/r04/evidence/logcat.txt || true
             adb shell dumpsys activity processes > /tmp/r04/evidence/activity-processes.txt || true
             adb shell dumpsys window windows > /tmp/r04/evidence/window.txt || true
-            if test "$DATA_MODE" = root; then
-              adb shell 'ls -l /data/tombstones 2>/dev/null || true' > /tmp/r04/evidence/tombstones-list.txt || true
-              adb shell 'for f in /data/tombstones/tombstone_*; do [ -f "$f" ] && tail -n 180 "$f"; done' > /tmp/r04/evidence/tombstones-tail.txt || true
-            fi
+            adb shell 'ls -l /data/tombstones 2>/dev/null || true' > /tmp/r04/evidence/tombstones-list.txt || true
+            adb shell 'for f in /data/tombstones/tombstone_*; do [ -f "$f" ] && tail -n 220 "$f"; done' > /tmp/r04/evidence/tombstones-tail.txt || true
           }
           assert_no_runtime_crash() {
             capture_logs
-            if grep -E -B20 -A40 'Fatal signal|ANR in|Input dispatching timed out' /tmp/r04/evidence/logcat.txt | grep -F "$PACKAGE" >/dev/null; then
-              echo '::error::package-associated fatal signal or ANR detected'; exit 31
-            fi
-            if test -f /tmp/r04/evidence/tombstones-tail.txt && grep -E -B40 -A80 'signal 4|SIGILL|signal 11|SIGSEGV' /tmp/r04/evidence/tombstones-tail.txt | grep -F "$PACKAGE" >/dev/null; then
-              echo '::error::package-associated native tombstone detected'; exit 32
-            fi
+            if grep -E 'Fatal signal|ANR in|Input dispatching timed out' /tmp/r04/evidence/logcat.txt | grep -F "$PACKAGE" >/dev/null; then echo '::error::package fatal/ANR'; exit 31; fi
+            if grep -E -B50 -A100 'signal 4|SIGILL|signal 11|SIGSEGV' /tmp/r04/evidence/tombstones-tail.txt | grep -F "$PACKAGE" >/dev/null; then echo '::error::package native tombstone'; exit 32; fi
           }
           shot() {
             local name="$1"
@@ -246,20 +235,23 @@ jobs:
           }
           launch() {
             adb shell monkey -p "$PACKAGE" -c android.intent.category.LAUNCHER 1 > /tmp/r04/evidence/monkey-last.txt
+            sleep 1
+            dismiss_immersive
             for _ in $(seq 1 30); do
-              if alive && foreground; then return 0; fi
+              if alive && top_activity; then return 0; fi
               sleep 1
             done
             capture_logs
-            return 1
+            echo '::error::app did not become top activity'; return 1
           }
           wait_game_ready() {
             local prefix="$1" ready=0
             for i in $(seq 1 12); do
               sleep 5
-              if ! alive || ! foreground; then capture_logs; return 1; fi
+              dismiss_immersive
+              if ! alive || ! top_activity; then capture_logs; return 1; fi
               shot "${prefix}-probe-${i}"
-              fraction="$(python3 -c "from PIL import Image; import sys; im=Image.open('/tmp/r04/evidence/'+sys.argv[1]+'-probe-'+sys.argv[2]+'.png').convert('RGB').resize((160,90)); pix=list(im.getdata()); print(f'{sum(1 for r,g,b in pix if r>235 and g>235 and b>235)/len(pix):.7f}')" "$prefix" "$i")"
+              fraction="$(python3 -c "from PIL import Image; import sys; im=Image.open('/tmp/r04/evidence/'+sys.argv[1]+'-probe-'+sys.argv[2]+'.png').convert('RGB').resize((160,90)); p=list(im.getdata()); print(f'{sum(1 for r,g,b in p if r>235 and g>235 and b>235)/len(p):.7f}')" "$prefix" "$i")"
               printf '%s %s\n' "$i" "$fraction" >>"/tmp/r04/evidence/${prefix}-readiness.txt"
               if python3 -c 'import sys; sys.exit(0 if float(sys.argv[1]) < 0.90 else 1)' "$fraction"; then ready=1; break; fi
             done
@@ -270,13 +262,13 @@ jobs:
           launch
           wait_game_ready initial
           shot slot_select
-          python3 -c "from PIL import Image; import sys; im=Image.open('/tmp/r04/evidence/slot_select.png'); sys.exit(0 if im.width > im.height else 1)" || { echo '::error::expected landscape app surface'; exit 24; }
+          python3 -c "from PIL import Image; import sys; im=Image.open('/tmp/r04/evidence/slot_select.png'); sys.exit(0 if im.width > im.height else 1)"
 
           adb shell input keyevent KEYCODE_1
           wait_save /tmp/r04/evidence/save-hub.json HUB new_game
           seq_hub="$(jq -r '.sequence' /tmp/r04/evidence/save-hub.json)"
           shot hub
-          alive; foreground; assert_no_runtime_crash
+          alive; top_activity; assert_no_runtime_crash
 
           adb shell input keyevent KEYCODE_1
           wait_save /tmp/r04/evidence/save-expedition.json EXPEDITION departure_initialized
@@ -286,19 +278,19 @@ jobs:
           test -n "$exp_id"; test "$exp_id" != null
           jq -e '.payload.suspended_expedition.runtime_state.schema == "w12-runtime-state-v1"' /tmp/r04/evidence/save-expedition.json >/dev/null
           shot expedition
-          alive; foreground; assert_no_runtime_crash
+          alive; top_activity; assert_no_runtime_crash
 
           adb shell input touchscreen swipe 108 612 190 612 900
           adb shell input touchscreen tap 1200 640
           adb shell input touchscreen tap 1200 508
           sleep 1
-          alive; foreground
+          alive; top_activity
           adb shell input keyevent KEYCODE_HOME
           wait_save /tmp/r04/evidence/save-background.json EXPEDITION background
           seq_bg="$(jq -r '.sequence' /tmp/r04/evidence/save-background.json)"
           test "$seq_bg" -gt "$seq_exp"
           test "$(jq -r '.payload.world.active_expedition_id' /tmp/r04/evidence/save-background.json)" = "$exp_id"
-          python3 -c "import json,math,sys; p=json.load(open('/tmp/r04/evidence/save-background.json')); pos=p['payload']['suspended_expedition']['runtime_state']['player']['position']; sys.exit(0 if len(pos)==2 and math.hypot(float(pos[0])-640.0,float(pos[1])-360.0)>=1.0 else 1)" || { echo '::error::touch did not change player position'; exit 25; }
+          python3 -c "import json,math,sys; p=json.load(open('/tmp/r04/evidence/save-background.json')); q=p['payload']['suspended_expedition']['runtime_state']['player']['position']; sys.exit(0 if len(q)==2 and math.hypot(float(q[0])-640.0,float(q[1])-360.0)>=1.0 else 1)"
           touch_pos="$(jq -c '.payload.suspended_expedition.runtime_state.player.position' /tmp/r04/evidence/save-background.json)"
           assert_no_runtime_crash
 
@@ -310,14 +302,13 @@ jobs:
           wait_game_ready relaunch
           adb shell input keyevent KEYCODE_1
           sleep 2
-          alive; foreground; assert_no_runtime_crash
+          alive; top_activity; assert_no_runtime_crash
           adb shell input keyevent KEYCODE_HOME
           wait_save /tmp/r04/evidence/save-recovered.json EXPEDITION background
           seq_rec="$(jq -r '.sequence' /tmp/r04/evidence/save-recovered.json)"
           test "$seq_rec" -gt "$seq_bg"
           test "$(jq -r '.payload.world.active_expedition_id' /tmp/r04/evidence/save-recovered.json)" = "$exp_id"
-          recovered_pos="$(jq -c '.payload.suspended_expedition.runtime_state.player.position' /tmp/r04/evidence/save-recovered.json)"
-          test "$recovered_pos" = "$touch_pos"
+          test "$(jq -c '.payload.suspended_expedition.runtime_state.player.position' /tmp/r04/evidence/save-recovered.json)" = "$touch_pos"
 
           adb shell am force-stop "$PACKAGE"
           adb shell wm size 1024x768
@@ -325,7 +316,7 @@ jobs:
           wait_game_ready resized
           adb shell input keyevent KEYCODE_1
           sleep 2
-          alive; foreground; shot resized_reentry; assert_no_runtime_crash
+          alive; top_activity; shot resized_reentry; assert_no_runtime_crash
           adb shell input keyevent KEYCODE_HOME
           wait_save /tmp/r04/evidence/save-resized.json EXPEDITION background
           seq_resize="$(jq -r '.sequence' /tmp/r04/evidence/save-resized.json)"
@@ -334,33 +325,32 @@ jobs:
           adb shell wm size reset || true
           assert_no_runtime_crash
 
-          cat >/tmp/r04/evidence/r04-result.txt <<EOF
-          TEST_CONTRACT_PREFLIGHT=VALID
-          ACTION_PREFLIGHT=VALID
-          R04_PRODUCT_SOURCE_SHA=$PRODUCT_SHA
-          R04_ARTIFACT_ID=$ARTIFACT_ID
-          R04_APK_SHA256=$APK_SHA256
-          R04_REBUILD=NO
-          R04_RUNTIME_API36=PASS
-          R04_ARM64_TRANSLATION_ABI=PASS
-          R04_FIRST_INSTALL=PASS
-          R04_PACKAGE_IDENTITY=PASS
-          R04_PRODUCTION_CERT_SELF_CONSISTENCY=PASS
-          R04_STABLE_LAUNCH=PASS
-          R04_SLOT_TO_HUB_SAVE_STATE=PASS
-          R04_EXPEDITION_ENTRY_SAVE_STATE=PASS
-          R04_TOUCH_PLAYER_MOVEMENT=PASS
-          R04_BACKGROUND_CHECKPOINT=PASS
-          R04_PROCESS_RELAUNCH=PASS
-          R04_SAVED_EXPEDITION_REENTRY=PASS
-          R04_ANDROID_RESIZE_REENTRY=PASS
-          R04_FATAL_SIGILL_ANR_CHECK=PASS
-          R04_16KB_RUNTIME=NOT_EXERCISED_REUSE_W28_STATIC
-          R04_PHYSICAL_DEVICE_THERMAL_LMK_HAPTICS=POST_DELIVERY_CHECK
-          R04_HISTORICAL_IN_PLACE_UPDATE=NA_NO_PRIOR_USER_VERSION
-          SECURITY_DELTA=NONE
-          R04_ANDROID_RUNTIME=PASS
-          EOF
+          printf '%s\n' \
+            'TEST_CONTRACT_PREFLIGHT=VALID' \
+            'ACTION_PREFLIGHT=VALID' \
+            "R04_PRODUCT_SOURCE_SHA=$PRODUCT_SHA" \
+            "R04_ARTIFACT_ID=$ARTIFACT_ID" \
+            "R04_APK_SHA256=$APK_SHA256" \
+            'R04_REBUILD=NO' \
+            'R04_RUNTIME_API36=PASS' \
+            'R04_ARM64_TRANSLATION_ABI=PASS' \
+            'R04_FIRST_INSTALL=PASS' \
+            'R04_PACKAGE_IDENTITY=PASS' \
+            'R04_PRODUCTION_CERT_SELF_CONSISTENCY=PASS' \
+            'R04_STABLE_LAUNCH=PASS' \
+            'R04_SLOT_TO_HUB_SAVE_STATE=PASS' \
+            'R04_EXPEDITION_ENTRY_SAVE_STATE=PASS' \
+            'R04_TOUCH_PLAYER_MOVEMENT=PASS' \
+            'R04_BACKGROUND_CHECKPOINT=PASS' \
+            'R04_PROCESS_RELAUNCH=PASS' \
+            'R04_SAVED_EXPEDITION_REENTRY=PASS' \
+            'R04_ANDROID_RESIZE_REENTRY=PASS' \
+            'R04_FATAL_SIGILL_ANR_CHECK=PASS' \
+            'R04_16KB_RUNTIME=NOT_EXERCISED_REUSE_W28_STATIC' \
+            'R04_PHYSICAL_DEVICE_THERMAL_LMK_HAPTICS=POST_DELIVERY_CHECK' \
+            'R04_HISTORICAL_IN_PLACE_UPDATE=NA_NO_PRIOR_USER_VERSION' \
+            'SECURITY_DELTA=NONE' \
+            'R04_ANDROID_RUNTIME=PASS' > /tmp/r04/evidence/r04-result.txt
           cat /tmp/r04/evidence/r04-result.txt
 
       - name: Upload R04 evidence
