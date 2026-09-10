@@ -9,6 +9,7 @@ const MANIFEST_PATH := "res://assets/runtime/w23/world_event_art_manifest.json"
 const SOURCE_RECORD := "res://assets/source/w23/WORLD_EVENT_ART_DIRECTION.md"
 const LICENSE_RECORD := "res://assets/licenses/W23_ORIGINAL_WORLD_EVENT_ART.md"
 const EXPECTED_REGIONS: Array[String] = ["twilight_shipyard", "glass_garden", "flooded_archive", "ash_railway", "eclipse_fortress"]
+const W23_SHELL_SCRIPT_PATH := "res://game/ui/main_shell_w23.gd"
 
 var _failures: Array[String] = []
 
@@ -88,7 +89,7 @@ func _run() -> void:
     if main_scene is PackedScene:
         var shell: Node = (main_scene as PackedScene).instantiate()
         var script: Script = shell.get_script()
-        _expect(script != null and script.resource_path == "res://game/ui/main_shell_w23.gd", "W23C main scene must use W23 shell bridge")
+        _expect(_script_chain_contains(script, W23_SHELL_SCRIPT_PATH), "W23C main scene must retain W23 shell behavior in its inheritance chain")
         var hud := shell.get_node_or_null("W23WorldEventHud")
         _expect(hud != null, "W23C main scene must mount story event art HUD")
         if hud != null:
@@ -97,6 +98,15 @@ func _run() -> void:
             _expect(str(hud_snapshot.get("event_id", "")) == "ts_s01", "W23C event HUD snapshot mismatch")
         shell.free()
     _finish()
+
+
+func _script_chain_contains(script: Script, target_path: String) -> bool:
+    var current: Script = script
+    while current != null:
+        if current.resource_path == target_path:
+            return true
+        current = current.get_base_script()
+    return false
 
 
 func _expect(condition: bool, message: String) -> void:

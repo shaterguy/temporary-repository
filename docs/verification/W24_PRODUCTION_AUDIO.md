@@ -51,6 +51,12 @@ Required W24 focused outputs:
 - PR-006: not applicable; no append-style Docs index mutation is used.
 - PR-008: not applicable; no web-parser work.
 
+## Cross-milestone regression compatibility
+
+The first W24 candidate exposed a W23C regression check that asserted the exact top-level main-shell script path. That check was stale once the deliberate W24 subclass became the current shell. W23C now validates that its W23 script remains in the active shell inheritance chain and separately exercises the mounted W23 world-event HUD. This preserves the old milestone contract without forbidding later milestone subclasses. A second shell-string assertion in the workflow preflight was repaired by the same capability/ancestry rule.
+
+Under `set -euo pipefail`, the W24 artifact postcondition also uses `test -z "$(find ... -size 0 -print -quit)"` rather than piping an expected-empty result into `grep`; the latter incorrectly returns failure when the desired zero-file condition is satisfied.
+
 ## Automated versus human evidence
 
 Automated PASS may establish mapping completeness, deterministic synthesis validity, non-silence, runtime bridge integration, bounded voice policy, warning-volume policy and review-artifact generation. It must not be converted into a human listening PASS.
