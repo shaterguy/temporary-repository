@@ -1,0 +1,165 @@
+name: r02-rendered-load-soak-ci
+
+on:
+  push:
+    branches:
+      - 'v*-dev*'
+      - 'v*-rc*'
+    paths:
+      - 'tests/integration/r02_rendered_load_soak.gd'
+      - 'docs/verification/R02_RENDERED_LOAD_SOAK.md'
+      - '.github/workflows/r02-rendered-load-soak-ci.yml'
+  pull_request:
+    paths:
+      - 'tests/integration/r02_rendered_load_soak.gd'
+      - 'docs/verification/R02_RENDERED_LOAD_SOAK.md'
+      - '.github/workflows/r02-rendered-load-soak-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: r02-rendered-load-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rendered-load-soak:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      GODOT_VERSION: "4.7.2-stable"
+      GODOT_ARCHIVE_SHA256: "cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4"
+      GODOT_ARCHIVE_URL: "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip"
+      GODOT_BIN: "/tmp/godot/Godot_v4.7.2-stable_linux.x86_64"
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Static R02 test-contract preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(jq -r '.engine.version' toolchain.lock)" = "$GODOT_VERSION"
+          test "$(jq -r '.engine.linux_x86_64_sha256' toolchain.lock)" = "$GODOT_ARCHIVE_SHA256"
+          test "$(jq -r '.identity.version_name' toolchain.lock)" = "1.0.0-dev1"
+          test "$(jq -r '.identity.version_code' toolchain.lock)" = "1"
+          test -f tests/integration/r02_rendered_load_soak.gd
+          test -f docs/verification/R02_RENDERED_LOAD_SOAK.md
+          grep -Fq 'const ENEMY_TARGET: int = 600' tests/integration/r02_rendered_load_soak.gd
+          grep -Fq 'const PROJECTILE_ACTION_TARGET: int = 1000' tests/integration/r02_rendered_load_soak.gd
+          grep -Fq 'const DECORATIVE_EFFECT_TARGET: int = 300' tests/integration/r02_rendered_load_soak.gd
+          grep -Fq 'const SUSTAINED_FRAMES: int = 300' tests/integration/r02_rendered_load_soak.gd
+          grep -Fq 'R02_RENDERED_LOAD_SOAK=PASS' tests/integration/r02_rendered_load_soak.gd
+          grep -Fq 'TEST_CONTRACT_PREFLIGHT=VALID' docs/verification/R02_RENDERED_LOAD_SOAK.md
+          grep -Fq 'ACTION_PREFLIGHT=VALID' docs/verification/R02_RENDERED_LOAD_SOAK.md
+          grep -Fq 'PREVENTION_COMPLIANCE_STATUS=PASS' docs/verification/R02_RENDERED_LOAD_SOAK.md
+          if grep -Fq 'set("shell_mode"' tests/integration/r02_rendered_load_soak.gd; then
+            echo '::error::R02 may not bypass the real shell transition by setting shell_mode'
+            exit 1
+          fi
+          if grep -Eq 'Node2D\.new\(\).*projectile|Sprite2D\.new\(\).*projectile|dummy.*projectile' tests/integration/r02_rendered_load_soak.gd; then
+            echo '::error::R02 may not fabricate test-only projectile objects'
+            exit 1
+          fi
+          test -z "$(find . -type f \( -name '*.jks' -o -name '*.keystore' -o -name '*.p12' -o -name '*.pem' -o -name '*.key' \) -print -quit)"
+          mkdir -p artifacts/r02
+
+      - name: Provision Korean review font
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends fonts-noto-cjk
+          fc-match 'Noto Sans CJK KR' | tee artifacts/r02/font-match.log
+          grep -Eiq 'NotoSansCJK|Noto Sans CJK' artifacts/r02/font-match.log
+
+      - name: Download pinned Godot editor
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/godot
+          curl --fail --location --proto '=https' --tlsv1.2 "$GODOT_ARCHIVE_URL" --output /tmp/godot.zip
+          echo "$GODOT_ARCHIVE_SHA256  /tmp/godot.zip" | sha256sum --check --strict
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x "$GODOT_BIN"
+          "$GODOT_BIN" --version
+
+      - name: Import exact candidate headlessly
+        shell: bash
+        run: |
+          set -euo pipefail
+          import_log="artifacts/r02/import.log"
+          set +e
+          "$GODOT_BIN" --headless --path . --import 2>&1 | tee "$import_log"
+          godot_status=${PIPESTATUS[0]}
+          set -e
+          test "$godot_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$import_log"; then
+            echo '::error::Godot import reported R02 script compilation errors'
+            exit 1
+          fi
+
+      - name: Run R02 real-main-scene rendered load soak
+        shell: bash
+        run: |
+          set -euo pipefail
+          soak_log="artifacts/r02/rendered-load.log"
+          set +e
+          xvfb-run -a "$GODOT_BIN" --path . --rendering-method gl_compatibility --script tests/integration/r02_rendered_load_soak.gd 2>&1 | tee "$soak_log"
+          godot_status=${PIPESTATUS[0]}
+          set -e
+          test "$godot_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$soak_log"; then exit 1; fi
+          if grep -Eq 'ObjectDB instances leaked|Resources still in use' "$soak_log"; then exit 1; fi
+          if grep -Eq '^R02_FAIL:|^R02_RENDERED_LOAD_SOAK=FAIL' "$soak_log"; then exit 1; fi
+          grep -Fxq 'R02_REAL_MAIN_SCENE=PASS' "$soak_log"
+          grep -Fxq 'R02_ENEMY_LOAD_TARGET=600' "$soak_log"
+          grep -Fxq 'R02_PROJECTILE_LOAD_TARGET=1000' "$soak_log"
+          grep -Fxq 'R02_PROJECTILE_LOAD_SEMANTICS=weapon_action' "$soak_log"
+          grep -Fxq 'R02_PROJECTILE_NODE_MODEL=ABSENT_BY_DESIGN' "$soak_log"
+          grep -Fxq 'R02_DECORATIVE_EFFECT_TARGET=300' "$soak_log"
+          grep -Fxq 'R02_EFFECT_HEAVY_FRAMES=30' "$soak_log"
+          grep -Fxq 'R02_SUSTAINED_FRAMES=300' "$soak_log"
+          grep -Fxq 'R02_SAVE_CHECKPOINT=PASS' "$soak_log"
+          grep -Fxq 'R02_HOST_PERF_ENV=ubuntu-xvfb-gl_compatibility' "$soak_log"
+          grep -Fxq 'R02_ANDROID_DEVICE_PERF=PENDING_R04' "$soak_log"
+          grep -Fxq 'R02_HUMAN_VISUAL_AUDIO=PENDING' "$soak_log"
+          grep -Fxq 'R02_RENDERED_LOAD_SOAK=PASS' "$soak_log"
+          enemy_actual="$(sed -n 's/^R02_ENEMY_LOAD_ACTUAL=//p' "$soak_log" | tail -n 1)"
+          action_actual="$(sed -n 's/^R02_WEAPON_ACTIONS_ACTUAL=//p' "$soak_log" | tail -n 1)"
+          effect_actual="$(sed -n 's/^R02_DECORATIVE_EFFECT_ACTUAL=//p' "$soak_log" | tail -n 1)"
+          test -n "$enemy_actual" && test "$enemy_actual" -ge 600
+          test -n "$action_actual" && test "$action_actual" -ge 1000
+          test -n "$effect_actual" && test "$effect_actual" -ge 300
+          test -s artifacts/r02/peak-600-1000-300-1280x720.png
+
+      - name: Build R02 evidence manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep '^R02_' artifacts/r02/rendered-load.log > artifacts/r02/metrics.txt
+          {
+            echo "R02_GITHUB_SHA=$GITHUB_SHA"
+            echo "R02_RUN_ID=$GITHUB_RUN_ID"
+            echo "R02_RUN_ATTEMPT=$GITHUB_RUN_ATTEMPT"
+            echo "R02_REF=$GITHUB_REF"
+            echo 'R02_TEST_CONTRACT_PREFLIGHT=PASS'
+            echo 'R02_ACTION_PREFLIGHT=PASS'
+            echo 'R02_PREVENTION_COMPLIANCE=PASS'
+            sha256sum tests/integration/r02_rendered_load_soak.gd
+            sha256sum docs/verification/R02_RENDERED_LOAD_SOAK.md
+            sha256sum .github/workflows/r02-rendered-load-soak-ci.yml
+            sha256sum artifacts/r02/font-match.log
+            sha256sum artifacts/r02/peak-600-1000-300-1280x720.png
+          } > artifacts/r02/evidence.txt
+          cat artifacts/r02/evidence.txt
+          cat artifacts/r02/metrics.txt
+
+      - name: Upload R02 rendered-load evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: r02-rendered-load-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/r02/
+          if-no-files-found: error
+          retention-days: 14
