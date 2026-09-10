@@ -119,6 +119,17 @@ jobs:
           "$SDKMANAGER" --list_installed | tee /tmp/r04/evidence/sdk-installed.txt
           echo no | "$AVDMANAGER" create avd --force --name r04_api30 --package "$AVD_PACKAGE" --device pixel_2 >/dev/null
           "$AVDMANAGER" list avd | tee /tmp/r04/evidence/avd-list.txt
+          if test -d "$HOME/.config/.android/avd/r04_api30.avd"; then
+            export ANDROID_AVD_HOME="$HOME/.config/.android/avd"
+          elif test -d "$HOME/.android/avd/r04_api30.avd"; then
+            export ANDROID_AVD_HOME="$HOME/.android/avd"
+          else
+            echo '::error::avdmanager created r04_api30 but its AVD directory could not be located'
+            exit 15
+          fi
+          printf 'ANDROID_AVD_HOME=%s\n' "$ANDROID_AVD_HOME" | tee /tmp/r04/evidence/android-avd-home.txt
+          "$EMULATOR" -list-avds | tee /tmp/r04/evidence/emulator-avd-list.txt
+          "$EMULATOR" -list-avds | grep -Fxq r04_api30
           adb kill-server || true
           adb start-server
           nohup "$EMULATOR" -avd r04_api30 -no-window -no-audio -no-boot-anim -no-snapshot -wipe-data -gpu swiftshader_indirect -accel on -memory 4096 -cores 2 > /tmp/r04/evidence/emulator.log 2>&1 &
