@@ -8,17 +8,17 @@ Primary requirement mapping: `AC-14`
 Non-regression mapping: `NR-03`, `NR-04`
 
 `TEST_CONTRACT_PREFLIGHT=VALID`
+`ACTION_PREFLIGHT=VALID`
 `PREVENTION_RULES=PR-001,PR-002,PR-004,PR-007`
 `SECURITY_DELTA=NONE`
 
 ## Immutable product under test
 
-R04 reuses the already-built W28 production APK without rebuilding, resigning or repackaging it.
+R04 reuses W28 production output without rebuilding, resigning or repackaging it.
 
 - source SHA `eb4b542275f13929334d72cc4e3eba492bb8ef9c`
 - W28 run `34445663426`
 - artifact ID `10139569453`
-- artifact `lanternfall-1.0.0-dev1-production-34445663426-1`
 - artifact archive SHA-256 `de7d0e1c0095eb80f26b9d7d8eec17b872a6e3928e5c7f510ac5b9352fff1169`
 - APK `LANTERNFALL-1.0.0-dev1-production.apk`
 - APK SHA-256 `5ff25fec7915ce9c05c7d3cadccde4b00c9821dc0b5069228b8b239dc6a1bba5`
@@ -26,36 +26,37 @@ R04 reuses the already-built W28 production APK without rebuilding, resigning or
 
 The verification branch may differ from the product SHA only at `.github/workflows/r04-android-runtime.yml` and this document.
 
-## Completed translated-runtime probe
+## Prior runtime findings
 
-GitHub Actions run `34449013747` used an Android 11 / API 30 Google APIs `x86_64` emulator exposing `x86_64,x86,arm64-v8a,armeabi-v7a,armeabi` through ARM binary translation. The runtime page size was 4096 bytes. The exact W28 archive and APK digests passed, APK v2/v3 signature verification passed, production certificate SHA-256 was `114bb489ccfdcd7137b70aeb3230bbdd29af08f0e3155ee817419e1afd8269ef`, and the exact APK installed successfully.
+Run `34449013747` used Android 11 / API 30 Google APIs `x86_64` with ARM binary translation. The runtime exposed `x86_64,x86,arm64-v8a,armeabi-v7a,armeabi`, page size 4096, verified the exact W28 artifact hashes and v2/v3 production signature, and installed the exact APK successfully. The app then remained on the Godot splash and reached an Android ANR dialog before a valid game-ready state. Slot/hub/expedition screenshot hash changes from that run are therefore rejected as false-positive state evidence. Classification: `TRANSLATED_RUNTIME_ANR`.
 
-The translated runtime did not reach a valid game-ready state. Evidence screenshots show the Godot splash persisting after launch and later an Android application-not-responding dialog. Therefore no slot, hub, expedition, touch, lifecycle or save-recovery transition from this run is accepted as R04 PASS evidence. The translated-runtime outcome is classified as `TRANSLATED_RUNTIME_ANR`, not as a proven production defect on a native arm64 Android device.
+Run `34449593508` tested GitHub's `ubuntu-24.04-arm` hosted runner as a native ARM64 host. The runner reported `aarch64` on Ubuntu 24.04.4 with 4 CPUs and about 16 GB RAM, but `/dev/kvm` was absent. Native ARM64 Android virtualization on that hosted runner is therefore blocked by environment capability. Classification: `NATIVE_ARM_HOST_KVM_UNAVAILABLE`. This is not an application failure.
 
-## Native ARM64 escalation rationale
+## Current renderer retry
 
-The product APK contains only `arm64-v8a` native code. Because the translated x86_64 runtime produced an ANR before game readiness, the next verification target is a native Linux ARM64 host running an arm64 Android system image, if the hosted environment provides the required KVM capability.
+The failed translated-runtime probe used Emulator 37 with `-gpu swiftshader_indirect`, an option deprecated by current Android Emulator releases. Android's current graphics guidance recommends `swiftshader` or `software` when graphics emulation is problematic.
 
-GitHub currently exposes `ubuntu-24.04-arm` hosted runners. Android's emulator release notes describe Linux ARM64-host support for arm64 system images with KVM through an ARM64 emulator build. GitHub's ARM runner image does not preinstall Android SDK tooling, so native execution requires separate emulator/toolchain provisioning after host capability is established.
+The current R04 workflow therefore retries the same exact Android 11 translated runtime with the supported `-gpu swiftshader` backend and stronger readiness evidence:
 
-The current workflow is intentionally limited to a low-cost host preflight. It validates:
+- exact W28 artifact and APK hash reuse is rechecked;
+- package, version and production certificate identity are rechecked;
+- logcat runs continuously from before application launch;
+- Android ANR/system wait dialogs are checked through UIAutomator during startup and state transitions;
+- the app is not considered game-ready while the screen remains dominated by the known white Godot splash; readiness requires the white-pixel ratio to fall below the bounded threshold and no ANR dialog;
+- only after game readiness are slot-to-hub, expedition entry, actual Android touch injection, background checkpointing, process death/relaunch, saved-expedition reentry and Android resize/reentry exercised;
+- actual screenshot dimensions are used to transform the game's 1280x720 logical touch coordinates, avoiding headless-orientation assumptions;
+- all screenshots, runtime profile, package/signing data, live/final logcat and readiness probes are uploaded using run-ID/run-attempt evidence identity.
 
-- runner architecture is `aarch64`;
-- product source remains byte-for-byte unchanged outside the two verification files;
-- `/dev/kvm` exists and is readable/writable;
-- baseline Java, Python and curl tooling is present;
-- package availability information needed for native provisioning is captured.
-
-Only after this preflight succeeds may an expensive ARM64 emulator build/provisioning path be added. A preflight failure is an environment limitation and must not be represented as an application failure.
+A failure before `R04_GAME_READY=PASS` is not allowed to masquerade as successful gameplay verification.
 
 ## Historical update, 16 KB and physical-device boundary
 
-There is no prior user-installed production version in the task evidence, so R04 does not fabricate an in-place upgrade test. A future upgrade test requires a genuine earlier production APK signed by the same certificate and a candidate with a higher `versionCode`.
+No prior user-installed production version exists in task evidence, so no fabricated in-place update test is performed. A genuine upgrade test requires an earlier production APK signed by the same certificate and a candidate with a higher `versionCode`.
 
-W28's native 16 KB compatibility evidence remains valid static/package evidence. Neither the translated Android 11 probe nor this host preflight is an actual 16 KB runtime test.
+W28 static/package evidence already verifies native 16 KB compatibility. The Android 11 translated runtime is a 4 KB runtime and is not labeled as an actual 16 KB runtime test.
 
 Physical-device-only characteristics remain post-delivery checks: thermal throttling, OEM low-memory-killer behavior, device-specific cutouts and gesture navigation, haptic feel, sustained touch latency and human play feel.
 
 ## Completion rule
 
-R04 may be marked complete only from a runtime that actually reaches the game UI and demonstrates the required install, launch, interaction, lifecycle, process-death/relaunch and save-recovery outcomes on the immutable W28 APK. The translated x86_64 run does not satisfy that rule.
+R04 may emit `R04_ANDROID_RUNTIME=PASS` only if the immutable W28 APK actually leaves the splash, reaches game readiness without an ANR, then completes install, launch, menu/expedition interaction, touch, lifecycle, process-death/relaunch, persistence reentry and resize reentry in the same run. If the current supported renderer still produces an ANR, R04 remains incomplete and the result must identify the remote Android environment gap instead of claiming success.
