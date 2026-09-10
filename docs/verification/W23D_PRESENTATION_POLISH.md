@@ -1,6 +1,6 @@
 # W23D Presentation Polish
 
-Status: presentation-only polish candidate; automated geometry, localization, tutorial-scope, render-capture, and human screenshot review are required before final visual PASS.
+Status: static presentation visual review PASS for candidate `8a7a6808eef099477ecd3a740489aaaa29c4ef7c`; automated geometry/localization/tutorial-scope/render-capture and direct inspection of all 8 generated screenshots are complete. Android device-specific touch/OS-chrome behavior and non-static animation feel remain outside this W23D static-review PASS and are tracked under R04/final verification.
 
 ## Objective
 
@@ -43,12 +43,21 @@ The integration smoke checks the representative player/Ark/pause/combat/guidance
 
 Workflow: `.github/workflows/w23d-presentation-polish-ci.yml`
 
+Verified candidate: `8a7a6808eef099477ecd3a740489aaaa29c4ef7c`
+
+- Run: `34441740065`
+- Job: `102758023943`
+- Artifact: `10138188610` (`w23d-presentation-review-34441740065-1`)
+- Result: all workflow steps succeeded on the verified candidate.
+- Evidence set: 4 combat captures + 4 hub/story captures covering the full readability matrix.
+
 Expected assertions:
 
 - `W23D_HUD_COLLISION=PASS`
 - `W23D_STORY_CARD_BOUNDS=PASS`
 - `W23D_TOUCH_CLEARANCE=PASS`
 - `W23D_LOCALIZATION=PASS`
+- `W23D_KOREAN_GLYPHS=PASS`
 - `W23D_TUTORIAL_SCOPE=PASS`
 - `W23D_PRESENTATION_POLISH=PASS`
 - `W23D_CAPTURE=PASS`
@@ -56,6 +65,12 @@ Expected assertions:
 
 The existing W23A/B and W23C workflows remain authoritative for production-art count, provenance, runtime mapping, and their established review sheets. W23D does not replace or relax those contracts.
 
+## Direct screenshot review
+
+All 8 exact screenshots from artifact `10138188610` were independently inspected after the final Korean-glyph fix. The reviewed captures show rendered Korean glyphs, no obvious clipping, no exposed raw route/status/module/phase IDs or W-number milestone labels, and no obvious overlap between the reviewed combat HUD and the lower touch-control area at the captured matrix sizes.
+
+Static screenshot review therefore closes the W23D visual-review requirement for candidate `8a7a6808eef099477ecd3a740489aaaa29c4ef7c`. It does not claim Android device behavior, OS-chrome/safe-area behavior outside the captured contract, live animation feel, audio quality, or final whole-game art direction.
+
 ## Human-review boundary
 
-Automated geometry and screenshot generation do not by themselves prove subjective hierarchy, animation feel, color readability on real panels, or device-specific touch/OS chrome behavior. The generated W23D captures must be inspected after the new candidate run. Those subjective items remain `PENDING` until that inspection or a later final verification explicitly resolves them.
+The direct screenshot review is PASS for the captured static presentation scope above. Android device-specific touch/OS-chrome behavior remains pending R04. Live animation feel, audio listening/mix quality, and broader whole-game subjective quality remain separate final-verification scopes and are not inferred from this W23D screenshot PASS.
