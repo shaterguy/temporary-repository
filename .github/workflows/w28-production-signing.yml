@@ -12,6 +12,7 @@ concurrency:
 
 jobs:
   production-apk:
+    if: github.ref == 'refs/heads/v1.0.0-dev1'
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     env:
@@ -34,6 +35,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/v1.0.0-dev1"
           python3 tests/ci/check_w28_release_contract.py
           test "$(jq -r '.engine.version' toolchain.lock)" = "$GODOT_VERSION"
           test "$(jq -r '.engine.linux_x86_64_sha256' toolchain.lock)" = "$GODOT_ARCHIVE_SHA256"
@@ -76,10 +78,8 @@ jobs:
 
           sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           test -x "$sdkmanager"
-          if [ ! -x "$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS/apksigner" ]; then
-            yes | "$sdkmanager" --licenses >/dev/null 2>&1 || true
-            "$sdkmanager" "platform-tools" "build-tools;$ANDROID_BUILD_TOOLS" "platforms;$ANDROID_PLATFORM"
-          fi
+          yes | "$sdkmanager" --licenses >/dev/null 2>&1 || true
+          "$sdkmanager" "platform-tools" "build-tools;$ANDROID_BUILD_TOOLS" "platforms;$ANDROID_PLATFORM" >/dev/null
           test -x "$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS/apksigner"
           test -x "$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS/zipalign"
           test -x "$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS/aapt"
@@ -120,7 +120,7 @@ jobs:
           umask 077
           printf '%s' "$KEYSTORE_B64" | base64 --decode > /tmp/lanternfall-prod.keystore
           test -s /tmp/lanternfall-prod.keystore
-          keytool -list -keystore /tmp/lanternfall-prod.keystore -alias "$KEY_ALIAS" -storepass "$KEY_PASSWORD" >/dev/null
+          keytool -list -keystore /tmp/lanternfall-prod.keystore -alias "$KEY_ALIAS" -storepass:env KEY_PASSWORD >/dev/null
           echo "W28_PRODUCTION_KEYSTORE=VALID"
 
       - name: Export production-signed APK
