@@ -35,13 +35,19 @@ The tested project contains no repository-owned `.so` or `.gdextension` native e
    - The save-soak section must finish within 12,000 ms; total W27 headless soak must finish within 25,000 ms.
 
 4. Android 16 KB binary compatibility
-   - Verify the exact `toolchain.lock` Godot editor/template digests and Android Build Tools `35.0.1` identity before runtime work.
+   - Verify the exact `toolchain.lock` Godot editor/template digests and the authoritative Android Build Tools `36.1.0` identity before runtime work.
    - Download the pinned Godot Android export templates and locate `android_release.apk`.
    - Run Android `zipalign -c -P 16 -v 4` against that template APK.
    - Extract every `lib/arm64-v8a/*.so` and require each ELF `LOAD` segment alignment reported by `readelf -lW` to be at least `0x4000` (2^14 / 16 KiB).
    - Fail immediately if repository-owned `.so` or `.gdextension` files appear, because that would introduce a new native binary that requires its own 16 KB evidence.
 
 Android’s official 16 KB guidance is the source for the ZIP and ELF checks: `https://developer.android.com/guide/practices/page-sizes`.
+
+## Current contract repair
+
+R04 touch-navigation repair candidate `15af67f523311f432ada37a4f702643429b95274` triggered W27 because the actual final scene changed. Run `34456594370` stopped at `Static W27 contract preflight` before downloading Godot or executing any performance/soak work. Readback showed the sole stale contract mismatch: `toolchain.lock` authoritatively specifies Android Build Tools `36.1.0`, while the W27 workflow and this document still asserted `35.0.1`. This is a validation-path drift, not a product regression.
+
+The repair changes only the W27 validation contract from `35.0.1` to `36.1.0`. The performance test, thresholds, Godot editor/template digests, ABI, package/version identity, save schemas and 16 KB checks are unchanged. Because the workflow identity changes, the corrected candidate requires a new run; run `34456594370` is not rerun or counted as product-failure evidence.
 
 ## Evidence boundaries
 
@@ -51,10 +57,11 @@ W28 remains the first checkpoint allowed to create the production-signed install
 
 ## Preflight and prevention
 
-- `PR-001`: satisfied by read-only repository/tool/workflow inspection before mutation; W27 does not create a probe workflow run or other state merely to discover capability.
-- `PR-002`: satisfied by using a real W27 three-file change as the new CI identity; no no-op/zero-tree-diff trigger commit is allowed.
+- `PR-001`: satisfied by read-only workflow/job-log and `toolchain.lock` inspection before mutation; no probe mutation was used to identify the stale Build Tools value.
+- `PR-002`: the correction is a real validation-contract change and no no-op/zero-tree-diff trigger commit is used.
+- `PR-007`: triggered and satisfied by aligning the W27 workflow and verification contract to the single authoritative `toolchain.lock` Build Tools selector in the same change.
 - Version-identity and formal-update-baseline rules are not triggered because W27 does not mutate version, package identity, or release baseline.
-- New Actions execution is a `NEW_RUN` for the exact W27 commit identity, not a rerun of an older commit.
+- New Actions execution is a `NEW_RUN` for the corrected W27 commit identity, not a rerun of the stale run.
 
 ## Security delta
 
@@ -62,4 +69,4 @@ W28 remains the first checkpoint allowed to create the production-signed install
 
 ## Result interpretation
 
-`W27_AUTOMATED_RESULT=CI_GATED`. The authoritative result is the GitHub Actions run for the exact W27 commit. Real-device-only observations remain pending even if that run passes.
+`W27_AUTOMATED_RESULT=CI_GATED`. The authoritative result is the GitHub Actions run for the exact corrected commit. Real-device-only observations remain pending even if that run passes.
