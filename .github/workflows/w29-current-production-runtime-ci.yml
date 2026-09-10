@@ -39,15 +39,15 @@ jobs:
       - name: Checkout verification harness
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 2
+          fetch-depth: 0
 
       - name: Static test and action preflight
         shell: bash
         run: |
           set -euo pipefail
-          git fetch --no-tags --depth=1 origin refs/heads/v1.0.0-dev1:refs/remotes/origin/v1.0.0-dev1
+          git fetch --no-tags origin refs/heads/v1.0.0-dev1:refs/remotes/origin/v1.0.0-dev1
           test "$(git rev-parse refs/remotes/origin/v1.0.0-dev1)" = "$EXPECTED_PRODUCT_SHA"
-          test "$(git rev-parse HEAD^)" = "$EXPECTED_PRODUCT_SHA"
+          test "$(git merge-base HEAD refs/remotes/origin/v1.0.0-dev1)" = "$EXPECTED_PRODUCT_SHA"
           mapfile -t changed < <(git diff --name-only "$EXPECTED_PRODUCT_SHA"..HEAD)
           test "${#changed[@]}" -eq 1
           test "${changed[0]}" = '.github/workflows/w29-current-production-runtime-ci.yml'
@@ -138,6 +138,9 @@ jobs:
           avdmanager="$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager"
           emulator_bin="$ANDROID_HOME/emulator/emulator"
           adb_bin="$ANDROID_HOME/platform-tools/adb"
+          export ANDROID_AVD_HOME=/tmp/w29-avd
+          mkdir -p "$ANDROID_AVD_HOME"
+          echo "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
           test -x "$sdkmanager"
           test -x "$avdmanager"
           if [ -e /dev/kvm ]; then sudo chmod 666 /dev/kvm; fi
@@ -146,6 +149,9 @@ jobs:
           test -x "$emulator_bin"
           test -x "$adb_bin"
           echo no | "$avdmanager" create avd --force --name "$AVD_NAME" --package "$SYSTEM_IMAGE" --device 'pixel_7'
+          "$emulator_bin" -list-avds | tee artifacts/w29/avd-list.txt
+          grep -Fxq "$AVD_NAME" artifacts/w29/avd-list.txt
+          test -f "$ANDROID_AVD_HOME/${AVD_NAME}.ini"
           "$emulator_bin" -avd "$AVD_NAME" \
             -no-window -no-audio -no-boot-anim -no-snapshot \
             -gpu swiftshader_indirect -camera-back none -camera-front none \
