@@ -1,0 +1,119 @@
+name: w25-android-hardening-ci
+
+on:
+  push:
+    branches:
+      - 'v*-dev*'
+      - 'v*-rc*'
+    paths:
+      - 'game/ui/mobile_input_model.gd'
+      - 'game/ui/mobile_input_overlay.gd'
+      - 'game/ui/main_shell.tscn'
+      - 'game/core/save_store.gd'
+      - 'platform/android/safe_area.gd'
+      - 'tests/unit/test_w25_mobile_input.gd'
+      - 'tests/unit/test_w25_save_recovery.gd'
+      - 'tests/integration/w25_mobile_hardening_smoke.gd'
+      - 'docs/verification/W25_ANDROID_HARDENING.md'
+      - '.github/workflows/w25-android-hardening-ci.yml'
+  pull_request:
+    paths:
+      - 'game/ui/mobile_input_model.gd'
+      - 'game/ui/mobile_input_overlay.gd'
+      - 'game/ui/main_shell.tscn'
+      - 'game/core/save_store.gd'
+      - 'platform/android/safe_area.gd'
+      - 'tests/unit/test_w25_mobile_input.gd'
+      - 'tests/unit/test_w25_save_recovery.gd'
+      - 'tests/integration/w25_mobile_hardening_smoke.gd'
+      - 'docs/verification/W25_ANDROID_HARDENING.md'
+      - '.github/workflows/w25-android-hardening-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: w25-android-hardening-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  w25-android-hardening:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      GODOT_VERSION: "4.7.2-stable"
+      GODOT_ARCHIVE_SHA256: "cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4"
+      GODOT_ARCHIVE_URL: "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip"
+      GODOT_BIN: "/tmp/godot/Godot_v4.7.2-stable_linux.x86_64"
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Static W25 contract preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(jq -r '.engine.version' toolchain.lock)" = "$GODOT_VERSION"
+          test "$(jq -r '.engine.linux_x86_64_sha256' toolchain.lock)" = "$GODOT_ARCHIVE_SHA256"
+          test "$(jq -r '.identity.version_name' toolchain.lock)" = "1.0.0-dev1"
+          test "$(jq -r '.identity.version_code' toolchain.lock)" = "1"
+          test -f game/ui/mobile_input_model.gd
+          test -f game/ui/mobile_input_overlay.gd
+          test -f tests/unit/test_w25_mobile_input.gd
+          test -f tests/unit/test_w25_save_recovery.gd
+          test -f tests/integration/w25_mobile_hardening_smoke.gd
+          test -f docs/verification/W25_ANDROID_HARDENING.md
+          grep -Fq 'res://game/ui/main_shell_w24.gd' game/ui/main_shell.tscn
+          grep -Fq 'res://game/ui/mobile_input_overlay.gd' game/ui/main_shell.tscn
+          grep -Fq 'W25MobileControls' game/ui/main_shell.tscn
+          grep -Fq 'NOTIFICATION_APPLICATION_FOCUS_OUT' game/ui/mobile_input_overlay.gd
+          grep -Fq 'NOTIFICATION_APPLICATION_PAUSED' game/ui/mobile_input_overlay.gd
+          grep -Fq 'TEST_CONTRACT_PREFLIGHT=VALID' docs/verification/W25_ANDROID_HARDENING.md
+          grep -Fq 'ACTION_PREFLIGHT=VALID' docs/verification/W25_ANDROID_HARDENING.md
+          test -z "$(find . -type f \( -name '*.jks' -o -name '*.keystore' -o -name '*.p12' -o -name '*.pem' -o -name '*.key' \) -print -quit)"
+
+      - name: Download pinned Godot editor
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/godot
+          curl --fail --location --proto '=https' --tlsv1.2 "$GODOT_ARCHIVE_URL" --output /tmp/godot.zip
+          echo "$GODOT_ARCHIVE_SHA256  /tmp/godot.zip" | sha256sum --check --strict
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x "$GODOT_BIN"
+          "$GODOT_BIN" --version
+
+      - name: Import W25 candidate headlessly
+        shell: bash
+        run: |
+          set -euo pipefail
+          import_log="$(mktemp)"
+          set +e
+          "$GODOT_BIN" --headless --path . --import 2>&1 | tee "$import_log"
+          godot_status=${PIPESTATUS[0]}
+          set -e
+          test "$godot_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$import_log"; then
+            echo "::error::Godot import reported W25 script compilation errors"
+            exit 1
+          fi
+
+      - name: Run W25 Android hardening smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          smoke_log="$(mktemp)"
+          set +e
+          "$GODOT_BIN" --headless --path . --script tests/integration/w25_mobile_hardening_smoke.gd 2>&1 | tee "$smoke_log"
+          godot_status=${PIPESTATUS[0]}
+          set -e
+          test "$godot_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$smoke_log"; then exit 1; fi
+          if grep -Eq '^W25_FAIL:|^W25_ANDROID_HARDENING=FAIL' "$smoke_log"; then exit 1; fi
+          grep -Fxq 'W25_LAYOUT_MATRIX=1280x720,1600x720,1760x720,1024x768' "$smoke_log"
+          grep -Fxq 'W25_MULTITOUCH=PASS' "$smoke_log"
+          grep -Fxq 'W25_ACCESSIBILITY=PASS' "$smoke_log"
+          grep -Fxq 'W25_LIFECYCLE_INPUT_RESET=PASS' "$smoke_log"
+          grep -Fxq 'W25_SAVE_RECOVERY=PASS' "$smoke_log"
+          grep -Fxq 'W25_ANDROID_HARDENING=PASS' "$smoke_log"
