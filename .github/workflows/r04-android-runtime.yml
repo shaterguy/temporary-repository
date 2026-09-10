@@ -114,7 +114,7 @@ jobs:
           "$EMULATOR" -list-avds | grep -Fxq r04_api36_touch
           adb kill-server || true
           adb start-server
-          nohup "$EMULATOR" -avd r04_api36_touch -no-window -no-audio -no-boot-anim -no-snapshot -wipe-data -gpu software -accel on -memory 4096 -cores 2 > /tmp/r04/evidence/emulator.log 2>&1 &
+          nohup "$EMULATOR" -avd r04_api36_touch -no-window -no-audio -no-boot-anim -no-snapshot -wipe-data -gpu swangle -accel on -memory 4096 -cores 2 > /tmp/r04/evidence/emulator.log 2>&1 &
           echo $! >/tmp/r04/evidence/emulator.pid
           timeout 150s adb wait-for-device
           booted=0
@@ -130,7 +130,7 @@ jobs:
           test "$sdk" = 36
           case ",$abilist," in *,x86_64,*) ;; *) exit 11 ;; esac
           case ",$abilist," in *,arm64-v8a,*) ;; *) exit 12 ;; esac
-          printf 'sdk=%s\nabilist=%s\nnative_bridge=%s\npage_size=%s\ngpu=software\n' "$sdk" "$abilist" "$bridge" "$pagesize" | tee /tmp/r04/evidence/runtime-profile.txt
+          printf 'sdk=%s\nabilist=%s\nnative_bridge=%s\npage_size=%s\ngpu=swangle\n' "$sdk" "$abilist" "$bridge" "$pagesize" | tee /tmp/r04/evidence/runtime-profile.txt
           adb shell wm size 1280x720
           adb shell settings put secure immersive_mode_confirmations confirmed || true
           adb shell input keyevent KEYCODE_WAKEUP || true
@@ -374,7 +374,7 @@ jobs:
             R04_REBUILD=NO \
             R04_RUNTIME_API36=PASS \
             R04_ARM64_TRANSLATION_ABI=PASS \
-            R04_RENDERER=SOFTWARE \
+            R04_RENDERER=SWANGLE \
             R04_VISIBLE_NONBLANK_RENDER=PASS \
             R04_FIRST_INSTALL=PASS \
             R04_PACKAGE_IDENTITY=PASS \
