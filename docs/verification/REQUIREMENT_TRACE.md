@@ -1,11 +1,12 @@
-# Requirement trace — W21 checkpoint
+# Requirement trace — current continuation
 
 Task: `SR-20260909-150106-PPO12Y`
+Continuation: `SR-20260910-121926-5B5U4L`
 Branch target: `v1.0.0-dev1`
 
-Status terms: `PARTIAL`, `BLOCKED`, `NOT_IMPLEMENTED`. No row in this checkpoint is a final game PASS.
+Status terms: `PARTIAL`, `BLOCKED`, `NOT_IMPLEMENTED`. Historical rows are retained as milestone evidence and are not retroactively rewritten. The final `Current continuation delta` section is authoritative for the current checkpoint.
 
-The AC table below is the retained W15 baseline and remains verbatim evidence for W04-W15. Authoritative W16-W21 deltas follow after the W15 contract; read both together for the current checkpoint. Neither retained nor new automated/headless evidence converts into human visual, listening, fun, Android-device, signing, or release acceptance.
+The AC table below is the retained W15 baseline and remains verbatim evidence for W04-W15. Authoritative W16-W21 deltas follow after the W15 contract; the current R01/R02/W22-W28/W23D delta is appended at the end. Automated/headless evidence never silently converts into human visual, listening, fun, Android-device, signing, or release acceptance.
 
 | ID | Requirement | W15 retained state | Evidence / next dependency |
 | --- | --- | --- | --- |
@@ -252,3 +253,68 @@ The AC table below is the retained W15 baseline and remains verbatim evidence fo
 - NR-06: W13/W14/W15 presentation may read runtime state but must not become authoritative for combat, world, save, doctrine, circuit, phase, weapon or echo semantics.
 - NR-07: W16-W21 mechanics/presentation/topology bridges must preserve the same authority split: role/UI/art/audio layers may consume authoritative state but may not bypass retained combat/world/save/circuit/phase/weapon/echo/doctrine invariants.
 - NR-08: W16-W21 definition, audiovisual or topology counts must not be copied into production `implemented_content` counts before their explicit production/human gates pass.
+
+## Current continuation delta — R01/R02/W22-W28/W23D (2026-09-10)
+
+This section supersedes earlier milestone-state labels only where newer evidence is explicitly cited below. Historical contracts above remain evidence of how the candidate evolved.
+
+### Current candidate and evidence identity
+
+- Last product/presentation-changing verified candidate: `8a7a6808eef099477ecd3a740489aaaa29c4ef7c` on `v1.0.0-dev1`.
+- W23D static presentation evidence for that candidate: run `34441740065`, job `102758023943`, artifact `10138188610` (`w23d-presentation-review-34441740065-1`), 8 captures across 1280×720, 1920×1080, 2340×1080 and 2640×1080.
+- All 8 exact W23D captures were directly inspected after the Korean-glyph correction: Korean glyphs render, no obvious clipping, no exposed raw route/status/module/phase IDs or W-number milestone labels, and no obvious reviewed HUD overlap with the lower touch-control band.
+- `d17814be3b0e655b83186ff8ed2bd64065f4c111` is a documentation-only status-record commit for `W23D_PRESENTATION_POLISH.md`. Its eight automatically triggered workflows all completed successfully; W23D run `34442457556` also passed. Per metadata-only evidence reuse, this does not invalidate the product evidence tied to `8a7a6808…`.
+- R01 signer-independent real-play integration remains PASS on its verified candidate: actual main-scene slot→hub→expedition flow, viewport-delivered W25 touch events, checkpoint/destroy/reload resume, settlement/story/next-expedition flow and six rendered real-state captures. This is not a physical-Android install claim.
+- R02 rendered-load soak remains PASS on repair run `34438468383`, including ≥600 production enemies, ≥1000 production `weapon_action` deliveries, ≥300 simultaneous production decorative effects, 300 sustained rendered frames and a successful post-load checkpoint. Host telemetry is not a device FPS verdict.
+- W24 production-audio automated artifact coverage remains valid, but human listening/mix/timbral quality is still `UNVERIFIED` and is not converted to PASS by file generation or checksum evidence.
+- W25 mobile hardening remains automated evidence for multi-pointer ownership, control handedness/scale/opacity, safe-area geometry, lifecycle transient-input reset and save-recovery behavior; physical-device touch latency, cutout/gesture-navigation and OS-kill behavior remain outside that automated proof.
+- W27 remains fixed-runner pool/spatial, real-scene object/memory, 96-checkpoint soak and pinned Android-template 16 KiB structural evidence. R02 supplements it with the heavier rendered workload. Real-device frame pacing, thermal/OEM behavior and an installed production APK remain pending.
+
+### Current AC status
+
+- AC-01 `PARTIAL`: R01 now proves the real main scene can traverse the intended gameplay/save loop and continue into the next expedition, but the required production-signed APK has not yet been installed and exercised in an Android runtime under R04.
+- AC-02 `BLOCKED`: W28 defines a fail-closed durable non-debug production-signing path, but no LANTERNFALL production keystore or protected remote signer values are available through the connected tool. No debug/ad-hoc/per-run replacement key is allowed.
+- AC-03 `PARTIAL`: core survivor combat, role mechanics, 18 curated weapon definitions, 48 relic definitions, bosses, progression and heavy rendered-load execution are implemented and mechanically verified. Human gameplay-quality/fun/balance acceptance remains open.
+- AC-04 `PARTIAL`: Ark routes, region routes, objective pressure, recovery and campaign connection are integrated; real Android/mobile-quality acceptance remains open.
+- AC-05 `PARTIAL`: movement-drawn circuits and their live snare/ward/echo integrations are mechanically verified; final gameplay-quality/device acceptance remains open.
+- AC-06 `PARTIAL`: causal modular weapon rules and expanded curated loadout definitions are mechanically verified; final human balance/readability and production item-level quality acceptance remain open.
+- AC-07 `PARTIAL`: prior-run tactical echo capture, persistence and bounded non-recursive replay are mechanically integrated; final human presentation/balance acceptance remains open.
+- AC-08 `PARTIAL`: disclosed doctrine and bounded adaptive formations remain mechanically integrated with regional behavior; final human quality/balance acceptance remains open.
+- AC-09 `PARTIAL`: the five-parent persistent world topology, final branch and post-final continuation are implemented and save-compatible; final regional presentation/human quality acceptance remains open.
+- AC-10 `PARTIAL`: dual-phase collision/targeting/circuit/combat interactions remain integrated; final device/readability acceptance remains open.
+- AC-11 `PARTIAL`: three-slot durable campaign/save/recovery/retry/endgame continuation and actual-main-scene resume evidence exist; Android lifecycle/process-death validation under R04 remains open.
+- AC-12 `PARTIAL`: authored runtime art/audio/content definitions and provenance records exist across the implemented milestones, while production counts continue to avoid unsupported inflation. Final all-content human quality/provenance audit remains open.
+- AC-13 `PARTIAL`: W23D static presentation review is PASS for the captured matrix and corrected Korean UI. Live animation feel, W24 human listening/mix quality and broader whole-game subjective art direction remain open.
+- AC-14 `PARTIAL`: W25 automated multi-touch/accessibility/safe-area/lifecycle/save-failure hardening is in place; physical/real Android behavior under R04 remains open.
+- AC-15 `PARTIAL`: W27 fixed-runner memory/save/16 KiB structural checks and R02 600/1000/300 rendered soak pass. Real Android frame pacing, thermal, low-memory/OEM behavior and 16 KiB runtime installation remain open.
+- AC-16 `BLOCKED`: source-side provenance and W28 release-contract checks exist, but protected production signing, certificate lineage, signed APK identity/integrity, direct APK delivery and R04 install/update evidence are still missing.
+
+### W23D presentation status
+
+`docs/verification/W23D_PRESENTATION_POLISH.md` now records static presentation review PASS for candidate `8a7a6808eef099477ecd3a740489aaaa29c4ef7c`. The PASS is intentionally scoped to automated geometry/localization/tutorial/capture gates plus direct inspection of the eight exact static screenshots. It does not claim Android OS-chrome behavior, live animation feel, audio quality or whole-game subjective quality.
+
+### R03/W28 production-signing boundary
+
+- W28 product identity remains version name `1.0.0-dev1`, version code `1`, production application ID `com.shaterguy.lanternfall`, development application ID `com.shaterguy.lanternfall.dev`, primary production ABI `arm64-v8a`, and intended artifact `LANTERNFALL-1.0.0-dev1-production.apk`.
+- `.github/workflows/w28-production-signing.yml` remains fail-closed and requires `LANTERNFALL_PROD_KEYSTORE_B64`, `LANTERNFALL_PROD_KEY_ALIAS`, `LANTERNFALL_PROD_KEY_PASSWORD`, and `LANTERNFALL_PROD_CERT_SHA256` before a signing run can proceed.
+- The workflow verifies that `sign/w28-production` exactly equals the current `v1.0.0-dev1` head before using secrets, uses the pinned Godot/Android toolchain, materializes the keystore only under `/tmp`, verifies package/version/signature/certificate/16 KiB compatibility, uploads only the APK plus non-secret metadata, and always removes temporary signing material.
+- The current connected GitHub tool exposes no repository Actions Secrets creation/update operation. No LANTERNFALL production keystore exists in the allowed project sources. The unrelated `musevault-signing-pass.txt` is explicitly out of scope and must not be reused.
+- Therefore `sign/w28-production` must remain absent and R03 must remain `BLOCKED_EXTERNAL_DEPENDENCY`; creating or moving that branch merely to probe missing secrets would violate the fail-closed signing contract and prevention rules.
+
+### Security and prevention review
+
+- W28 remains `SECURITY_CLASS=HIGH_RISK_OPERATION` and `SECURITY_DELTA=MATERIAL` because the first production signer establishes the future update trust lineage.
+- Current signing workflow review found the Godot release-keystore environment-variable names aligned with current official Godot Android export documentation, and the same password value is used for the keystore/key path required by the retained contract.
+- The 16 KiB ZIP/ELF structural checks remain aligned with Android's current `zipalign -c -P 16 -v 4` and ≥2^14 ELF LOAD-alignment guidance; R04 must still provide Android runtime evidence rather than treating structural checks as device execution.
+- `PR-001`: PASS — discovery/readback preceded mutation; no branch/run was created merely to discover signer capability.
+- `PR-002`: PASS — `d17814b…` and this trace synchronization are substantive documentation corrections, not no-op trigger commits.
+- `PR-004`: PASS/NOT_TRIGGERED — no workflow rerun was used; new runs are push-created identities and artifact naming retains run-attempt identity where relevant.
+- `PR-009`: PASS — documentation-only bookkeeping does not invalidate already-passed product evidence on the unchanged product tree.
+
+### Remaining release gates
+
+1. Provision one durable LANTERNFALL production signing key and the four protected W28 values in a remote secret backend accessible to GitHub Actions.
+2. Only after the signer exists, create or fast-forward `sign/w28-production` to the then-current verified `v1.0.0-dev1` head and allow W28 to build/verify the first production-signed APK.
+3. Execute R04 against that exact production APK for Android install/launch/touch/safe-area/lifecycle/process-death/save-restore and certificate-compatible update behavior; include an actual 16 KiB Android runtime where available rather than relying only on ZIP/ELF structure.
+4. Complete final AC-01 through AC-16 / NR-01 through NR-05 verification. W24 human audio listening/mix quality and remaining live whole-game subjective presentation/gameplay gates must remain explicit residuals unless directly reviewed.
+5. Deliver the actual verified production APK as the primary user-facing artifact. A CI page, metadata text, or wrapper archive is not a substitute for the APK.
