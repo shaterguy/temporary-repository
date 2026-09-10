@@ -91,7 +91,7 @@ func _emit_input_state(force: bool) -> void:
     var phase := model.phase_pressed()
     if not force and movement.is_equal_approx(_last_movement) and dodge == _last_dodge and phase == _last_phase:
         return
-    var haptic_edge := model.haptics_enabled and ((dodge and not _last_dodge) or (phase and not _last_phase))
+    var haptic_edge: bool = bool(model.haptics_enabled) and ((dodge and not _last_dodge) or (phase and not _last_phase))
     _last_movement = movement
     _last_dodge = dodge
     _last_phase = phase
