@@ -1,0 +1,251 @@
+name: w29-current-production-runtime-ci
+
+on:
+  push:
+    branches:
+      - 'verify/w29-current-apk-runtime'
+    paths:
+      - '.github/workflows/w29-current-production-runtime-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: w29-current-production-runtime-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  current-production-runtime:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      EXPECTED_PRODUCT_SHA: '670d552c15166fee843678ebcfee17183cc322e2'
+      EXPECTED_PRODUCTION_RUN_ID: '34467426480'
+      EXPECTED_ARTIFACT_ID: '10148124332'
+      EXPECTED_ARTIFACT_NAME: 'lanternfall-1.0.0-dev1-production-34467426480-1'
+      EXPECTED_APK_SHA256: '851e0e24ea3962005ef175f0b1d01dd5ced50aabd6f0c86d9952dd30ea4d5117'
+      EXPECTED_CERT_SHA256: '114bb489ccfdcd7137b70aeb3230bbdd29af08f0e3155ee817419e1afd8269ef'
+      EXPECTED_PACKAGE: 'com.shaterguy.lanternfall'
+      EXPECTED_VERSION_NAME: '1.0.0-dev1'
+      EXPECTED_VERSION_CODE: '1'
+      ANDROID_API: '36'
+      ANDROID_BUILD_TOOLS: '36.1.0'
+      SYSTEM_IMAGE: 'system-images;android-36;google_apis;x86_64'
+      AVD_NAME: 'lanternfall_api36_runtime'
+
+    steps:
+      - name: Checkout verification harness
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+
+      - name: Static test and action preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin refs/heads/v1.0.0-dev1:refs/remotes/origin/v1.0.0-dev1
+          test "$(git rev-parse refs/remotes/origin/v1.0.0-dev1)" = "$EXPECTED_PRODUCT_SHA"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_PRODUCT_SHA"
+          mapfile -t changed < <(git diff --name-only "$EXPECTED_PRODUCT_SHA"..HEAD)
+          test "${#changed[@]}" -eq 1
+          test "${changed[0]}" = '.github/workflows/w29-current-production-runtime-ci.yml'
+          test "$EXPECTED_ARTIFACT_ID" = '10148124332'
+          test "$EXPECTED_APK_SHA256" = '851e0e24ea3962005ef175f0b1d01dd5ced50aabd6f0c86d9952dd30ea4d5117'
+          test "$ANDROID_API" = '36'
+          echo 'TEST_CONTRACT_PREFLIGHT=VALID'
+          echo 'ACTION_PREFLIGHT=VALID'
+          echo 'PR-001=PASS_ACTUAL_AC16_RUNTIME_VALIDATION'
+          echo 'PR-002=PASS_NO_PRODUCT_NOOP_TRIGGER_COMMIT'
+          echo 'PR-004=PASS_ATTEMPT_SPECIFIC_EVIDENCE_ARTIFACT'
+          echo 'PR-007=PASS_SINGLE_API36_RUNTIME_PATH_FOR_CURRENT_BINARY'
+
+      - name: Download exact production artifact
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/w29-artifact /tmp/w29-unpacked artifacts/w29
+          api="https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${EXPECTED_ARTIFACT_ID}"
+          curl --fail-with-body --location --retry 3 \
+            -H 'Accept: application/vnd.github+json' \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "$api" -o /tmp/w29-artifact/metadata.json
+          test "$(jq -r '.id' /tmp/w29-artifact/metadata.json)" = "$EXPECTED_ARTIFACT_ID"
+          test "$(jq -r '.name' /tmp/w29-artifact/metadata.json)" = "$EXPECTED_ARTIFACT_NAME"
+          test "$(jq -r '.expired' /tmp/w29-artifact/metadata.json)" = 'false'
+          if jq -e '.workflow_run != null' /tmp/w29-artifact/metadata.json >/dev/null; then
+            test "$(jq -r '.workflow_run.id' /tmp/w29-artifact/metadata.json)" = "$EXPECTED_PRODUCTION_RUN_ID"
+            test "$(jq -r '.workflow_run.head_sha' /tmp/w29-artifact/metadata.json)" = "$EXPECTED_PRODUCT_SHA"
+          fi
+          curl --fail-with-body --location --retry 3 \
+            -H 'Accept: application/vnd.github+json' \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H 'X-GitHub-Api-Version: 2022-11-28' \
+            "${api}/zip" -o /tmp/w29-artifact/production.zip
+          unzip -q /tmp/w29-artifact/production.zip -d /tmp/w29-unpacked
+          mapfile -t apks < <(find /tmp/w29-unpacked -type f -name '*.apk' -print | sort)
+          test "${#apks[@]}" -eq 1
+          apk_path="${apks[0]}"
+          actual_sha="$(sha256sum "$apk_path" | awk '{print $1}')"
+          test "$actual_sha" = "$EXPECTED_APK_SHA256"
+          cp "$apk_path" /tmp/w29-current-production.apk
+          cp /tmp/w29-artifact/metadata.json artifacts/w29/source-artifact-metadata.json
+          printf 'artifact_id=%s\nproduction_run_id=%s\nproduct_sha=%s\napk_sha256=%s\n' \
+            "$EXPECTED_ARTIFACT_ID" "$EXPECTED_PRODUCTION_RUN_ID" "$EXPECTED_PRODUCT_SHA" "$actual_sha" \
+            > artifacts/w29/current-production-identity.txt
+          echo "W29_SOURCE_ARTIFACT_ID=$EXPECTED_ARTIFACT_ID"
+          echo "W29_SOURCE_RUN_ID=$EXPECTED_PRODUCTION_RUN_ID"
+          echo "W29_SOURCE_PRODUCT_SHA=$EXPECTED_PRODUCT_SHA"
+          echo "W29_SOURCE_APK_SHA256=$actual_sha"
+          echo 'W29_EXACT_PRODUCTION_ARTIFACT=PASS'
+
+      - name: Verify production APK package signing and ABI before runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$sdkmanager"
+          yes | "$sdkmanager" --licenses >/dev/null 2>&1 || true
+          "$sdkmanager" "platform-tools" "build-tools;$ANDROID_BUILD_TOOLS" >/dev/null
+          aapt_bin="$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS/aapt"
+          apksigner_bin="$ANDROID_HOME/build-tools/$ANDROID_BUILD_TOOLS/apksigner"
+          test -x "$aapt_bin"
+          test -x "$apksigner_bin"
+          "$aapt_bin" dump badging /tmp/w29-current-production.apk | tee artifacts/w29/aapt-badging.txt
+          grep -Eq "^package: name='${EXPECTED_PACKAGE}' versionCode='${EXPECTED_VERSION_CODE}' versionName='${EXPECTED_VERSION_NAME}'" artifacts/w29/aapt-badging.txt
+          grep -Fxq "sdkVersion:'24'" artifacts/w29/aapt-badging.txt
+          grep -Fxq "targetSdkVersion:'36'" artifacts/w29/aapt-badging.txt
+          grep -Fq "native-code: 'arm64-v8a'" artifacts/w29/aapt-badging.txt
+          "$apksigner_bin" verify --verbose --print-certs /tmp/w29-current-production.apk | tee artifacts/w29/apksigner.txt
+          cert_sha="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' artifacts/w29/apksigner.txt | head -n 1 | tr -d ': ' | tr '[:upper:]' '[:lower:]')"
+          test "$cert_sha" = "$EXPECTED_CERT_SHA256"
+          unzip -l /tmp/w29-current-production.apk | tee artifacts/w29/apk-file-list.txt >/dev/null
+          grep -Fq 'res/mipmap-anydpi-v26/icon.xml' artifacts/w29/apk-file-list.txt
+          echo "W29_PRE_RUNTIME_PACKAGE=$EXPECTED_PACKAGE"
+          echo "W29_PRE_RUNTIME_CERT_SHA256=$cert_sha"
+          echo 'W29_PRE_RUNTIME_ARM64_ONLY=CONFIRMED'
+          echo 'W29_PRE_RUNTIME_LAUNCHER_RESOURCE=PASS'
+
+      - name: Boot Android API 36 x86_64 emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          avdmanager="$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager"
+          emulator_bin="$ANDROID_HOME/emulator/emulator"
+          adb_bin="$ANDROID_HOME/platform-tools/adb"
+          test -x "$sdkmanager"
+          test -x "$avdmanager"
+          if [ -e /dev/kvm ]; then sudo chmod 666 /dev/kvm; fi
+          yes | "$sdkmanager" --licenses >/dev/null 2>&1 || true
+          "$sdkmanager" "platform-tools" "emulator" "$SYSTEM_IMAGE" >/dev/null
+          test -x "$emulator_bin"
+          test -x "$adb_bin"
+          echo no | "$avdmanager" create avd --force --name "$AVD_NAME" --package "$SYSTEM_IMAGE" --device 'pixel_7'
+          "$emulator_bin" -avd "$AVD_NAME" \
+            -no-window -no-audio -no-boot-anim -no-snapshot \
+            -gpu swiftshader_indirect -camera-back none -camera-front none \
+            > artifacts/w29/emulator.log 2>&1 &
+          echo $! > /tmp/w29-emulator.pid
+          sleep 8
+          if ! kill -0 "$(cat /tmp/w29-emulator.pid)" 2>/dev/null; then
+            cat artifacts/w29/emulator.log
+            exit 1
+          fi
+          timeout 180 "$adb_bin" wait-for-device
+          booted=''
+          for _ in $(seq 1 120); do
+            if ! kill -0 "$(cat /tmp/w29-emulator.pid)" 2>/dev/null; then
+              cat artifacts/w29/emulator.log
+              exit 1
+            fi
+            booted="$("$adb_bin" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
+            [ "$booted" = '1' ] && break
+            sleep 2
+          done
+          test "$booted" = '1'
+          api="$("$adb_bin" shell getprop ro.build.version.sdk | tr -d '\r')"
+          test "$api" = "$ANDROID_API"
+          "$adb_bin" shell getprop ro.product.cpu.abilist | tr -d '\r' | tee artifacts/w29/device-abilist.txt
+          "$adb_bin" shell getprop ro.dalvik.vm.native.bridge | tr -d '\r' | tee artifacts/w29/device-native-bridge.txt
+          "$adb_bin" shell getprop ro.build.fingerprint | tr -d '\r' | tee artifacts/w29/device-fingerprint.txt
+          echo "W29_ANDROID_RUNTIME_API=$api"
+          echo 'W29_ANDROID_API36_BOOT=PASS'
+
+      - name: Install and launch exact production APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          adb_bin="$ANDROID_HOME/platform-tools/adb"
+          "$adb_bin" logcat -c
+          set +e
+          "$adb_bin" install --no-streaming -r /tmp/w29-current-production.apk 2>&1 | tee artifacts/w29/adb-install.txt
+          install_status=${PIPESTATUS[0]}
+          set -e
+          if [ "$install_status" -ne 0 ]; then
+            echo 'W29_CURRENT_APK_INSTALL=FAIL' | tee -a artifacts/w29/runtime-result.txt
+            "$adb_bin" shell getprop ro.product.cpu.abilist | tr -d '\r' | tee -a artifacts/w29/runtime-result.txt
+            "$adb_bin" shell getprop ro.dalvik.vm.native.bridge | tr -d '\r' | tee -a artifacts/w29/runtime-result.txt
+            exit "$install_status"
+          fi
+          "$adb_bin" shell pm path "$EXPECTED_PACKAGE" | tee artifacts/w29/pm-path.txt
+          "$adb_bin" shell dumpsys package "$EXPECTED_PACKAGE" > artifacts/w29/dumpsys-package.txt
+          grep -Fq "$EXPECTED_PACKAGE" artifacts/w29/pm-path.txt
+          "$adb_bin" shell cmd package resolve-activity --brief \
+            -a android.intent.action.MAIN \
+            -c android.intent.category.LAUNCHER \
+            "$EXPECTED_PACKAGE" | tr -d '\r' | tee artifacts/w29/launcher-resolve.txt
+          grep -Fq "$EXPECTED_PACKAGE" artifacts/w29/launcher-resolve.txt
+          "$adb_bin" shell am force-stop "$EXPECTED_PACKAGE"
+          "$adb_bin" shell monkey -p "$EXPECTED_PACKAGE" -c android.intent.category.LAUNCHER 1 | tee artifacts/w29/monkey-launch.txt
+          sleep 10
+          pid="$("$adb_bin" shell pidof "$EXPECTED_PACKAGE" | tr -d '\r' || true)"
+          test -n "$pid"
+          "$adb_bin" shell dumpsys activity activities > artifacts/w29/dumpsys-activities.txt
+          grep -Fq "$EXPECTED_PACKAGE" artifacts/w29/dumpsys-activities.txt
+          "$adb_bin" logcat -d -v threadtime > artifacts/w29/logcat-after-launch.txt
+          if grep -E "FATAL EXCEPTION|Fatal signal|Process ${EXPECTED_PACKAGE} .* has died" artifacts/w29/logcat-after-launch.txt; then
+            echo '::error::runtime crash signature found after launch'
+            exit 1
+          fi
+          "$adb_bin" exec-out screencap -p > artifacts/w29/app-after-launch.png
+          "$adb_bin" shell input keyevent KEYCODE_HOME
+          sleep 3
+          "$adb_bin" exec-out screencap -p > artifacts/w29/launcher-home.png
+          "$adb_bin" shell input swipe 540 1800 540 350 500 || true
+          sleep 3
+          "$adb_bin" exec-out screencap -p > artifacts/w29/launcher-app-drawer.png
+          "$adb_bin" shell uiautomator dump /sdcard/w29-window.xml >/dev/null 2>&1 || true
+          "$adb_bin" pull /sdcard/w29-window.xml artifacts/w29/launcher-window.xml >/dev/null 2>&1 || true
+          {
+            echo 'W29_CURRENT_APK_INSTALL=PASS'
+            echo "W29_CURRENT_APK_PACKAGE=$EXPECTED_PACKAGE"
+            echo "W29_CURRENT_APK_PID=$pid"
+            echo 'W29_CURRENT_APK_LAUNCH=PASS'
+            echo 'W29_LAUNCHER_RESOLVE=PASS'
+            echo 'W29_LAUNCHER_SURFACE_EVIDENCE=PACKAGE_RESOURCE_PLUS_RUNTIME_SCREENSHOTS'
+            echo "W29_CURRENT_APK_SHA256=$EXPECTED_APK_SHA256"
+            echo "W29_CURRENT_PRODUCT_SHA=$EXPECTED_PRODUCT_SHA"
+          } | tee artifacts/w29/runtime-result.txt
+
+      - name: Upload runtime evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: w29-current-production-runtime-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/w29/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Stop emulator
+        if: always()
+        shell: bash
+        run: |
+          "$ANDROID_HOME/platform-tools/adb" emu kill >/dev/null 2>&1 || true
+          if [ -f /tmp/w29-emulator.pid ]; then
+            kill "$(cat /tmp/w29-emulator.pid)" >/dev/null 2>&1 || true
+          fi
