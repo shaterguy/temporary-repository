@@ -77,6 +77,10 @@ static func run() -> Array[String]:
             failures.append("R04 rock depth layer is too sparse")
         if int(spec.get("nature_clusters", 0)) < 14:
             failures.append("R04 nature landmarks do not cover enough of the multi-screen world")
+        if int(spec.get("spawn_area_forest_clusters", 0)) < 4:
+            failures.append("R04 initial expedition view lacks enough forest silhouettes")
+        if int(spec.get("spawn_area_rock_clusters", 0)) < 2:
+            failures.append("R04 initial expedition view lacks enough rock landmarks")
         var depth_cues: Array = spec.get("depth_cues", [])
         for cue in ["height", "cast_shadows", "camera-relative parallax", "cluster silhouette"]:
             if not depth_cues.has(cue):
