@@ -1,0 +1,156 @@
+name: w08-integrated-play-review
+
+on:
+  push:
+    branches:
+      - 'work/sr-20260911-medieval-rebuild'
+    paths:
+      - 'tests/visual/w08_integrated_play_review.gd'
+      - 'tests/visual/w08_integrated_play_review.tscn'
+      - 'docs/verification/W08_INTEGRATED_PLAY_REVIEW.md'
+      - '.github/workflows/w08-integrated-play-review.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: w08-integrated-play-review-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integrated-play-review:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    env:
+      GODOT_VERSION: "4.7.2-stable"
+      GODOT_ARCHIVE_SHA256: "cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4"
+      GODOT_ARCHIVE_URL: "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip"
+      GODOT_BIN: "/tmp/godot/Godot_v4.7.2-stable_linux.x86_64"
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Static W08 test-contract preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(jq -r '.engine.version' toolchain.lock)" = "$GODOT_VERSION"
+          test "$(jq -r '.engine.linux_x86_64_sha256' toolchain.lock)" = "$GODOT_ARCHIVE_SHA256"
+          test -f tests/visual/w08_integrated_play_review.gd
+          test -f tests/visual/w08_integrated_play_review.tscn
+          test -f docs/verification/W08_INTEGRATED_PLAY_REVIEW.md
+          grep -Fq 'select_save_slot' tests/visual/w08_integrated_play_review.gd
+          grep -Fq 'select_world_choice' tests/visual/w08_integrated_play_review.gd
+          grep -Fq 'InputEventScreenTouch' tests/visual/w08_integrated_play_review.gd
+          grep -Fq 'InputEventScreenDrag' tests/visual/w08_integrated_play_review.gd
+          grep -Fq 'MIN_TRAVEL_DISTANCE: float = 1600.0' tests/visual/w08_integrated_play_review.gd
+          grep -Fq 'audio_runtime_snapshot' tests/visual/w08_integrated_play_review.gd
+          grep -Fq 'W08_LISTENING_REVIEW=REQUIRED' tests/visual/w08_integrated_play_review.gd
+          if grep -Fq 'set("shell_mode"' tests/visual/w08_integrated_play_review.gd; then
+            echo '::error::W08 may not bypass real shell transitions by setting shell_mode'
+            exit 1
+          fi
+          if grep -Fq 'configure_showcase' tests/visual/w08_integrated_play_review.gd; then
+            echo '::error::W08 may not use the isolated W05 showcase path'
+            exit 1
+          fi
+          test -s assets/licenses/W07_CC0_AUDIO.md
+          (cd assets/third_party/audio/w07 && sha256sum --check --strict SHA256SUMS.txt)
+          mkdir -p artifacts/w08
+
+      - name: Download pinned Godot editor
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/godot
+          curl --fail --location --proto '=https' --tlsv1.2 "$GODOT_ARCHIVE_URL" --output /tmp/godot.zip
+          echo "$GODOT_ARCHIVE_SHA256  /tmp/godot.zip" | sha256sum --check --strict
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x "$GODOT_BIN"
+          "$GODOT_BIN" --version
+
+      - name: Import exact candidate headlessly
+        shell: bash
+        run: |
+          set -euo pipefail
+          import_log="artifacts/w08/import.log"
+          set +e
+          "$GODOT_BIN" --headless --path . --import 2>&1 | tee "$import_log"
+          godot_status=${PIPESTATUS[0]}
+          set -e
+          test "$godot_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$import_log"; then
+            echo '::error::Godot import reported W08 script compilation errors'
+            exit 1
+          fi
+
+      - name: Run actual integrated medieval play scene
+        shell: bash
+        run: |
+          set -euo pipefail
+          review_log="artifacts/w08/integrated-play.log"
+          set +e
+          timeout 120s xvfb-run -a "$GODOT_BIN" --path . --audio-driver Dummy --rendering-method gl_compatibility res://tests/visual/w08_integrated_play_review.tscn 2>&1 | tee "$review_log"
+          godot_status=${PIPESTATUS[0]}
+          set -e
+          test "$godot_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:|Node not inside tree|GDScript backtrace' "$review_log"; then
+            echo '::error::W08 integrated review reported script/runtime errors'
+            exit 1
+          fi
+          if grep -Eq '^W08_FAIL:|^W08_INTEGRATED_REVIEW=FAIL' "$review_log"; then
+            exit 1
+          fi
+          grep -Fxq 'W08_REAL_ENTRY_FLOW=PASS' "$review_log"
+          grep -Fxq 'W08_HUB_MENU_READABILITY=PASS' "$review_log"
+          grep -Fxq 'W08_EXPEDITION_ENTRY=PASS' "$review_log"
+          grep -Fxq 'W08_NATURAL_WEAPON_ACTION=PASS' "$review_log"
+          grep -Fxq 'W08_COMBAT_SEQUENCE_CAPTURE=PASS' "$review_log"
+          grep -Eq '^W08_TRAVEL_DISTANCE=(1[6-9][0-9][0-9]|[2-9][0-9]{3,})(\.[0-9]+)?$' "$review_log"
+          grep -Fxq 'W08_CAMERA_TRACKING=PASS' "$review_log"
+          grep -Fxq 'W08_EXTERNAL_AUDIO_RUNTIME=PASS' "$review_log"
+          grep -Fxq 'W08_COMBAT_AUDIO_ROUTING=PASS' "$review_log"
+          grep -Fxq 'W08_REVIEW_SCREENSHOT_COUNT=7' "$review_log"
+          grep -Fxq 'W08_LISTENING_REVIEW=REQUIRED' "$review_log"
+          grep -Fxq 'W08_INTEGRATED_REVIEW=PASS' "$review_log"
+          test -s artifacts/w08/runtime-evidence.json
+          test "$(find artifacts/w08 -maxdepth 1 -type f -name '*.png' | wc -l)" = "7"
+
+      - name: Build same-candidate review manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "W08_GITHUB_SHA=$GITHUB_SHA"
+            echo "W08_RUN_ID=$GITHUB_RUN_ID"
+            echo "W08_RUN_ATTEMPT=$GITHUB_RUN_ATTEMPT"
+            echo "W08_REF=$GITHUB_REF"
+            echo 'W08_TEST_CONTRACT_PREFLIGHT=PASS'
+            echo 'W08_ACTION_PREFLIGHT=PASS'
+            echo 'W08_PREVENTION_COMPLIANCE=PASS'
+            echo 'W08_LISTENING_REVIEW=REQUIRED'
+            sha256sum tests/visual/w08_integrated_play_review.gd
+            sha256sum tests/visual/w08_integrated_play_review.tscn
+            sha256sum docs/verification/W08_INTEGRATED_PLAY_REVIEW.md
+            sha256sum .github/workflows/w08-integrated-play-review.yml
+            sha256sum artifacts/w08/*.png
+            sha256sum artifacts/w08/runtime-evidence.json
+          } > artifacts/w08/evidence.txt
+          cat artifacts/w08/evidence.txt
+          cat artifacts/w08/runtime-evidence.json
+
+      - name: Upload integrated visual and listening review bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: w08-integrated-review-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            artifacts/w08/
+            assets/third_party/audio/w07/music/
+            assets/third_party/audio/w07/ambience/
+            assets/third_party/audio/w07/weapons/
+            assets/third_party/audio/w07/combat/
+            assets/third_party/audio/w07/ui/
+            assets/licenses/W07_CC0_AUDIO.md
+          if-no-files-found: error
+          retention-days: 14

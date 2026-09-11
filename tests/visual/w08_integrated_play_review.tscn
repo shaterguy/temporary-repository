@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://tests/visual/w08_integrated_play_review.gd" id="1_w08"]
+
+[node name="W08IntegratedPlayReview" type="Node"]
+script = ExtResource("1_w08")
