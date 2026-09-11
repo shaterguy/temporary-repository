@@ -4,7 +4,7 @@ const SNAPSHOT_SCHEMA: String = "phase-battlefield-v1"
 const PHASE_MATERIAL: String = "material"
 const PHASE_SHADOW: String = "shadow"
 const SWITCH_COOLDOWN_SECONDS: float = 4.0
-const WORLD_BOUNDS: Rect2 = Rect2(72.0, 120.0, 1136.0, 520.0)
+const WORLD_BOUNDS: Rect2 = Rect2(-3456.0, -2712.0, 6912.0, 5424.0)
 const MATERIAL_BLOCKERS := [
     Rect2(500.0, 250.0, 120.0, 220.0),
     Rect2(860.0, 390.0, 170.0, 80.0),
