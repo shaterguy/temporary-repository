@@ -84,23 +84,26 @@ jobs:
           cp "$tmp/battle.mp3" "$root/music/medieval_battle.mp3"
           cp "$tmp/forest_ambience.mp3" "$root/ambience/forest_ambience.mp3"
 
-          mapfile -t weapon_files < <(find "$tmp/digital" -type f -iname '*.wav' | sort | head -n 18)
+          mapfile -t weapon_files < <(find "$tmp/digital" -type f \( -iname '*.wav' -o -iname '*.ogg' \) -print | sort | sed -n '1,18p')
+          echo "W07_DIGITAL_SOURCE_COUNT=$(find "$tmp/digital" -type f \( -iname '*.wav' -o -iname '*.ogg' \) | wc -l)"
           test "${#weapon_files[@]}" -eq 18
           index=1
           for src in "${weapon_files[@]}"; do
-            printf -v target 'weapon_%02d.wav' "$index"
+            ext="${src##*.}"
+            printf -v target 'weapon_%02d.%s' "$index" "${ext,,}"
             cp "$src" "$root/weapons/$target"
             index=$((index + 1))
           done
 
-          hit_src="$(find "$tmp/rpg" -type f -iname 'metalPot1.ogg' | head -n 1)"
-          death_src="$(find "$tmp/rpg" -type f -iname 'chop.ogg' | head -n 1)"
+          hit_src="$(find "$tmp/rpg" -type f -iname 'metalPot1.ogg' -print -quit)"
+          death_src="$(find "$tmp/rpg" -type f -iname 'chop.ogg' -print -quit)"
           test -n "$hit_src" && test -s "$hit_src"
           test -n "$death_src" && test -s "$death_src"
           cp "$hit_src" "$root/combat/hit_metal.ogg"
           cp "$death_src" "$root/combat/death_chop.ogg"
 
-          mapfile -t ui_files < <(find "$tmp/interface" -type f -iname '*.ogg' | sort | head -n 6)
+          mapfile -t ui_files < <(find "$tmp/interface" -type f -iname '*.ogg' -print | sort | sed -n '1,6p')
+          echo "W07_UI_SOURCE_COUNT=$(find "$tmp/interface" -type f -iname '*.ogg' | wc -l)"
           test "${#ui_files[@]}" -eq 6
           index=1
           for src in "${ui_files[@]}"; do
@@ -158,11 +161,11 @@ jobs:
             - Imported archive: https://opengameart.org/sites/default/files/RPGsounds_Kenney.zip
             - Upstream SHA-256: \`$rpg_sha\`
             - Runtime selection: \`metalPot1.ogg\` for hit and \`chop.ogg\` for death.
-          - Kenney — “63 Digital sound effects” — CC0; 63 recorded hardware-synth WAV sounds.
+          - Kenney — “63 Digital sound effects” — CC0; recorded hardware-synth laser/phaser/zap/power sounds.
             - Source page: https://opengameart.org/content/63-digital-sound-effects-lasers-phasers-space-etc
             - Imported archive: https://opengameart.org/sites/default/files/Digital_SFX_Set.zip
             - Upstream SHA-256: \`$digital_sha\`
-            - Runtime selection: first 18 sorted WAV files, renamed \`weapon_01.wav\`…\`weapon_18.wav\` without resynthesis.
+            - Runtime selection: first 18 sorted WAV/OGG files, renamed \`weapon_01\`…\`weapon_18\` without resynthesis.
           - Kenney — “Interface Sounds” — CC0; normalized OGG UI sounds.
             - Source page: https://opengameart.org/content/interface-sounds
             - Imported archive: https://opengameart.org/sites/default/files/kenney_interfaceSounds.zip
