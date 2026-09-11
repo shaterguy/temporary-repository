@@ -26,9 +26,9 @@ func _run() -> void:
     await process_frame
 
     _expect(str(shell.get("shell_mode")) == "SLOT_SELECT", "R01 main scene did not enter real slot selection")
-    _expect(shell.get_node_or_null("W13RepresentativeHud") != null, "R01 representative HUD is not mounted")
-    _expect(shell.get_node_or_null("W23WeaponRelicHud") != null, "R01 weapon/relic HUD is not mounted")
-    var overlay := shell.get_node_or_null("W25MobileControls")
+    _expect(shell.get_node_or_null("%W13RepresentativeHud") != null, "R01 representative HUD is not mounted")
+    _expect(shell.get_node_or_null("%W23WeaponRelicHud") != null, "R01 weapon/relic HUD is not mounted")
+    var overlay := shell.get_node_or_null("%W25MobileControls")
     _expect(overlay != null, "R01 W25 mobile controls are not mounted")
 
     _expect(bool(shell.call("select_save_slot", 0)), "R01 could not create/select the real persistent slot")
@@ -46,7 +46,7 @@ func _run() -> void:
     var first_expedition_id := str(world.get("active_expedition_id"))
     _expect(not first_expedition_id.is_empty(), "R01 first expedition id is missing")
 
-    overlay = shell.get_node_or_null("W25MobileControls")
+    overlay = shell.get_node_or_null("%W25MobileControls")
     _expect(overlay != null and bool(overlay.call("runtime_snapshot").get("enabled", false)), "R01 mobile overlay did not enable from the real expedition state")
     var combat: Variant = shell.get("combat_preview")
     _expect(is_instance_valid(combat), "R01 combat runtime is missing")
@@ -111,7 +111,7 @@ func _run() -> void:
     _expect(str(restored_world.get("state")) == "EXPEDITION", "R01 restored world is not EXPEDITION")
     _expect(str(restored_world.get("active_expedition_id")) == first_expedition_id, "R01 restored expedition identity drifted")
     _expect(int(restored_campaign.get("sequence")) >= checkpoint_sequence, "R01 restored save sequence regressed")
-    var restored_overlay := restored_shell.get_node_or_null("W25MobileControls")
+    var restored_overlay := restored_shell.get_node_or_null("%W25MobileControls")
     _expect(restored_overlay != null and bool(restored_overlay.call("runtime_snapshot").get("enabled", false)), "R01 restored expedition did not reactivate touch controls")
 
     restored_shell.call("_settle_current", "success")
@@ -124,7 +124,7 @@ func _run() -> void:
 
     var event: Dictionary = restored_campaign.call("current_story_event")
     var event_id := str(event.get("event_id", ""))
-    var event_hud := restored_shell.get_node_or_null("W23WorldEventHud")
+    var event_hud := restored_shell.get_node_or_null("%W23WorldEventHud")
     _expect(not event_id.is_empty(), "R01 real story event id is missing")
     _expect(event_hud != null, "R01 story event HUD is not mounted")
     if event_hud != null:
