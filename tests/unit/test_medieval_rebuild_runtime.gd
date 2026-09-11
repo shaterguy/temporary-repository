@@ -92,8 +92,7 @@ static func _check_world_attack_blockers(failures: Array[String]) -> void:
         8
     )
     var blocked_id := int(blocked_enemy.get("id", -1))
-    var blocked_targets := encounter.combat_target_snapshot()
-    var blocked_target := _target_for_id(blocked_targets, blocked_id)
+    var blocked_target := _target_for_id(encounter.combat_target_snapshot(), blocked_id)
     if blocked_target.is_empty():
         failures.append("R04 world-blocker test enemy was not exposed by the runtime target provider")
     elif bool(blocked_target.get("active", true)) or not bool(blocked_target.get("world_blocked", false)):
@@ -132,6 +131,12 @@ static func _check_multiscreen_camera_traversal(failures: Array[String]) -> void
         failures.append("R03 runtime CombatCamera was not created and enabled")
         player.free()
         return
+    if camera.get_parent() != player or not camera.position.is_zero_approx():
+        failures.append("R03 CombatCamera is not parent-anchored to the moving player")
+        player.free()
+        return
+    if not camera.position_smoothing_enabled or camera.position_smoothing_speed <= 0.0:
+        failures.append("R03 CombatCamera lost its configured follow smoothing")
 
     var traversal_points := [
         Vector2.ZERO,
@@ -154,8 +159,8 @@ static func _check_multiscreen_camera_traversal(failures: Array[String]) -> void
             break
         player.global_position = resolved
         player.model.position = resolved
-        if not camera.global_position.is_equal_approx(resolved):
-            failures.append("R03 CombatCamera did not follow player waypoint %d" % index)
+        if camera.get_parent() != player or not camera.position.is_zero_approx():
+            failures.append("R03 CombatCamera detached from the player at waypoint %d" % index)
             break
         max_origin_distance = maxf(max_origin_distance, resolved.distance_to(Vector2.ZERO))
         previous = resolved
