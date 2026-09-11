@@ -63,7 +63,7 @@ func _capture() -> void:
             continue
         await process_frame
         await physics_frame
-        var overlay := shell.get_node_or_null("W25MobileControls")
+        var overlay := shell.get_node_or_null("%W25MobileControls")
         if overlay == null:
             _failures.append("R01 capture W25 overlay missing at %dx%d" % [viewport_size.x, viewport_size.y])
             viewport.queue_free()
@@ -101,7 +101,7 @@ func _capture() -> void:
         _expect(bool(world.call("has_pending_story_event")), "R01 capture settlement did not expose real story event")
         var event: Dictionary = campaign.call("current_story_event")
         var event_id := str(event.get("event_id", ""))
-        var event_hud := shell.get_node_or_null("W23WorldEventHud")
+        var event_hud := shell.get_node_or_null("%W23WorldEventHud")
         _expect(event_hud != null, "R01 capture story HUD missing")
         if event_hud != null:
             var event_snapshot: Dictionary = event_hud.call("event_snapshot")
@@ -125,8 +125,8 @@ func _capture() -> void:
 
 
 func _assert_readability(shell: Node, viewport_size: Vector2i, state: String) -> void:
-    var subtitle := shell.get_node_or_null("SafeArea/Content/Subtitle") as Label
-    var status := shell.get_node_or_null("SafeArea/Content/Status") as Label
+    var subtitle := shell.get_node_or_null("ScreenUI/SafeArea/Content/Subtitle") as Label
+    var status := shell.get_node_or_null("%Status") as Label
     _expect(subtitle != null, "R01 %s subtitle label missing" % state)
     _expect(status != null, "R01 %s status label missing" % state)
     if subtitle != null:
