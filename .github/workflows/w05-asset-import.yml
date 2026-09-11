@@ -1,0 +1,121 @@
+name: w05-asset-import
+
+on:
+  push:
+    branches:
+      - 'work/sr-20260911-medieval-rebuild'
+    paths:
+      - '.github/workflows/w05-asset-import.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: w05-asset-import-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  vendor-kaykit-adventurers:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Checkout exact import trigger
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+
+      - name: Guard import baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD^)" = "50e97426fa6a9327373fbf4d13de64a932172f5b"
+          test "$(git diff --name-only HEAD^ HEAD)" = ".github/workflows/w05-asset-import.yml"
+
+      - name: Fetch pinned CC0 combat assets and verify Git identities
+        shell: bash
+        env:
+          UPSTREAM_COMMIT: 672074b73ba276876a19e8816ecdc5241817ab47
+        run: |
+          set -euo pipefail
+          root="https://raw.githubusercontent.com/KayKit-Game-Assets/KayKit-Character-Pack-Adventures-1.0/${UPSTREAM_COMMIT}/addons/kaykit_character_pack_adventures"
+          target="assets/third_party/kaykit_adventurers"
+          mkdir -p "$target/characters" "$target/weapons"
+
+          fetch_blob() {
+            local upstream_path="$1"
+            local output_path="$2"
+            local expected_blob="$3"
+            curl --fail --location --proto '=https' --tlsv1.2 "$root/$upstream_path" --output "$output_path"
+            local actual_blob
+            actual_blob="$(git hash-object "$output_path")"
+            test "$actual_blob" = "$expected_blob"
+          }
+
+          fetch_blob "Characters/gltf/Knight.glb" "$target/characters/Knight.glb" "717b56ca2b5ff5392679774725201ba03a3eefab"
+          fetch_blob "Characters/gltf/Barbarian.glb" "$target/characters/Barbarian.glb" "66d312ab6dc02b35fb648e7585bfdddb4e02eeef"
+          fetch_blob "Characters/gltf/Mage.glb" "$target/characters/Mage.glb" "c89f19f6e707f6e07e4632a08876bd6d0172b082"
+          fetch_blob "Characters/gltf/Rogue_Hooded.glb" "$target/characters/Rogue_Hooded.glb" "5d2b1403240d5f9ffff12e02c007572038eca2a8"
+
+          fetch_blob "Assets/gltf/sword_1handed.gltf" "$target/weapons/sword_1handed.gltf" "ea5115c52ee9c07b2128105c0701fe706add7593"
+          fetch_blob "Assets/gltf/sword_1handed.bin" "$target/weapons/sword_1handed.bin" "1aca5d22ca1dbae65756af6c0b438f251c2c7e45"
+          fetch_blob "Assets/gltf/staff.gltf" "$target/weapons/staff.gltf" "d8bbebc6f3f6fb59e152d6b45de52add254f0697"
+          fetch_blob "Assets/gltf/staff.bin" "$target/weapons/staff.bin" "680e289846b61c83a6c10ea444caa34faf43c9e4"
+          fetch_blob "Assets/gltf/dagger.gltf" "$target/weapons/dagger.gltf" "f090037e4ecdd0e6e891a412b2c4a9409226825e"
+          fetch_blob "Assets/gltf/dagger.bin" "$target/weapons/dagger.bin" "8825c09e4f6cf6cba918770082505ab9cc5d9a48"
+          fetch_blob "Assets/gltf/crossbow_1handed.gltf" "$target/weapons/crossbow_1handed.gltf" "a34c011544e29ada99ce9464edd1d040a1fa1621"
+          fetch_blob "Assets/gltf/crossbow_1handed.bin" "$target/weapons/crossbow_1handed.bin" "580f31096f7001f8808a00a5bb5108248b4f3337"
+          fetch_blob "Assets/gltf/arrow.gltf" "$target/weapons/arrow.gltf" "1bc0ca184be48cf16eed8924c349aea4e189201f"
+          fetch_blob "Assets/gltf/arrow.bin" "$target/weapons/arrow.bin" "a02c800802553ffda2494b75c16722f258eaecee"
+          fetch_blob "Assets/gltf/knight_texture.png" "$target/weapons/knight_texture.png" "a56eae7514f908862e304620b89dc2d0cb9f362f"
+          fetch_blob "Assets/gltf/barbarian_texture.png" "$target/weapons/barbarian_texture.png" "29d2db09000ac28e626cf24c3d5ff48f7c324351"
+          fetch_blob "Assets/gltf/mage_texture.png" "$target/weapons/mage_texture.png" "d0b91fba111e8b9c952aab6698807c0200061100"
+          fetch_blob "Assets/gltf/rogue_texture.png" "$target/weapons/rogue_texture.png" "542954baba7281f028f93306943fc780b1ebcf55"
+          fetch_blob "LICENSE.txt" "$target/LICENSE.txt" "877e44735b5869c10e17a59e3b757905aa390626"
+
+          cat > assets/licenses/W05_KAYKIT_ADVENTURERS.md <<'EOF'
+          # W05 KayKit Adventurers combat-art provenance
+
+          - Author/publisher: Kay Lousberg / KayKit
+          - Upstream repository: `KayKit-Game-Assets/KayKit-Character-Pack-Adventures-1.0`
+          - Pinned upstream commit: `672074b73ba276876a19e8816ecdc5241817ab47`
+          - Pinned upstream tree: `bc5d77e45af0994811f62cf8046c2149e8de26df`
+          - License: Creative Commons Zero (CC0 1.0 Universal)
+          - Upstream license blob: `877e44735b5869c10e17a59e3b757905aa390626`
+          - Redistribution/commercial use: permitted; attribution not required. Provenance retained for auditability.
+          - Local modification at import: none; each admitted file is Git-blob-identical to the pinned upstream object.
+
+          ## Admitted runtime candidates
+
+          | Local path | Upstream blob | Intended W05 use | State |
+          | --- | --- | --- | --- |
+          | `characters/Knight.glb` | `717b56ca2b5ff5392679774725201ba03a3eefab` | player/hero medieval character basis | IMPORTED_PENDING_RUNTIME_VALIDATION |
+          | `characters/Barbarian.glb` | `66d312ab6dc02b35fb648e7585bfdddb4e02eeef` | heavy enemy silhouette basis | IMPORTED_PENDING_RUNTIME_VALIDATION |
+          | `characters/Mage.glb` | `c89f19f6e707f6e07e4632a08876bd6d0172b082` | caster enemy silhouette basis | IMPORTED_PENDING_RUNTIME_VALIDATION |
+          | `characters/Rogue_Hooded.glb` | `5d2b1403240d5f9ffff12e02c007572038eca2a8` | agile enemy silhouette basis | IMPORTED_PENDING_RUNTIME_VALIDATION |
+          | `weapons/sword_1handed.gltf` + `.bin` | `ea5115c52ee9c07b2128105c0701fe706add7593` / `1aca5d22ca1dbae65756af6c0b438f251c2c7e45` | melee weapon identity | IMPORTED_PENDING_RUNTIME_VALIDATION |
+          | `weapons/staff.gltf` + `.bin` | `d8bbebc6f3f6fb59e152d6b45de52add254f0697` / `680e289846b61c83a6c10ea444caa34faf43c9e4` | arcane weapon identity | IMPORTED_PENDING_RUNTIME_VALIDATION |
+          | `weapons/dagger.gltf` + `.bin` | `f090037e4ecdd0e6e891a412b2c4a9409226825e` / `8825c09e4f6cf6cba918770082505ab9cc5d9a48` | fast melee weapon identity | IMPORTED_PENDING_RUNTIME_VALIDATION |
+          | `weapons/crossbow_1handed.gltf` + `.bin` | `a34c011544e29ada99ce9464edd1d040a1fa1621` / `580f31096f7001f8808a00a5bb5108248b4f3337` | ranged weapon identity | IMPORTED_PENDING_RUNTIME_VALIDATION |
+          | `weapons/arrow.gltf` + `.bin` | `1bc0ca184be48cf16eed8924c349aea4e189201f` / `a02c800802553ffda2494b75c16722f258eaecee` | visible projectile trajectory | IMPORTED_PENDING_RUNTIME_VALIDATION |
+          | `weapons/*_texture.png` | exact upstream blobs validated by importer | weapon material dependencies | IMPORTED_PENDING_RUNTIME_VALIDATION |
+
+          This import checkpoint does not claim W05 visual integration, animation correctness, gameplay readability, or final-art approval. Those require exact-candidate Godot import/runtime/render evidence after integration.
+          EOF
+          sed -i 's/^          //' assets/licenses/W05_KAYKIT_ADVENTURERS.md
+
+          test -s "$target/LICENSE.txt"
+          test -s assets/licenses/W05_KAYKIT_ADVENTURERS.md
+          test "$(find "$target/characters" -maxdepth 1 -name '*.glb' | wc -l)" -eq 4
+          test "$(find "$target/weapons" -maxdepth 1 -type f | wc -l)" -eq 14
+
+      - name: Commit imported assets and retire one-shot importer
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm .github/workflows/w05-asset-import.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          test -n "$(git status --porcelain)"
+          git commit -m "assets(w05): vendor KayKit combat characters and weapons"
+          git push origin HEAD:work/sr-20260911-medieval-rebuild
