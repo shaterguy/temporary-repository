@@ -26,70 +26,44 @@ const NATURE_VISIBILITY_RANGE := 90.0
 const LANDMARK_VISIBILITY_RANGE := 120.0
 const CLEAR_CORRIDOR_WIDTH_GAMEPLAY := 300.0
 
-# The first four groves frame the initial expedition spawn so the 2.5D
-# silhouette is visible immediately. The remaining groves carry that rhythm
-# into multi-screen travel instead of decorating only the origin.
 const FOREST_CLUSTER_CENTERS := [
-    Vector2(-720.0, -430.0),
-    Vector2(760.0, -360.0),
-    Vector2(-880.0, 690.0),
-    Vector2(930.0, 760.0),
-    Vector2(-2750.0, -1900.0),
-    Vector2(2650.0, -1850.0),
-    Vector2(-2450.0, 2050.0),
-    Vector2(2750.0, 1900.0),
+    Vector2(-720.0, -430.0), Vector2(760.0, -360.0), Vector2(-880.0, 690.0), Vector2(930.0, 760.0),
+    Vector2(-2750.0, -1900.0), Vector2(2650.0, -1850.0), Vector2(-2450.0, 2050.0), Vector2(2750.0, 1900.0),
 ]
 
 const ROCK_CLUSTER_CENTERS := [
-    Vector2(-320.0, 240.0),
-    Vector2(420.0, -280.0),
-    Vector2(-1500.0, -950.0),
-    Vector2(1550.0, 1050.0),
-    Vector2(-3250.0, 850.0),
-    Vector2(3350.0, -900.0),
+    Vector2(-320.0, 240.0), Vector2(420.0, -280.0), Vector2(-1500.0, -950.0),
+    Vector2(1550.0, 1050.0), Vector2(-3250.0, 850.0), Vector2(3350.0, -900.0),
 ]
 
-# Crossroads and river pieces are spaced on the same world scale as the
-# authoritative 2D battlefield. They are presentation-only wayfinding cues;
-# collision and spawn authority stay in the existing gameplay model.
 const ROAD_GAMEPLAY_POINTS := [
-    Vector2(-1200.0, 0.0), Vector2(-1050.0, 0.0), Vector2(-900.0, 0.0),
-    Vector2(-750.0, 0.0), Vector2(-600.0, 0.0), Vector2(-450.0, 0.0),
-    Vector2(-300.0, 0.0), Vector2(-150.0, 0.0), Vector2(0.0, 0.0),
-    Vector2(150.0, 0.0), Vector2(300.0, 0.0), Vector2(450.0, 0.0),
-    Vector2(600.0, 0.0), Vector2(750.0, 0.0), Vector2(900.0, 0.0),
-    Vector2(1050.0, 0.0), Vector2(1200.0, 0.0),
+    Vector2(-1200.0, 0.0), Vector2(-1050.0, 0.0), Vector2(-900.0, 0.0), Vector2(-750.0, 0.0),
+    Vector2(-600.0, 0.0), Vector2(-450.0, 0.0), Vector2(-300.0, 0.0), Vector2(-150.0, 0.0),
+    Vector2(0.0, 0.0), Vector2(150.0, 0.0), Vector2(300.0, 0.0), Vector2(450.0, 0.0),
+    Vector2(600.0, 0.0), Vector2(750.0, 0.0), Vector2(900.0, 0.0), Vector2(1050.0, 0.0), Vector2(1200.0, 0.0),
 ]
 
 const RIVER_GAMEPLAY_POINTS := [
-    Vector2(0.0, -1384.0), Vector2(0.0, -1211.0), Vector2(0.0, -1038.0),
-    Vector2(0.0, -865.0), Vector2(0.0, -692.0), Vector2(0.0, -519.0),
-    Vector2(0.0, -346.0), Vector2(0.0, -173.0), Vector2(0.0, 0.0),
-    Vector2(0.0, 173.0), Vector2(0.0, 346.0), Vector2(0.0, 519.0),
-    Vector2(0.0, 692.0), Vector2(0.0, 865.0), Vector2(0.0, 1038.0),
-    Vector2(0.0, 1211.0), Vector2(0.0, 1384.0),
+    Vector2(0.0, -1384.0), Vector2(0.0, -1211.0), Vector2(0.0, -1038.0), Vector2(0.0, -865.0),
+    Vector2(0.0, -692.0), Vector2(0.0, -519.0), Vector2(0.0, -346.0), Vector2(0.0, -173.0),
+    Vector2(0.0, 0.0), Vector2(0.0, 173.0), Vector2(0.0, 346.0), Vector2(0.0, 519.0),
+    Vector2(0.0, 692.0), Vector2(0.0, 865.0), Vector2(0.0, 1038.0), Vector2(0.0, 1211.0), Vector2(0.0, 1384.0),
 ]
 
-const HAMLET_GAMEPLAY_POINTS := [
-    Vector2(720.0, 520.0),
-    Vector2(980.0, 660.0),
-    Vector2(820.0, 880.0),
-]
+const HAMLET_GAMEPLAY_POINTS := [Vector2(720.0, 520.0), Vector2(980.0, 660.0), Vector2(820.0, 880.0)]
 
+# The high-slope pieces are long-distance silhouettes, not a spawn-screen wall.
+# Keeping them beyond the initial camera and at sub-unit scale avoids the large
+# bright foreground blocks seen in the first W04 landmark render.
 const RIDGE_GAMEPLAY_POINTS := [
-    Vector2(-1050.0, 1150.0), Vector2(-750.0, 1150.0),
-    Vector2(-450.0, 1150.0), Vector2(-150.0, 1150.0),
-    Vector2(150.0, 1150.0), Vector2(450.0, 1150.0),
-    Vector2(750.0, 1150.0), Vector2(1050.0, 1150.0),
+    Vector2(-1050.0, 1750.0), Vector2(-750.0, 1750.0), Vector2(-450.0, 1750.0), Vector2(-150.0, 1750.0),
+    Vector2(150.0, 1750.0), Vector2(450.0, 1750.0), Vector2(750.0, 1750.0), Vector2(1050.0, 1750.0),
 ]
 
 const CHAPEL_GAMEPLAY_POSITION := Vector2(-760.0, -520.0)
 const BRIDGE_GAMEPLAY_POSITION := Vector2.ZERO
 const WAYFINDING_LANDMARK_CENTERS := [
-    BRIDGE_GAMEPLAY_POSITION,
-    CHAPEL_GAMEPLAY_POSITION,
-    Vector2(840.0, 680.0),
-    Vector2(-900.0, 1150.0),
+    BRIDGE_GAMEPLAY_POSITION, CHAPEL_GAMEPLAY_POSITION, Vector2(840.0, 680.0), Vector2(-900.0, 1750.0),
 ]
 
 var _camera: Camera3D
@@ -152,10 +126,7 @@ func presentation_spec() -> Dictionary:
         "world_size_meters": WorldProjection25D.gameplay_size_to_world(WORLD_BOUNDS_GAMEPLAY.size),
         "camera_projection": "orthogonal_3d",
         "camera_sync_source": "CombatCamera",
-        "depth_cues": [
-            "height", "cast_shadows", "camera-relative parallax", "cluster silhouette",
-            "architectural scale", "elevation break",
-        ],
+        "depth_cues": ["height", "cast_shadows", "camera-relative parallax", "cluster silhouette", "architectural scale", "elevation break"],
         "authoritative_gameplay": false,
     }
 
@@ -201,8 +172,7 @@ func _build_nature_landmarks() -> void:
             tree.name = "Forest_%02d_Tree_%02d" % [cluster_index, tree_index]
             tree.position = WorldProjection25D.gameplay_to_world3d(gameplay_position, 0.02)
             tree.rotation.y = angle * 0.61
-            var scale_variation := 1.55 + float((tree_index + cluster_index * 2) % 5) * 0.12
-            tree.scale = Vector3.ONE * scale_variation
+            tree.scale = Vector3.ONE * (1.55 + float((tree_index + cluster_index * 2) % 5) * 0.12)
             _configure_geometry(tree, NATURE_VISIBILITY_RANGE)
             nature_root.add_child(tree)
 
@@ -216,8 +186,7 @@ func _build_nature_landmarks() -> void:
             rock.name = "Rock_%02d_%02d" % [cluster_index, rock_index]
             rock.position = WorldProjection25D.gameplay_to_world3d(gameplay_position, 0.015)
             rock.rotation.y = angle
-            var scale_variation := 4.4 + float((rock_index + cluster_index) % 4) * 0.55
-            rock.scale = Vector3.ONE * scale_variation
+            rock.scale = Vector3.ONE * (4.4 + float((rock_index + cluster_index) % 4) * 0.55)
             _configure_geometry(rock, NATURE_VISIBILITY_RANGE)
             nature_root.add_child(rock)
 
@@ -227,79 +196,29 @@ func _build_wayfinding_landmarks() -> void:
     add_child(landmark_root)
 
     for road_index in range(ROAD_GAMEPLAY_POINTS.size()):
-        _spawn_landmark_scene(
-            ROAD_SCENE,
-            "Crossroad_%02d" % road_index,
-            ROAD_GAMEPLAY_POINTS[road_index],
-            0.025,
-            1.0,
-            0.0,
-            landmark_root
-        )
+        _spawn_landmark_scene(ROAD_SCENE, "Crossroad_%02d" % road_index, ROAD_GAMEPLAY_POINTS[road_index], 0.025, 1.0, 0.0, landmark_root)
 
     for river_index in range(RIVER_GAMEPLAY_POINTS.size()):
         var gameplay_position: Vector2 = RIVER_GAMEPLAY_POINTS[river_index]
         var river_scene := RIVER_CROSSING_SCENE if gameplay_position == Vector2.ZERO else RIVER_SCENE
-        _spawn_landmark_scene(
-            river_scene,
-            "River_%02d" % river_index,
-            gameplay_position,
-            0.03,
-            1.0,
-            PI * 0.5,
-            landmark_root
-        )
+        _spawn_landmark_scene(river_scene, "River_%02d" % river_index, gameplay_position, 0.03, 1.0, PI * 0.5, landmark_root)
 
-    _spawn_landmark_scene(
-        BRIDGE_SCENE,
-        "CentralStoneBridge",
-        BRIDGE_GAMEPLAY_POSITION,
-        0.075,
-        1.35,
-        PI * 0.5,
-        landmark_root
-    )
-    _spawn_landmark_scene(
-        CHURCH_SCENE,
-        "MoonChapel",
-        CHAPEL_GAMEPLAY_POSITION,
-        0.04,
-        1.65,
-        0.28,
-        landmark_root
-    )
+    _spawn_landmark_scene(BRIDGE_SCENE, "CentralStoneBridge", BRIDGE_GAMEPLAY_POSITION, 0.075, 1.35, PI * 0.5, landmark_root)
+    _spawn_landmark_scene(CHURCH_SCENE, "MoonChapel", CHAPEL_GAMEPLAY_POSITION, 0.04, 1.65, 0.28, landmark_root)
 
     for home_index in range(HAMLET_GAMEPLAY_POINTS.size()):
         _spawn_landmark_scene(
-            HOME_SCENE,
-            "EastHamletHome_%02d" % home_index,
-            HAMLET_GAMEPLAY_POINTS[home_index],
-            0.04,
-            1.45 + float(home_index) * 0.08,
-            -0.32 + float(home_index) * 0.29,
-            landmark_root
+            HOME_SCENE, "EastHamletHome_%02d" % home_index, HAMLET_GAMEPLAY_POINTS[home_index], 0.04,
+            1.45 + float(home_index) * 0.08, -0.32 + float(home_index) * 0.29, landmark_root
         )
 
     for ridge_index in range(RIDGE_GAMEPLAY_POINTS.size()):
         _spawn_landmark_scene(
-            SLOPED_GRASS_SCENE,
-            "NorthRidge_%02d" % ridge_index,
-            RIDGE_GAMEPLAY_POINTS[ridge_index],
-            0.015,
-            1.2,
-            PI if ridge_index % 2 == 1 else 0.0,
-            landmark_root
+            SLOPED_GRASS_SCENE, "NorthRidge_%02d" % ridge_index, RIDGE_GAMEPLAY_POINTS[ridge_index], 0.015,
+            0.72, PI if ridge_index % 2 == 1 else 0.0, landmark_root
         )
 
-func _spawn_landmark_scene(
-    scene: PackedScene,
-    node_name: String,
-    gameplay_position: Vector2,
-    elevation: float,
-    uniform_scale: float,
-    rotation_y: float,
-    parent: Node3D
-) -> Node3D:
+func _spawn_landmark_scene(scene: PackedScene, node_name: String, gameplay_position: Vector2, elevation: float, uniform_scale: float, rotation_y: float, parent: Node3D) -> Node3D:
     var instance := scene.instantiate() as Node3D
     if instance == null:
         push_error("MedievalField25D could not instantiate landmark %s" % node_name)
