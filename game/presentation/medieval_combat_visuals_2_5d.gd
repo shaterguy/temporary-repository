@@ -24,6 +24,16 @@ const PLAYER_SCALE: float = 0.78
 const ENEMY_SCALE: float = 0.72
 const BOSS_SCALE: float = 1.05
 
+const MAGE_BEHAVIOR_IDS := [
+    "chain_wraith", "shard_bloom", "refraction_moth", "drowned_indexer", "silt_scribe",
+    "mnemonic_eel", "ghost_trestler", "ash_conductor", "gate_choir", "black_sun_deacon",
+    "occlusion_wisp",
+]
+const ROGUE_BEHAVIOR_IDS := [
+    "rivet_hound", "glasswing", "prism_skater", "glassroot_stalker", "ink_drifter",
+    "archive_leech", "boiler_hound", "ember_stowaway", "corona_lancer", "penumbra_duelist",
+]
+
 var _player_root: Node3D
 var _weapon_root: Node3D
 var _enemy_root: Node3D
@@ -32,6 +42,8 @@ var _player_model: Node3D
 var _weapon_model: Node3D
 var _weapon_label: Label3D
 var _weapon_visual_key: String = ""
+var _player_character_id: String = ""
+var _player_asset_id: String = ""
 var _enemy_visuals: Dictionary = {}
 var _pending_by_target: Dictionary = {}
 var _effects: Array[Dictionary] = []
@@ -52,11 +64,7 @@ func _ready() -> void:
     _effect_root.name = "CombatEffects"
     add_child(_effect_root)
 
-    _player_model = _instantiate_scene(KNIGHT_SCENE, "KnightPlayer")
-    if _player_model != null:
-        _player_model.scale = Vector3.ONE * PLAYER_SCALE
-        _player_root.add_child(_player_model)
-        _play_idle(_player_model)
+    set_player_character("aurora")
 
     _weapon_label = _make_label("", 34, 10)
     _weapon_label.position = Vector3(0.0, 2.18, 0.0)
@@ -68,6 +76,28 @@ func _process(delta: float) -> void:
     if not _runtime_enabled or delta <= 0.0:
         return
     _advance_effects(delta)
+
+
+func set_player_character(character_id: String) -> bool:
+    var scene := _player_scene_for_character(character_id)
+    if scene == null or _player_root == null:
+        return false
+    if character_id == _player_character_id and is_instance_valid(_player_model):
+        return true
+    if is_instance_valid(_player_model):
+        _player_model.queue_free()
+        _player_model = null
+    _player_asset_id = _player_asset_id_for_character(character_id)
+    _player_model = _instantiate_scene(scene, "%sPlayer" % _player_asset_id)
+    if _player_model == null:
+        _player_character_id = ""
+        _player_asset_id = ""
+        return false
+    _player_model.scale = Vector3.ONE * PLAYER_SCALE
+    _player_root.add_child(_player_model)
+    _play_idle(_player_model)
+    _player_character_id = character_id
+    return true
 
 
 func sync_runtime(player: Node, encounter: Node, active: bool) -> void:
@@ -148,7 +178,15 @@ func record_weapon_action(action: Dictionary, player: Node, encounter: Node) -> 
 
 func presentation_spec() -> Dictionary:
     return {
-        "player_asset": "res://assets/third_party/kaykit_adventurers/characters/Knight.glb",
+        "player_asset": _player_asset_path_for_character(_player_character_id),
+        "player_assets": {
+            "aurora": "res://assets/third_party/kaykit_adventurers/characters/Mage.glb",
+            "cinder": "res://assets/third_party/kaykit_adventurers/characters/Barbarian.glb",
+            "rivet": "res://assets/third_party/kaykit_adventurers/characters/Knight.glb",
+            "veil": "res://assets/third_party/kaykit_adventurers/characters/Rogue_Hooded.glb",
+            "mneme": "res://assets/third_party/kaykit_adventurers/characters/Mage.glb",
+            "vesper": "res://assets/third_party/kaykit_adventurers/characters/Rogue_Hooded.glb",
+        },
         "enemy_assets": [
             "res://assets/third_party/kaykit_adventurers/characters/Barbarian.glb",
             "res://assets/third_party/kaykit_adventurers/characters/Mage.glb",
@@ -187,6 +225,8 @@ func visual_debug_snapshot() -> Dictionary:
     return {
         "runtime_enabled": _runtime_enabled,
         "player_asset_backed": is_instance_valid(_player_model),
+        "player_character_id": _player_character_id,
+        "player_asset_id": _player_asset_id,
         "enemy_visual_count": _enemy_visuals.size(),
         "weapon_visual_key": _weapon_visual_key,
         "active_effects": _effects.size(),
@@ -207,9 +247,9 @@ func configure_showcase() -> void:
     _player_root.position = WorldProjection25DScript.gameplay_to_world3d(Vector2.ZERO, 0.03)
     _set_weapon_visual("ember_bolt", "lantern_bolt")
     var showcase_targets := [
-        {"id": 101, "position": Vector2(190.0, -55.0), "health": 18, "max_health": 48, "archetype": "swarm"},
-        {"id": 102, "position": Vector2(365.0, 85.0), "health": 54, "max_health": 54, "archetype": "caster"},
-        {"id": 103, "position": Vector2(510.0, -120.0), "health": 76, "max_health": 76, "archetype": "brute"},
+        {"id": 101, "position": Vector2(190.0, -55.0), "health": 18, "max_health": 48, "archetype": "swarm", "behavior_id": "dusk_mite"},
+        {"id": 102, "position": Vector2(365.0, 85.0), "health": 54, "max_health": 54, "archetype": "caster", "behavior_id": "chain_wraith"},
+        {"id": 103, "position": Vector2(510.0, -120.0), "health": 76, "max_health": 76, "archetype": "brute", "behavior_id": "ballast_guard"},
     ]
     for target: Dictionary in showcase_targets:
         _sync_enemy(int(target["id"]), target)
@@ -309,17 +349,10 @@ func _sync_enemy(entity_id: int, target: Dictionary) -> void:
 
 
 func _create_enemy_visual(entity_id: int, target: Dictionary) -> Dictionary:
+    var identity := _enemy_visual_identity(target)
+    var scene: PackedScene = identity.get("scene", BARBARIAN_SCENE)
+    var asset_id := str(identity.get("asset_id", "Barbarian"))
     var archetype := str(target.get("archetype", "swarm"))
-    var scene: PackedScene = BARBARIAN_SCENE
-    var asset_id := "Barbarian"
-    if archetype != "boss":
-        match posmod(entity_id, 3):
-            1:
-                scene = MAGE_SCENE
-                asset_id = "Mage"
-            2:
-                scene = ROGUE_SCENE
-                asset_id = "Rogue_Hooded"
     var root_node := _instantiate_scene(scene, "Enemy_%d_%s" % [entity_id, asset_id])
     if root_node == null:
         return {}
@@ -338,6 +371,9 @@ func _create_enemy_visual(entity_id: int, target: Dictionary) -> Dictionary:
         "root": root_node,
         "label": label,
         "asset_id": asset_id,
+        "archetype": archetype,
+        "behavior_id": str(target.get("behavior_id", "")),
+        "boss_id": str(target.get("boss_id", "")),
         "base_scale": base_scale,
         "display_health": health,
         "scheduled_health": health,
@@ -347,6 +383,18 @@ func _create_enemy_visual(entity_id: int, target: Dictionary) -> Dictionary:
     }
     _refresh_enemy_label(visual)
     return visual
+
+
+func _enemy_visual_identity(target: Dictionary) -> Dictionary:
+    var archetype := str(target.get("archetype", "swarm"))
+    if archetype == "boss":
+        return {"scene": BARBARIAN_SCENE, "asset_id": "Barbarian"}
+    var behavior_id := str(target.get("behavior_id", ""))
+    if behavior_id in MAGE_BEHAVIOR_IDS or archetype == "caster":
+        return {"scene": MAGE_SCENE, "asset_id": "Mage"}
+    if behavior_id in ROGUE_BEHAVIOR_IDS or archetype == "runner":
+        return {"scene": ROGUE_SCENE, "asset_id": "Rogue_Hooded"}
+    return {"scene": BARBARIAN_SCENE, "asset_id": "Barbarian"}
 
 
 func _refresh_enemy_label(visual: Dictionary) -> void:
@@ -710,6 +758,33 @@ func _weapon_scene_for_delivery(delivery: String) -> PackedScene:
         "halo_orbit", "fan_shards": return DAGGER_SCENE
         "radiant_pulse", "chain_arc": return STAFF_SCENE
         _: return SWORD_SCENE
+
+
+func _player_scene_for_character(character_id: String) -> PackedScene:
+    match character_id:
+        "aurora", "mneme": return MAGE_SCENE
+        "cinder": return BARBARIAN_SCENE
+        "veil", "vesper": return ROGUE_SCENE
+        "rivet": return KNIGHT_SCENE
+        _: return KNIGHT_SCENE
+
+
+func _player_asset_id_for_character(character_id: String) -> String:
+    match character_id:
+        "aurora", "mneme": return "Mage"
+        "cinder": return "Barbarian"
+        "veil", "vesper": return "Rogue_Hooded"
+        "rivet": return "Knight"
+        _: return "Knight"
+
+
+func _player_asset_path_for_character(character_id: String) -> String:
+    match character_id:
+        "aurora", "mneme": return "res://assets/third_party/kaykit_adventurers/characters/Mage.glb"
+        "cinder": return "res://assets/third_party/kaykit_adventurers/characters/Barbarian.glb"
+        "veil", "vesper": return "res://assets/third_party/kaykit_adventurers/characters/Rogue_Hooded.glb"
+        "rivet": return "res://assets/third_party/kaykit_adventurers/characters/Knight.glb"
+        _: return "res://assets/third_party/kaykit_adventurers/characters/Knight.glb"
 
 
 func _instantiate_scene(scene: PackedScene, node_name: String) -> Node3D:
