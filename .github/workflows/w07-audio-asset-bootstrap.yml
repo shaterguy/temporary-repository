@@ -84,13 +84,11 @@ jobs:
           cp "$tmp/battle.mp3" "$root/music/medieval_battle.mp3"
           cp "$tmp/forest_ambience.mp3" "$root/ambience/forest_ambience.mp3"
 
-          mapfile -t weapon_files < <(find "$tmp/digital" -type f \( -iname '*.wav' -o -iname '*.ogg' \) \
-            | grep -Ei '/(laser|phaser|zap|powerUp)[^/]*\.(wav|ogg)$' | sort | head -n 18)
+          mapfile -t weapon_files < <(find "$tmp/digital" -type f -iname '*.wav' | sort | head -n 18)
           test "${#weapon_files[@]}" -eq 18
           index=1
           for src in "${weapon_files[@]}"; do
-            ext="${src##*.}"
-            printf -v target 'weapon_%02d.%s' "$index" "${ext,,}"
+            printf -v target 'weapon_%02d.wav' "$index"
             cp "$src" "$root/weapons/$target"
             index=$((index + 1))
           done
@@ -117,7 +115,7 @@ jobs:
           test "$(find "$root/ambience" -maxdepth 1 -type f | wc -l)" -eq 1
           test "$(find "$root/combat" -maxdepth 1 -type f | wc -l)" -eq 2
           test -z "$(find "$root" -type f -size 0 -print -quit)"
-          (cd "$root" && find . -type f -print0 | sort -z | xargs -0 sha256sum) > "$root/SHA256SUMS.txt"
+          (cd "$root" && find . -type f ! -name 'SHA256SUMS.txt' -print0 | sort -z | xargs -0 sha256sum) > "$root/SHA256SUMS.txt"
 
       - name: Record source and license provenance
         shell: bash
@@ -160,11 +158,11 @@ jobs:
             - Imported archive: https://opengameart.org/sites/default/files/RPGsounds_Kenney.zip
             - Upstream SHA-256: \`$rpg_sha\`
             - Runtime selection: \`metalPot1.ogg\` for hit and \`chop.ogg\` for death.
-          - Kenney — “63 Digital sound effects” — CC0; recorded hardware-synth laser/phaser/zap/power sounds.
+          - Kenney — “63 Digital sound effects” — CC0; 63 recorded hardware-synth WAV sounds.
             - Source page: https://opengameart.org/content/63-digital-sound-effects-lasers-phasers-space-etc
             - Imported archive: https://opengameart.org/sites/default/files/Digital_SFX_Set.zip
             - Upstream SHA-256: \`$digital_sha\`
-            - Runtime selection: first 18 sorted laser/phaser/zap/powerUp files, renamed \`weapon_01\`…\`weapon_18\` without resynthesis.
+            - Runtime selection: first 18 sorted WAV files, renamed \`weapon_01.wav\`…\`weapon_18.wav\` without resynthesis.
           - Kenney — “Interface Sounds” — CC0; normalized OGG UI sounds.
             - Source page: https://opengameart.org/content/interface-sounds
             - Imported archive: https://opengameart.org/sites/default/files/kenney_interfaceSounds.zip
