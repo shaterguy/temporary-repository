@@ -41,7 +41,7 @@ func _capture() -> void:
         var review_relics: Array[String] = ["shadow_edge", "phase_lens"]
         shell.set("selected_relic_ids", review_relics)
         shell.set("shell_mode", "EXPEDITION")
-        var event_hud := shell.get_node_or_null("W23WorldEventHud")
+        var event_hud := shell.get_node_or_null("ScreenUI/W23WorldEventHud")
         if event_hud != null:
             event_hud.call("clear_event")
         await process_frame

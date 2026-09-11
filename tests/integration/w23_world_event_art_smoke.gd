@@ -90,7 +90,7 @@ func _run() -> void:
         var shell: Node = (main_scene as PackedScene).instantiate()
         var script: Script = shell.get_script()
         _expect(_script_chain_contains(script, W23_SHELL_SCRIPT_PATH), "W23C main scene must retain W23 shell behavior in its inheritance chain")
-        var hud := shell.get_node_or_null("W23WorldEventHud")
+        var hud := shell.get_node_or_null("ScreenUI/W23WorldEventHud")
         _expect(hud != null, "W23C main scene must mount story event art HUD")
         if hud != null:
             _expect(bool(hud.call("show_event", "ts_s01")), "W23C event HUD must accept canonical event art")

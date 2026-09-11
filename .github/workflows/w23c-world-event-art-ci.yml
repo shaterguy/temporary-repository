@@ -14,6 +14,7 @@ on:
       - 'game/presentation/w23_world_event_*'
       - 'game/combat/w23_region_swarm_encounter.gd'
       - 'game/ui/main_shell_w23.gd'
+      - 'game/ui/main_shell_medieval_rebuild.gd'
       - 'game/ui/main_shell.tscn'
       - 'tests/integration/w23_world_event_art_smoke.gd'
       - 'tests/visual/capture_w23_world_events.gd'
@@ -30,6 +31,7 @@ on:
       - 'game/presentation/w23_world_event_*'
       - 'game/combat/w23_region_swarm_encounter.gd'
       - 'game/ui/main_shell_w23.gd'
+      - 'game/ui/main_shell_medieval_rebuild.gd'
       - 'game/ui/main_shell.tscn'
       - 'tests/integration/w23_world_event_art_smoke.gd'
       - 'tests/visual/capture_w23_world_events.gd'
@@ -91,12 +93,14 @@ jobs:
           test -f game/combat/w23_region_swarm_encounter.gd
           test -f game/ui/main_shell_w23.gd
           test -f game/ui/main_shell_w24.gd
+          test -f game/ui/main_shell_medieval_rebuild.gd
           grep -Fq 'extends "res://game/ui/main_shell_w23.gd"' game/ui/main_shell_w24.gd
+          grep -Fq 'extends "res://game/ui/main_shell_w24.gd"' game/ui/main_shell_medieval_rebuild.gd
           test -f game/presentation/w23_world_event_showcase.tscn
           test -f tests/integration/w23_world_event_art_smoke.gd
           test -f tests/visual/capture_w23_world_events.gd
-          grep -Fq 'res://game/ui/main_shell_w24.gd' game/ui/main_shell.tscn
-          grep -Fq 'W23WorldEventHud' game/ui/main_shell.tscn
+          grep -Fq 'res://game/ui/main_shell_medieval_rebuild.gd' game/ui/main_shell.tscn
+          grep -Fq '[node name="W23WorldEventHud" type="Control" parent="ScreenUI"]' game/ui/main_shell.tscn
           test -z "$(find . -type f \( -name '*.jks' -o -name '*.keystore' -o -name '*.p12' -o -name '*.pem' -o -name '*.key' \) -print -quit)"
 
       - name: Download pinned Godot editor

@@ -54,8 +54,9 @@ jobs:
           grep -Fq 'const SCHEMA: String = "lanternfall-endgame-v1"' game/world/endgame_progression_model.gd
           grep -Fq 'extends "res://game/world/world_campaign_model.gd"' game/world/world_campaign_model_w22.gd
           grep -Fq 'extends "res://game/world/campaign_runtime.gd"' game/world/campaign_runtime_w22.gd
-          shell_path="$(sed -n 's/^\[ext_resource type="Script" path="\(res:\/\/game\/ui\/main_shell_w[0-9][0-9]*\.gd\)" id="1_shell"\]$/\1/p' game/ui/main_shell.tscn | head -n 1)"
-          test -n "$shell_path"
+          grep -Fq 'res://game/ui/main_shell_medieval_rebuild.gd' game/ui/main_shell.tscn
+          grep -Fq 'extends "res://game/ui/main_shell_w24.gd"' game/ui/main_shell_medieval_rebuild.gd
+          shell_path="res://game/ui/main_shell_w24.gd"
           w22_lineage=false
           for _ in $(seq 1 16); do
             if [ "$shell_path" = "res://game/ui/main_shell_w22.gd" ]; then

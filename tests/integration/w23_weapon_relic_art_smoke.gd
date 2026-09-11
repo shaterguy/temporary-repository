@@ -59,7 +59,7 @@ func _run() -> void:
     _expect(main_scene is PackedScene, "W23B actual main scene must load")
     if main_scene is PackedScene:
         var shell: Node = (main_scene as PackedScene).instantiate()
-        _expect(shell.get_node_or_null("W23WeaponRelicHud") != null, "W23B live weapon/relic HUD must be mounted in actual main scene")
+        _expect(shell.get_node_or_null("ScreenUI/W23WeaponRelicHud") != null, "W23B live weapon/relic HUD must be mounted in actual main scene")
         shell.free()
     var showcase: Resource = load("res://game/presentation/w23_weapon_relic_showcase.tscn")
     _expect(showcase is PackedScene, "W23B review showcase must load")

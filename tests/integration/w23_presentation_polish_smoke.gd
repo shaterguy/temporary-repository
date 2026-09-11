@@ -83,11 +83,11 @@ func _run() -> void:
     _expect(main_scene is PackedScene, "W23D main scene must load")
     if main_scene is PackedScene:
         var shell: Node = (main_scene as PackedScene).instantiate()
-        var weapon_hud := shell.get_node_or_null("W23WeaponRelicHud")
-        var event_hud := shell.get_node_or_null("W23WorldEventHud")
-        var character_tutorial := shell.get_node_or_null("W16CharacterTutorial")
-        var foundation := shell.get_node_or_null("SafeArea/Content/Foundation") as Label
-        var status := shell.get_node_or_null("SafeArea/Content/Status") as Label
+        var weapon_hud := shell.get_node_or_null("ScreenUI/W23WeaponRelicHud")
+        var event_hud := shell.get_node_or_null("ScreenUI/W23WorldEventHud")
+        var character_tutorial := shell.get_node_or_null("ScreenUI/W16CharacterTutorial")
+        var foundation := shell.get_node_or_null("ScreenUI/SafeArea/Content/Foundation") as Label
+        var status := shell.get_node_or_null("ScreenUI/SafeArea/Content/Status") as Label
         _expect(weapon_hud != null, "W23D main scene must mount W23 weapon/relic HUD")
         _expect(event_hud != null, "W23D main scene must mount W23 story event HUD")
         _expect(character_tutorial != null, "W23D main scene must mount character-role tutorial")

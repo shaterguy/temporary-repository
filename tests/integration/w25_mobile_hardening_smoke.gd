@@ -2,9 +2,9 @@ extends SceneTree
 
 const MobileInputUnit = preload("res://tests/unit/test_w25_mobile_input.gd")
 const SaveRecoveryUnit = preload("res://tests/unit/test_w25_save_recovery.gd")
-const W24_SHELL_SCRIPT_PATH: String = "res://game/ui/main_shell_w24.gd"
+const CURRENT_SHELL_SCRIPT_PATH: String = "res://game/ui/main_shell_medieval_rebuild.gd"
 const W25_OVERLAY_SCRIPT_PATH: String = "res://game/ui/mobile_input_overlay.gd"
-const PRE_EXPEDITION_TOUCH_SCRIPT_PATH: String = "res://game/ui/pre_expedition_touch_controls.gd"
+const PRE_EXPEDITION_TOUCH_SCRIPT_PATH: String = "res://game/ui/medieval_menu_readability.gd"
 
 var _failures: Array[String] = []
 
@@ -18,15 +18,15 @@ func _run() -> void:
     _expect(packed is PackedScene, "W25 main shell scene could not be loaded")
     if packed is PackedScene:
         var shell := (packed as PackedScene).instantiate()
-        _expect(str(shell.get_script().resource_path) == W24_SHELL_SCRIPT_PATH, "W25 must preserve the verified W24 shell entry point")
-        var overlay := shell.get_node_or_null("W25MobileControls")
+        _expect(str(shell.get_script().resource_path) == CURRENT_SHELL_SCRIPT_PATH, "W25 must use the current medieval rebuild shell entry point")
+        var overlay := shell.get_node_or_null("ScreenUI/W25MobileControls")
         _expect(overlay != null, "W25 mobile control overlay is not mounted")
         if overlay != null:
             _expect(str(overlay.get_script().resource_path) == W25_OVERLAY_SCRIPT_PATH, "W25 overlay script path drifted")
-        var touch_choices := shell.get_node_or_null("SafeArea/Content/TouchChoices")
-        var choice_1 := shell.get_node_or_null("SafeArea/Content/TouchChoices/Choice1")
-        var choice_2 := shell.get_node_or_null("SafeArea/Content/TouchChoices/Choice2")
-        var choice_3 := shell.get_node_or_null("SafeArea/Content/TouchChoices/Choice3")
+        var touch_choices := shell.get_node_or_null("ScreenUI/SafeArea/Content/TouchChoices")
+        var choice_1 := shell.get_node_or_null("ScreenUI/SafeArea/Content/TouchChoices/Choice1")
+        var choice_2 := shell.get_node_or_null("ScreenUI/SafeArea/Content/TouchChoices/Choice2")
+        var choice_3 := shell.get_node_or_null("ScreenUI/SafeArea/Content/TouchChoices/Choice3")
         _expect(touch_choices != null, "W25 pre-expedition touch choices are not mounted")
         if touch_choices != null:
             _expect(str(touch_choices.get_script().resource_path) == PRE_EXPEDITION_TOUCH_SCRIPT_PATH, "W25 pre-expedition touch script path drifted")
@@ -53,7 +53,7 @@ func _run() -> void:
             _expect(str(shell.get("shell_mode")) == "EXPEDITION", "W25 touch world choice did not enter EXPEDITION")
             _expect(not bool(touch_choices.visible), "W25 pre-expedition touch choices remained visible in expedition")
 
-        overlay = shell.get_node_or_null("W25MobileControls")
+        overlay = shell.get_node_or_null("ScreenUI/W25MobileControls")
         if overlay != null:
             var runtime: Dictionary = overlay.call("runtime_snapshot")
             _expect(bool(runtime.get("enabled", false)), "W25 overlay did not enable in expedition mode")
