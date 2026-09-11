@@ -85,7 +85,7 @@ static func run() -> Array[String]:
         var shell: Node = shell_scene.instantiate()
         _expect(shell.get_node_or_null("W13Environment") != null, "main shell must mount W13 environment", failures)
         _expect(shell.get_node_or_null("W13RepresentativeArt") != null, "main shell must mount W13 representative art layer", failures)
-        _expect(shell.get_node_or_null("W13RepresentativeHud") != null, "main shell must mount W13 representative HUD", failures)
+        _expect(shell.get_node_or_null("ScreenUI/W13RepresentativeHud") != null, "main shell must mount W13 representative HUD in fixed screen UI", failures)
         shell.free()
     var showcase_resource: Resource = load("res://game/presentation/w13_showcase.tscn")
     _expect(showcase_resource is PackedScene, "W13 showcase scene must load for rendered review", failures)
