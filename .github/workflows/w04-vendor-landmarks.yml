@@ -85,7 +85,7 @@ jobs:
           check_blob assets/third_party/kaykit_medieval_hexagon/terrain/rivers/hex_river_crossing_A.bin f6b94a4c839cb532d08c1582836ca2c36b1573d4
           check_blob assets/third_party/kaykit_medieval_hexagon/terrain/rivers/hexagons_medieval.png 14cdc253646e4dba3cb7a267a6f7399b78ba2231
           check_blob assets/third_party/kaykit_medieval_hexagon/terrain/elevation/hex_grass_sloped_high.gltf 08f88dc13291f32fb60cbdea94695fce9e482cd1
-          check_blob assets/third_party/kaykit_medieval_hexagon/terrain/elevation/hex_grass_sloped_high.bin 4f491e464f6b9f4f5081d3d4d0c
+          check_blob assets/third_party/kaykit_medieval_hexagon/terrain/elevation/hex_grass_sloped_high.bin 4f491e464f6a8dd2d16fbd662fb4f5081d3d4d0c
           check_blob assets/third_party/kaykit_medieval_hexagon/terrain/elevation/hexagons_medieval.png 14cdc253646e4dba3cb7a267a6f7399b78ba2231
 
       - name: Commit vendored assets to the working branch
