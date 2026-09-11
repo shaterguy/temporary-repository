@@ -1,0 +1,119 @@
+name: w04-medieval-rebuild-ci
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: w04-medieval-rebuild-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-field-composition:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    env:
+      GODOT_VERSION: "4.7.2-stable"
+      GODOT_ARCHIVE_SHA256: "cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4"
+      GODOT_ARCHIVE_URL: "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip"
+      GODOT_BIN: "/tmp/godot/Godot_v4.7.2-stable_linux.x86_64"
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: W04 contract preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(jq -r '.engine.version' toolchain.lock)" = "$GODOT_VERSION"
+          test "$(jq -r '.engine.linux_x86_64_sha256' toolchain.lock)" = "$GODOT_ARCHIVE_SHA256"
+          test -s assets/third_party/kaykit_medieval_hexagon/terrain/hex_grass.gltf
+          test -s assets/third_party/kaykit_medieval_hexagon/nature/tree_single_A.gltf
+          test -s assets/third_party/kaykit_medieval_hexagon/nature/tree_single_A.bin
+          test -s assets/third_party/kaykit_medieval_hexagon/nature/rock_single_A.gltf
+          test -s assets/third_party/kaykit_medieval_hexagon/nature/rock_single_A.bin
+          grep -Fq 'TEST_CONTRACT=r04-medieval-rebuild-field-v1' tests/ci/test_main.gd
+          grep -Fq 'tree_instances' tests/unit/test_medieval_rebuild_world.gd
+          grep -Fq 'rock_instances' tests/unit/test_medieval_rebuild_world.gd
+          test -f tests/visual/capture_w04_medieval_field.gd
+
+      - name: Download pinned Godot editor
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/godot
+          curl --fail --location --proto '=https' --tlsv1.2 "$GODOT_ARCHIVE_URL" --output /tmp/godot.zip
+          echo "$GODOT_ARCHIVE_SHA256  /tmp/godot.zip" | sha256sum --check --strict
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x "$GODOT_BIN"
+          "$GODOT_BIN" --version
+
+      - name: Import project headlessly
+        shell: bash
+        run: |
+          set -euo pipefail
+          import_log="$(mktemp)"
+          set +e
+          "$GODOT_BIN" --headless --path . --import 2>&1 | tee "$import_log"
+          godot_status=${PIPESTATUS[0]}
+          set -e
+          test "$godot_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$import_log"; then
+            echo "::error::Godot import reported script compilation errors"
+            exit 1
+          fi
+
+      - name: Run W04 fast-test contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          test_log="$(mktemp)"
+          set +e
+          "$GODOT_BIN" --headless --path . --script tests/ci/test_main.gd 2>&1 | tee "$test_log"
+          godot_status=${PIPESTATUS[0]}
+          set -e
+          test "$godot_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$test_log"; then
+            echo "::error::W04 fast tests reported script/runtime errors"
+            exit 1
+          fi
+          if grep -Eq '^FAIL:|^RESULT=FAIL' "$test_log"; then
+            echo "::error::W04 fast-test runner reported a failure"
+            exit 1
+          fi
+          grep -Fxq 'TEST_CONTRACT=r04-medieval-rebuild-field-v1' "$test_log"
+          grep -Fxq 'SUITES=19' "$test_log"
+          grep -Fxq 'RESULT=PASS' "$test_log"
+
+      - name: Render actual W04 main shell and 3D field
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v xvfb-run >/dev/null
+          render_log="$(mktemp)"
+          set +e
+          xvfb-run -a "$GODOT_BIN" --path . --rendering-method gl_compatibility --script tests/visual/capture_w04_medieval_field.gd 2>&1 | tee "$render_log"
+          godot_status=${PIPESTATUS[0]}
+          set -e
+          test "$godot_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$render_log"; then
+            echo "::error::W04 render reported script/runtime errors"
+            exit 1
+          fi
+          grep -Fxq 'W04_RENDER=PASS' "$render_log"
+          grep -Fxq 'W04_RENDER_SIZE=1280x720' "$render_log"
+          test -s artifacts/w04/main-shell.png
+          test -s artifacts/w04/field-3d.png
+          sha256sum artifacts/w04/main-shell.png artifacts/w04/field-3d.png
+
+      - name: Upload W04 render evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: w04-render-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            artifacts/w04/main-shell.png
+            artifacts/w04/field-3d.png
+          if-no-files-found: error
+          retention-days: 14
