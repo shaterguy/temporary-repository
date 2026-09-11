@@ -34,27 +34,43 @@ func _physics_process(delta: float) -> void:
 
 func combat_target_snapshot() -> Array[Dictionary]:
     var targets: Array[Dictionary] = super.combat_target_snapshot()
-    if (
-        not is_instance_valid(_player)
-        or not is_instance_valid(_phase_provider)
-        or not _phase_provider.has_method("is_attack_path_blocked")
-    ):
-        return targets
+    var state_by_id: Dictionary = {}
+    for state: Dictionary in _pool.active_states():
+        state_by_id[int(state.get("id", -1))] = state
+
     var phase_id := _current_phase()
     for index in range(targets.size()):
         var target: Dictionary = targets[index]
-        if not bool(target.get("active", false)):
-            continue
-        var target_position: Vector2 = target.get("position", _player.global_position)
-        if bool(_phase_provider.call(
-            "is_attack_path_blocked",
-            phase_id,
-            _player.global_position,
-            target_position
-        )):
-            target["active"] = false
-            target["world_blocked"] = true
-            targets[index] = target
+        var entity_id := int(target.get("id", -1))
+        var state: Dictionary = state_by_id.get(entity_id, {})
+        if not state.is_empty():
+            var archetype := str(state.get("archetype", "swarm"))
+            target["archetype"] = archetype
+            target["health"] = int(state.get("health", 0))
+            target["max_health"] = int(state.get("max_health", 1))
+            var behavior_id := str(_w23_visual_by_entity.get(entity_id, ""))
+            if behavior_id.is_empty() and archetype != "boss":
+                behavior_id = _fallback_visual_for_entity(entity_id)
+            target["behavior_id"] = behavior_id
+            if archetype == "boss":
+                target["boss_id"] = str(_boss_profile.get("boss_id", ""))
+
+        if (
+            bool(target.get("active", false))
+            and is_instance_valid(_player)
+            and is_instance_valid(_phase_provider)
+            and _phase_provider.has_method("is_attack_path_blocked")
+        ):
+            var target_position: Vector2 = target.get("position", _player.global_position)
+            if bool(_phase_provider.call(
+                "is_attack_path_blocked",
+                phase_id,
+                _player.global_position,
+                target_position
+            )):
+                target["active"] = false
+                target["world_blocked"] = true
+        targets[index] = target
     return targets
 
 
