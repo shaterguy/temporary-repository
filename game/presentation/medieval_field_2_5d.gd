@@ -25,6 +25,8 @@ const ROCKS_PER_CLUSTER := 4
 const NATURE_VISIBILITY_RANGE := 90.0
 const LANDMARK_VISIBILITY_RANGE := 120.0
 const CLEAR_CORRIDOR_WIDTH_GAMEPLAY := 300.0
+const DEFAULT_REGION_ID := "twilight_shipyard"
+const SUPPORTED_REGION_IDS := ["twilight_shipyard", "glass_garden", "flooded_archive", "ash_railway", "eclipse_fortress"]
 
 const FOREST_CLUSTER_CENTERS := [
     Vector2(-720.0, -430.0), Vector2(760.0, -360.0), Vector2(-880.0, 690.0), Vector2(930.0, 760.0),
@@ -67,6 +69,9 @@ const WAYFINDING_LANDMARK_CENTERS := [
 ]
 
 var _camera: Camera3D
+var _environment: Environment
+var _key_light: DirectionalLight3D
+var _region_id: String = DEFAULT_REGION_ID
 
 func _ready() -> void:
     _build_terrain()
@@ -86,6 +91,13 @@ func set_gameplay_focus(gameplay_position: Vector2) -> void:
     var focus := WorldProjection25D.gameplay_to_world3d(clamped)
     _camera.position = focus + CAMERA_OFFSET
     _camera.look_at(focus, Vector3.UP)
+
+func set_region_id(region_id: String) -> bool:
+    if region_id.is_empty():
+        return false
+    _region_id = region_id if region_id in SUPPORTED_REGION_IDS else DEFAULT_REGION_ID
+    _apply_region_environment()
+    return _region_id == region_id
 
 func presentation_spec() -> Dictionary:
     return {
@@ -126,6 +138,9 @@ func presentation_spec() -> Dictionary:
         "world_size_meters": WorldProjection25D.gameplay_size_to_world(WORLD_BOUNDS_GAMEPLAY.size),
         "camera_projection": "orthogonal_3d",
         "camera_sync_source": "CombatCamera",
+        "region_id": _region_id,
+        "supported_region_ids": SUPPORTED_REGION_IDS.duplicate(),
+        "region_variant": "lighting_palette",
         "depth_cues": ["height", "cast_shadows", "camera-relative parallax", "cluster silhouette", "architectural scale", "elevation break"],
         "authoritative_gameplay": false,
     }
@@ -241,24 +256,55 @@ func _configure_geometry(node: Node, visibility_range: float) -> void:
         _configure_geometry(child, visibility_range)
 
 func _build_environment() -> void:
-    var environment := Environment.new()
-    environment.background_mode = Environment.BG_COLOR
-    environment.background_color = Color(0.018, 0.028, 0.045, 1.0)
-    environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-    environment.ambient_light_color = Color(0.32, 0.42, 0.55, 1.0)
-    environment.ambient_light_energy = 0.42
+    _environment = Environment.new()
+    _environment.background_mode = Environment.BG_COLOR
+    _environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
     var world_environment := WorldEnvironment.new()
     world_environment.name = "MedievalWorldEnvironment"
-    world_environment.environment = environment
+    world_environment.environment = _environment
     add_child(world_environment)
-    var key_light := DirectionalLight3D.new()
-    key_light.name = "MoonKeyLight"
-    key_light.rotation_degrees = Vector3(-58.0, -32.0, 0.0)
-    key_light.light_color = Color(0.66, 0.74, 0.92, 1.0)
-    key_light.light_energy = 0.92
-    key_light.shadow_enabled = true
-    key_light.directional_shadow_max_distance = 72.0
-    add_child(key_light)
+    _key_light = DirectionalLight3D.new()
+    _key_light.name = "MoonKeyLight"
+    _key_light.rotation_degrees = Vector3(-58.0, -32.0, 0.0)
+    _key_light.shadow_enabled = true
+    _key_light.directional_shadow_max_distance = 72.0
+    add_child(_key_light)
+    _apply_region_environment()
+
+func _apply_region_environment() -> void:
+    if _environment == null or _key_light == null:
+        return
+    match _region_id:
+        "glass_garden":
+            _environment.background_color = Color(0.032, 0.052, 0.066, 1.0)
+            _environment.ambient_light_color = Color(0.38, 0.52, 0.62, 1.0)
+            _environment.ambient_light_energy = 0.46
+            _key_light.light_color = Color(0.62, 0.84, 0.96, 1.0)
+            _key_light.light_energy = 0.98
+        "flooded_archive":
+            _environment.background_color = Color(0.010, 0.036, 0.046, 1.0)
+            _environment.ambient_light_color = Color(0.20, 0.44, 0.50, 1.0)
+            _environment.ambient_light_energy = 0.40
+            _key_light.light_color = Color(0.44, 0.78, 0.84, 1.0)
+            _key_light.light_energy = 0.88
+        "ash_railway":
+            _environment.background_color = Color(0.054, 0.024, 0.014, 1.0)
+            _environment.ambient_light_color = Color(0.48, 0.31, 0.24, 1.0)
+            _environment.ambient_light_energy = 0.44
+            _key_light.light_color = Color(0.96, 0.58, 0.32, 1.0)
+            _key_light.light_energy = 1.02
+        "eclipse_fortress":
+            _environment.background_color = Color(0.018, 0.010, 0.036, 1.0)
+            _environment.ambient_light_color = Color(0.34, 0.25, 0.50, 1.0)
+            _environment.ambient_light_energy = 0.39
+            _key_light.light_color = Color(0.70, 0.48, 0.94, 1.0)
+            _key_light.light_energy = 0.94
+        _:
+            _environment.background_color = Color(0.018, 0.028, 0.045, 1.0)
+            _environment.ambient_light_color = Color(0.32, 0.42, 0.55, 1.0)
+            _environment.ambient_light_energy = 0.42
+            _key_light.light_color = Color(0.66, 0.74, 0.92, 1.0)
+            _key_light.light_energy = 0.92
 
 func _build_camera() -> void:
     _camera = Camera3D.new()
