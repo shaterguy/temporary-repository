@@ -7,6 +7,7 @@ This ledger is the admission gate for external art/audio used by the medieval re
 - Author/publisher: Kay Lousberg / KayKit
 - Upstream repository: `KayKit-Game-Assets/KayKit-Medieval-Hexagon-Pack-1.0`
 - Upstream branch: `main`
+- Upstream commit observed for this import: `84fa4e91af6a88989be7c99e0891cede11f2ca38`
 - Upstream tree observed for this import: `79be3f757c62c3f6ea35a80ccd907b784b0ce69f`
 - License: CC0 1.0 Universal (`LICENSE.txt` upstream blob `db3b53b5425c48afc0f606bfc0de84e51d834e95`)
 - Redistribution: permitted under CC0; attribution is not required, but provenance is retained here for auditability.
@@ -15,14 +16,18 @@ This ledger is the admission gate for external art/audio used by the medieval re
 | --- | --- | --- | --- | --- | --- |
 | `assets/third_party/kaykit_medieval_hexagon/terrain/hex_grass.bin` | `addons/kaykit_medieval_hexagon_pack/Assets/gltf/tiles/base/hex_grass.bin` / `eae1af657f2acffc11bace562df95a8f25e0e465` | None; byte-identical copy | `eae1af657f2acffc11bace562df95a8f25e0e465` | Runtime 2.5D terrain geometry | RUNTIME_INTEGRATED_UNVALIDATED |
 | `assets/third_party/kaykit_medieval_hexagon/terrain/hex_grass.gltf` | `addons/kaykit_medieval_hexagon_pack/Assets/gltf/tiles/base/hex_grass.gltf` / `b2a4608f8935afbbc3261dd71af015900d8ec925` | Removed external atlas dependency and replaced material with a local PBR baseColorFactor/roughness so this first geometry sample is self-contained; mesh/accessor/buffer layout retained | `9875281b78e8e4aa3c416b16cc02ae00d64581f7` | Runtime 2.5D terrain projected through `MultiMeshInstance3D` | RUNTIME_INTEGRATED_UNVALIDATED |
+| `assets/third_party/kaykit_medieval_hexagon/nature/tree_single_A.bin` | `addons/kaykit_medieval_hexagon_pack/Assets/gltf/decoration/nature/tree_single_A.bin` / `a3baf092cbc2c649bbfc40b9ffe81d6b27dd60ea` | None; byte-identical copy | `a3baf092cbc2c649bbfc40b9ffe81d6b27dd60ea` | Runtime forest-cluster geometry | RUNTIME_INTEGRATED_UNVALIDATED |
+| `assets/third_party/kaykit_medieval_hexagon/nature/tree_single_A.gltf` | `addons/kaykit_medieval_hexagon_pack/Assets/gltf/decoration/nature/tree_single_A.gltf` / `0c230093dab0c16d5dd65974917fd95bd119eb04` | External atlas dependency removed; original mesh/accessor/buffer/UV/normal layout retained and material replaced with local rough forest-green PBR color | `f5b591458fefc4b8aafc1eed374f1f20e06d7124` | Runtime forest clusters, height silhouette and cast-shadow depth cue | RUNTIME_INTEGRATED_UNVALIDATED |
+| `assets/third_party/kaykit_medieval_hexagon/nature/rock_single_A.bin` | `addons/kaykit_medieval_hexagon_pack/Assets/gltf/decoration/nature/rock_single_A.bin` / `f2201a5a7a3a7f9f41414134a093ca4223bee52f` | None; byte-identical copy | `f2201a5a7a3a7f9f41414134a093ca4223bee52f` | Runtime rock-cluster geometry | RUNTIME_INTEGRATED_UNVALIDATED |
+| `assets/third_party/kaykit_medieval_hexagon/nature/rock_single_A.gltf` | `addons/kaykit_medieval_hexagon_pack/Assets/gltf/decoration/nature/rock_single_A.gltf` / `5f073d602b53ec59fd623f5c2962fc0e2627c37f` | External atlas dependency removed; original mesh/accessor/buffer/UV/normal layout retained and material replaced with local rough moonstone PBR color | `0351c8a02cafe1f8cd069610b2745f904ae0a0f4` | Runtime rock clusters and foreground/midground silhouette | RUNTIME_INTEGRATED_UNVALIDATED |
 
-The modified `.gltf` is not claimed to be byte-identical to upstream. The paired `.bin` is byte-identical and its Git blob SHA is therefore both the upstream and target content identity.
+The modified `.gltf` files are not claimed to be byte-identical to upstream. The paired `.bin` files are byte-identical and their Git blob SHAs are therefore both the upstream and target content identities.
 
-Runtime integration checkpoint: `game/presentation/medieval_field_2_5d.gd` mounts the admitted KayKit grass geometry as a non-authoritative 3D `MultiMeshInstance3D`; `game/ui/main_shell.tscn` renders it in a `SubViewport`, and `game/ui/main_shell_medieval_rebuild.gd` mirrors the authoritative `CombatCamera` focus into the 3D presentation camera. This state remains unvalidated until Godot runtime/render evidence is captured.
+Runtime integration checkpoint: `game/presentation/medieval_field_2_5d.gd` mounts the admitted KayKit grass geometry as a non-authoritative 3D `MultiMeshInstance3D`, adds deterministic forest and rock clusters from the admitted nature geometry, enables cast-shadow and visibility-range depth cues, and keeps gameplay authority in the existing 2D model. `game/ui/main_shell.tscn` renders the field in a `SubViewport`, and `game/ui/main_shell_medieval_rebuild.gd` mirrors the authoritative `CombatCamera` focus into the 3D presentation camera. This state remains unvalidated until the W04 remote Godot import, fast-test and rendered screenshot workflow succeeds and its artifacts are inspected.
 
 ## Vetted but not yet imported
 
-- KayKit Medieval Hexagon Pack building, nature, decoration, road, coast, and river geometry: CC0; candidates for W04 field composition after the terrain import path is runtime-validated.
+- KayKit Medieval Hexagon Pack building, larger nature, decoration, road, coast, and river geometry: CC0; candidates for the remaining W04 field composition, landmark, collision and world-density work after the current W04 import/render path is validated.
 - KayKit Character Pack: Adventurers: CC0; candidate for character/weapon presentation after skeleton/animation import compatibility is validated.
 - Kenney RPG Audio, Impact Sounds, and Interface Sounds: CC0; candidates for W07. No audio file is marked imported or production-integrated by this W02 checkpoint.
 
