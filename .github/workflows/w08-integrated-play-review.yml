@@ -52,6 +52,7 @@ jobs:
           grep -Fq 'MIN_TRAVEL_DISTANCE: float = 1600.0' tests/visual/w08_integrated_play_review.gd
           grep -Fq 'audio_runtime_snapshot' tests/visual/w08_integrated_play_review.gd
           grep -Fq 'W08_LISTENING_REVIEW=REQUIRED' tests/visual/w08_integrated_play_review.gd
+          grep -Fq 'world_presentation.position = combat_camera.global_position - get_viewport_rect().size * 0.5' game/ui/main_shell_medieval_rebuild.gd
           if grep -Fq 'set("shell_mode"' tests/visual/w08_integrated_play_review.gd; then
             echo '::error::W08 may not bypass real shell transitions by setting shell_mode'
             exit 1
@@ -63,6 +64,14 @@ jobs:
           test -s assets/licenses/W07_CC0_AUDIO.md
           (cd assets/third_party/audio/w07 && sha256sum --check --strict SHA256SUMS.txt)
           mkdir -p artifacts/w08
+
+      - name: Install Korean review font
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends fonts-noto-cjk
+          fc-match 'Noto Sans CJK KR' | grep -qi 'NotoSansCJK'
 
       - name: Download pinned Godot editor
         shell: bash

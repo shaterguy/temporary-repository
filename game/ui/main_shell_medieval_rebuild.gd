@@ -53,6 +53,8 @@ func _sync_medieval_presentation() -> void:
     if combat_camera == null:
         return
 
+    _anchor_world_presentation_to_camera(combat_camera)
+
     var region_id := _medieval_region_id()
     var field := get_node_or_null("WorldPresentation/SubViewport/MedievalField3D")
     if field != null:
@@ -74,6 +76,13 @@ func _sync_medieval_presentation() -> void:
             player_canvas.visible = not expedition_active
         if encounter_canvas != null:
             encounter_canvas.visible = not expedition_active
+
+
+func _anchor_world_presentation_to_camera(combat_camera: Camera2D) -> void:
+    var world_presentation := get_node_or_null("WorldPresentation") as Control
+    if world_presentation == null:
+        return
+    world_presentation.position = combat_camera.global_position - get_viewport_rect().size * 0.5
 
 
 func _medieval_region_id() -> String:
