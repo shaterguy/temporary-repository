@@ -38,13 +38,19 @@ jobs:
           test -s assets/third_party/kaykit_medieval_hexagon/nature/rock_single_A.gltf
           test -s assets/third_party/kaykit_medieval_hexagon/nature/rock_single_A.bin
           test -f game/world/medieval_world_layout.gd
-          grep -Fq 'TEST_CONTRACT=r04-medieval-rebuild-field-v3' tests/ci/test_main.gd
+          test -f tests/unit/test_medieval_rebuild_runtime.gd
+          grep -Fq 'TEST_CONTRACT=r04-medieval-rebuild-field-v4' tests/ci/test_main.gd
           grep -Fq 'MedievalWorldLayoutScript.WORLD_BOUNDS' game/world/phase_battlefield_model.gd
-          grep -Fq 'resolve_spawn_position' game/world/phase_battlefield_model.gd
+          grep -Fq 'resolve_spawn_position_for_phase' game/world/phase_battlefield_model.gd
+          grep -Fq 'is_attack_path_blocked' game/world/phase_battlefield_model.gd
+          grep -Fq 'spawn_phase_for' game/combat/spawn_director.gd
+          grep -Fq 'world_blocked' game/combat/w23_region_swarm_encounter.gd
           grep -Fq 'configure_world_provider' game/combat/spawn_director.gd
           grep -Fq 'resolve_enemy_runtime_position' game/combat/swarm_encounter.gd
           grep -Fq 'runtime spawn director' tests/unit/test_medieval_rebuild_world.gd
           grep -Fq 'runtime enemy movement' tests/unit/test_medieval_rebuild_world.gd
+          grep -Fq 'CombatCamera did not follow player waypoint' tests/unit/test_medieval_rebuild_runtime.gd
+          grep -Fq 'chapel footprint did not occlude a runtime weapon target' tests/unit/test_medieval_rebuild_runtime.gd
           grep -Fq 'tree_instances' tests/unit/test_medieval_rebuild_world.gd
           grep -Fq 'rock_instances' tests/unit/test_medieval_rebuild_world.gd
           test -f tests/visual/capture_w04_medieval_field.gd
@@ -93,8 +99,8 @@ jobs:
             echo "::error::W04 fast-test runner reported a failure"
             exit 1
           fi
-          grep -Fxq 'TEST_CONTRACT=r04-medieval-rebuild-field-v3' "$test_log"
-          grep -Fxq 'SUITES=19' "$test_log"
+          grep -Fxq 'TEST_CONTRACT=r04-medieval-rebuild-field-v4' "$test_log"
+          grep -Fxq 'SUITES=20' "$test_log"
           grep -Fxq 'RESULT=PASS' "$test_log"
 
       - name: Render actual W04 main shell and 3D field

@@ -94,10 +94,13 @@ func _queue_spawn(
     var telegraph_scale := clampf(float(behavior.get("telegraph_scale", 1.0)), 0.65, 1.60)
     var resolved_lead := maxf(0.20, warning_lead * telegraph_scale)
     var spawn_position := _doctrine_spawn_position(_sequence, origin) if doctrine_response else _region_spawn_position(_sequence, origin, str(behavior.get("entry_pattern", "baseline")))
+    var spawn_phase := _spawn_phase_for(resolved_archetype)
+    spawn_position = _resolve_spawn_position(spawn_position, origin, spawn_phase)
     var spawn_id := "w18-%06d" % _sequence
     var pending := {
         "spawn_id": spawn_id,
         "archetype": resolved_archetype,
+        "phase": spawn_phase,
         "position": spawn_position,
         "scheduled_at": scheduled_at,
         "spawn_at": scheduled_at + resolved_lead,
@@ -128,10 +131,16 @@ func _queue_boss_spawn(
 ) -> void:
     _ensure_boss_profile()
     var spawn_id := "w20-%06d" % _sequence
-    var spawn_position := _spawn_position(_sequence, origin)
+    var spawn_phase := _spawn_phase_for("boss")
+    var spawn_position := _resolve_spawn_position(
+        _spawn_position(_sequence, origin),
+        origin,
+        spawn_phase
+    )
     var pending := {
         "spawn_id": spawn_id,
         "archetype": "boss",
+        "phase": spawn_phase,
         "position": spawn_position,
         "scheduled_at": scheduled_at,
         "spawn_at": scheduled_at + warning_lead,

@@ -128,15 +128,27 @@ func resolve_enemy_position(from_position: Vector2, proposed_position: Vector2) 
 
 
 func is_spawn_position_allowed(world_position: Vector2) -> bool:
+    return is_spawn_position_allowed_for_phase(current_phase, world_position)
+
+
+func is_spawn_position_allowed_for_phase(phase_id: String, world_position: Vector2) -> bool:
     return (
         MedievalWorldLayoutScript.is_spawn_position_allowed(world_position)
-        and _occupancy_rejection(current_phase, world_position).is_empty()
+        and _occupancy_rejection(phase_id, world_position).is_empty()
     )
 
 
 func resolve_spawn_position(candidate: Vector2, origin: Vector2) -> Vector2:
+    return resolve_spawn_position_for_phase(candidate, origin, current_phase)
+
+
+func resolve_spawn_position_for_phase(
+    candidate: Vector2,
+    origin: Vector2,
+    phase_id: String
+) -> Vector2:
     var resolved: Vector2 = MedievalWorldLayoutScript.resolve_spawn_position(candidate, origin)
-    if is_spawn_position_allowed(resolved):
+    if is_spawn_position_allowed_for_phase(phase_id, resolved):
         return resolved
 
     var radial := candidate - origin
@@ -152,7 +164,7 @@ func resolve_spawn_position(candidate: Vector2, origin: Vector2) -> Vector2:
                 origin + Vector2.RIGHT.rotated(angle) * radius,
                 MedievalWorldLayoutScript.WORLD_EDGE_MARGIN
             )
-            if is_spawn_position_allowed(probe):
+            if is_spawn_position_allowed_for_phase(phase_id, probe):
                 return probe
     return resolved
 
@@ -174,16 +186,34 @@ func cover_rects(phase_id: String) -> Array:
     return []
 
 
-func enemy_phase_for(entity_id: int, archetype: String) -> String:
-    if archetype == "runner":
+func spawn_phase_for(archetype: String) -> String:
+    if archetype == "runner" or archetype == "boss":
         return PHASE_SHADOW
-    if archetype == "boss":
-        return PHASE_SHADOW if entity_id % 2 == 0 else PHASE_MATERIAL
     return PHASE_MATERIAL
+
+
+func enemy_phase_for(_entity_id: int, archetype: String) -> String:
+    return spawn_phase_for(archetype)
 
 
 func is_enemy_targetable(enemy_phase: String) -> bool:
     return enemy_phase == current_phase
+
+
+func is_attack_path_blocked(phase_id: String, start: Vector2, finish: Vector2) -> bool:
+    if not _is_valid_phase(phase_id):
+        return true
+    if not WORLD_BOUNDS.has_point(start) or not WORLD_BOUNDS.has_point(finish):
+        return true
+    for blocker_value in blocker_rects(phase_id):
+        var blocker: Rect2 = blocker_value
+        if (
+            blocker.has_point(start)
+            or blocker.has_point(finish)
+            or _segment_intersects_rect(start, finish, blocker)
+        ):
+            return true
+    return false
 
 
 func snapshot() -> Dictionary:

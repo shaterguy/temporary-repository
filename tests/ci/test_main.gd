@@ -20,6 +20,7 @@ const TEST_SUITES := [
     preload("res://tests/unit/test_character_expansion.gd"),
     preload("res://tests/unit/test_weapon_relic_expansion.gd"),
     preload("res://tests/unit/test_medieval_rebuild_world.gd"),
+    preload("res://tests/unit/test_medieval_rebuild_runtime.gd"),
 ]
 const TEST_SUITE_NAMES := [
     "save_store",
@@ -41,6 +42,7 @@ const TEST_SUITE_NAMES := [
     "character_expansion",
     "weapon_relic_expansion",
     "medieval_rebuild_world",
+    "medieval_rebuild_runtime",
 ]
 const FAST_TEST_WATCHDOG_SECONDS: float = 30.0
 
@@ -57,7 +59,7 @@ func _run_tests() -> void:
         print("SUITE_START=%s" % suite_name)
         failures.append_array(suite.run())
         print("SUITE_DONE=%s" % suite_name)
-    print("TEST_CONTRACT=r04-medieval-rebuild-field-v3")
+    print("TEST_CONTRACT=r04-medieval-rebuild-field-v4")
     print("SUITES=%d" % TEST_SUITES.size())
     if failures.is_empty():
         print("RESULT=PASS")

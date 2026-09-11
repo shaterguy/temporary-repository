@@ -143,13 +143,15 @@ func _queue_spawn(
     formation: String = "baseline"
 ) -> void:
     var spawn_id := "w05-%06d" % _sequence
+    var spawn_phase := _spawn_phase_for(archetype)
     var spawn_position := _spawn_position(_sequence, origin)
     if doctrine_response:
         spawn_position = _doctrine_spawn_position(_sequence, origin)
-    spawn_position = _resolve_spawn_position(spawn_position, origin)
+    spawn_position = _resolve_spawn_position(spawn_position, origin, spawn_phase)
     var pending := {
         "spawn_id": spawn_id,
         "archetype": archetype,
+        "phase": spawn_phase,
         "position": spawn_position,
         "scheduled_at": scheduled_at,
         "spawn_at": scheduled_at + warning_lead,
@@ -222,7 +224,26 @@ func _doctrine_spawn_position(sequence: int, origin: Vector2) -> Vector2:
     return _spawn_position(sequence, origin)
 
 
-func _resolve_spawn_position(candidate: Vector2, origin: Vector2) -> Vector2:
+func _spawn_phase_for(archetype: String) -> String:
+    if is_instance_valid(_world_provider) and _world_provider.has_method("spawn_phase_for"):
+        return str(_world_provider.call("spawn_phase_for", archetype))
+    return ""
+
+
+func _resolve_spawn_position(candidate: Vector2, origin: Vector2, phase_id: String = "") -> Vector2:
+    if (
+        not phase_id.is_empty()
+        and is_instance_valid(_world_provider)
+        and _world_provider.has_method("resolve_spawn_position_for_phase")
+    ):
+        var phase_resolved: Variant = _world_provider.call(
+            "resolve_spawn_position_for_phase",
+            candidate,
+            origin,
+            phase_id
+        )
+        if phase_resolved is Vector2:
+            return phase_resolved
     if is_instance_valid(_world_provider) and _world_provider.has_method("resolve_spawn_position"):
         var resolved: Variant = _world_provider.call("resolve_spawn_position", candidate, origin)
         if resolved is Vector2:

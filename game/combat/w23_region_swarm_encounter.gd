@@ -15,6 +15,32 @@ func clear_region_profile() -> void:
     super.clear_region_profile()
 
 
+func combat_target_snapshot() -> Array[Dictionary]:
+    var targets: Array[Dictionary] = super.combat_target_snapshot()
+    if (
+        not is_instance_valid(_player)
+        or not is_instance_valid(_phase_provider)
+        or not _phase_provider.has_method("is_attack_path_blocked")
+    ):
+        return targets
+    var phase_id := _current_phase()
+    for index in range(targets.size()):
+        var target: Dictionary = targets[index]
+        if not bool(target.get("active", false)):
+            continue
+        var target_position: Vector2 = target.get("position", _player.global_position)
+        if bool(_phase_provider.call(
+            "is_attack_path_blocked",
+            phase_id,
+            _player.global_position,
+            target_position
+        )):
+            target["active"] = false
+            target["world_blocked"] = true
+            targets[index] = target
+    return targets
+
+
 func _spawn_enemy(event: Dictionary) -> void:
     var before: Dictionary = {}
     for state: Dictionary in _pool.active_states():
