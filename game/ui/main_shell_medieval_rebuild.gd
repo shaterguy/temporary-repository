@@ -1,5 +1,13 @@
 extends "res://game/ui/main_shell_w24.gd"
 
+const MEDIEVAL_PRESENTATION_REGION_IDS := [
+    "twilight_shipyard",
+    "glass_garden",
+    "flooded_archive",
+    "ash_railway",
+    "eclipse_fortress",
+]
+
 var _legacy_world_art_retired := false
 
 
@@ -69,10 +77,21 @@ func _sync_medieval_presentation() -> void:
 
 
 func _medieval_region_id() -> String:
+    if region_model != null and region_model.has_method("is_active") and bool(region_model.call("is_active")):
+        var active_parent := str(region_model.call("parent_region_id")) if region_model.has_method("parent_region_id") else ""
+        if MEDIEVAL_PRESENTATION_REGION_IDS.has(active_parent):
+            return active_parent
+
     var context: Dictionary = {}
     if campaign != null and campaign.world != null:
         context = campaign.world.expedition_context()
-    return _region_id_for_audio(context)
+    var context_parent := str(context.get("parent_region_id", ""))
+    if MEDIEVAL_PRESENTATION_REGION_IDS.has(context_parent):
+        return context_parent
+    var context_region := str(context.get("region_id", ""))
+    if MEDIEVAL_PRESENTATION_REGION_IDS.has(context_region):
+        return context_region
+    return W24_DEFAULT_REGION_ID
 
 
 func medieval_presentation_snapshot() -> Dictionary:
