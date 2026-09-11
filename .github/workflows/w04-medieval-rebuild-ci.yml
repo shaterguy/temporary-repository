@@ -1,6 +1,9 @@
 name: w04-medieval-rebuild-ci
 
 on:
+  push:
+    branches:
+      - 'work/sr-20260911-medieval-rebuild'
   workflow_dispatch:
 
 permissions:
