@@ -1,0 +1,134 @@
+name: w07-external-audio-ci
+
+on:
+  push:
+    branches:
+      - 'work/sr-20260911-medieval-rebuild'
+      - 'v*-dev*'
+      - 'v*-rc*'
+    paths:
+      - 'game/audio/**'
+      - 'assets/third_party/audio/w07/**'
+      - 'assets/licenses/W07_CC0_AUDIO.md'
+      - 'tests/integration/w07_external_audio_smoke.gd'
+      - 'docs/verification/W07_EXTERNAL_AUDIO.md'
+      - '.github/workflows/w07-external-audio-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: w07-external-audio-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-external-audio:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GODOT_VERSION: "4.7.2-stable"
+      GODOT_ARCHIVE_SHA256: "cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4"
+      GODOT_ARCHIVE_URL: "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip"
+      GODOT_BIN: "/tmp/godot/Godot_v4.7.2-stable_linux.x86_64"
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: W07 contract and provenance preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(jq -r '.engine.version' toolchain.lock)" = "$GODOT_VERSION"
+          test "$(jq -r '.engine.linux_x86_64_sha256' toolchain.lock)" = "$GODOT_ARCHIVE_SHA256"
+          test -s assets/licenses/W07_CC0_AUDIO.md
+          grep -Fq 'CC0 1.0 Universal' assets/licenses/W07_CC0_AUDIO.md
+          test -f game/audio/external_audio_assets.gd
+          test -f tests/integration/w07_external_audio_smoke.gd
+          test -f docs/verification/W07_EXTERNAL_AUDIO.md
+          media_count="$(find assets/third_party/audio/w07 -type f \( -name '*.ogg' -o -name '*.mp3' -o -name '*.wav' \) | wc -l)"
+          weapon_count="$(find assets/third_party/audio/w07/weapons -maxdepth 1 -type f -name '*.ogg' | wc -l)"
+          ui_count="$(find assets/third_party/audio/w07/ui -maxdepth 1 -type f -name '*.ogg' | wc -l)"
+          test "$media_count" -eq 29
+          test "$weapon_count" -eq 18
+          test "$ui_count" -eq 6
+          (cd assets/third_party/audio/w07 && sha256sum --check --strict SHA256SUMS.txt)
+          grep -Fq 'external_audio_assets.gd' game/audio/audio_director.gd
+          ! grep -Fq 'ProductionAudio' game/audio/audio_director.gd
+          ! grep -Fq 'AudioLibrary' game/audio/audio_director.gd
+          ! grep -Fq 'render_cue(' game/audio/audio_director.gd
+          grep -Fq 'MAX_ONE_SHOT_GAIN_DB: float = -6.0' game/audio/audio_director.gd
+          echo "W07_EXTERNAL_MEDIA=$media_count"
+          echo "W07_WEAPON_SFX_UNIQUE=$weapon_count"
+          echo "W07_UI_SFX=$ui_count"
+
+      - name: Download pinned Godot editor
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/godot
+          curl --fail --location --proto '=https' --tlsv1.2 "$GODOT_ARCHIVE_URL" --output /tmp/godot.zip
+          echo "$GODOT_ARCHIVE_SHA256  /tmp/godot.zip" | sha256sum --check --strict
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x "$GODOT_BIN"
+          "$GODOT_BIN" --version
+
+      - name: Import audio assets and project headlessly
+        shell: bash
+        run: |
+          set -euo pipefail
+          import_log="$(mktemp)"
+          set +e
+          "$GODOT_BIN" --headless --path . --import 2>&1 | tee "$import_log"
+          godot_status=${PIPESTATUS[0]}
+          set -e
+          test "$godot_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$import_log"; then
+            echo "::error::Godot import reported script compilation errors"
+            exit 1
+          fi
+
+      - name: Run W07 external-audio contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          test_log="$(mktemp)"
+          set +e
+          "$GODOT_BIN" --headless --path . --script tests/integration/w07_external_audio_smoke.gd 2>&1 | tee "$test_log"
+          godot_status=${PIPESTATUS[0]}
+          set -e
+          test "$godot_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$test_log"; then
+            echo "::error::W07 test reported script/runtime errors"
+            exit 1
+          fi
+          if grep -Eq '^FAIL:|^RESULT=FAIL' "$test_log"; then
+            echo "::error::W07 contract reported a failure"
+            exit 1
+          fi
+          grep -Fxq 'TEST_CONTRACT=w07-external-audio-v1' "$test_log"
+          grep -Fxq 'W07_EXTERNAL_MEDIA=29' "$test_log"
+          grep -Fxq 'W07_WEAPON_SFX_UNIQUE=18' "$test_log"
+          grep -Fxq 'W07_BOSS_EVENT_CUES=50' "$test_log"
+          grep -Fxq 'W07_PROCEDURAL_RUNTIME=DISABLED' "$test_log"
+          grep -Fxq 'W07_LISTENING_REVIEW=REQUIRED' "$test_log"
+          grep -Fxq 'RESULT=PASS' "$test_log"
+
+      - name: Prepare listening evidence bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/w07-listening
+          cp -R assets/third_party/audio/w07/. artifacts/w07-listening/
+          cp assets/licenses/W07_CC0_AUDIO.md artifacts/w07-listening/
+          cp docs/verification/W07_EXTERNAL_AUDIO.md artifacts/w07-listening/
+          find artifacts/w07-listening -type f -print | sort
+          echo 'W07_LISTENING_REVIEW=REQUIRED'
+
+      - name: Upload W07 listening evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: w07-external-audio-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/w07-listening
+          if-no-files-found: error
+          retention-days: 14

@@ -1,14 +1,14 @@
 extends Node
 
 const Catalog = preload("res://game/audio/audio_catalog.gd")
-const AudioLibrary = preload("res://game/audio/representative_audio_library.gd")
 const BossAudioCatalog = preload("res://game/audio/boss_audio_catalog.gd")
 const ProductionCatalog = preload("res://game/audio/production_audio_catalog.gd")
-const ProductionAudio = preload("res://game/audio/production_audio_synth.gd")
+const ExternalAudio = preload("res://game/audio/external_audio_assets.gd")
 const MAX_SFX_VOICES: int = 8
 const POLL_SECONDS: float = 0.25
 const DEFAULT_REGION_ID: String = "twilight_shipyard"
 const DEFAULT_BOSS_ID: String = "drowned_navigator"
+const MAX_ONE_SHOT_GAIN_DB: float = -6.0
 
 var music_volume: float = 0.82
 var sfx_volume: float = 0.88
@@ -20,6 +20,7 @@ var _cooldowns: Dictionary = {}
 var _region_player: AudioStreamPlayer
 var _tension_player: AudioStreamPlayer
 var _boss_player: AudioStreamPlayer
+var _ambience_player: AudioStreamPlayer
 var _tension_target: float = 0.0
 var _boss_target: float = 0.0
 var _clock: float = 0.0
@@ -48,7 +49,7 @@ func _exit_tree() -> void:
     var tree := get_tree()
     if tree != null and tree.node_added.is_connected(_on_node_added):
         tree.node_added.disconnect(_on_node_added)
-    for player in [_region_player, _tension_player, _boss_player]:
+    for player in [_region_player, _tension_player, _boss_player, _ambience_player]:
         if is_instance_valid(player):
             player.stop()
             player.stream = null
@@ -93,11 +94,13 @@ func settings_snapshot() -> Dictionary:
 func policy_snapshot() -> Dictionary:
     return {
         "max_sfx_voices": MAX_SFX_VOICES,
+        "max_one_shot_gain_db": MAX_ONE_SHOT_GAIN_DB,
         "combat_priority": int(Catalog.cue_spec(Catalog.COMBAT).get("priority", 0)),
         "warning_priority": int(Catalog.cue_spec(Catalog.WARNING).get("priority", 0)),
         "production_ui_warning_priority": int(ProductionCatalog.cue_spec(ProductionCatalog.ui_cue_id("reject")).get("priority", 0)),
         "voice_steal_policy": "oldest-lower-priority-only",
         "warning_low_volume_curve": "boosted-but-zero-preserving",
+        "runtime_audio": "external_cc0_files",
     }
 
 func production_snapshot() -> Dictionary:
@@ -105,6 +108,8 @@ func production_snapshot() -> Dictionary:
     snapshot["active_region_id"] = _active_region_id
     snapshot["active_region_profile"] = _active_region_profile
     snapshot["active_boss_id"] = _active_boss_id
+    snapshot["external_audio"] = ExternalAudio.provenance_snapshot()
+    snapshot["procedural_runtime"] = false
     return snapshot
 
 static func warning_linear_for_sfx(linear: float) -> float:
@@ -152,14 +157,17 @@ func play_cue(cue_id: String) -> bool:
         return false
     if float(_cooldowns.get(cue_id, 0.0)) > 0.0:
         return false
+    var stream := _stream_for(cue_id)
+    if stream == null:
+        return false
     var index := _select_voice(int(spec.get("priority", 0)))
     if index < 0:
         return false
     var player := _sfx_players[index]
     player.stop()
     player.bus = StringName(str(spec.get("bus", "SFX")))
-    player.stream = _stream_for(cue_id)
-    player.volume_db = float(spec.get("gain_db", -6.0))
+    player.stream = stream
+    player.volume_db = minf(float(spec.get("gain_db", -8.0)), MAX_ONE_SHOT_GAIN_DB)
     player.play()
     _voice_state[index] = {"priority":int(spec.get("priority",0)),"started_at":_clock,"cue_id":cue_id}
     _cooldowns[cue_id] = float(spec.get("cooldown", 0.0))
@@ -173,6 +181,7 @@ func _create_music_players() -> void:
     _region_player = _new_music_player("RegionMusic", ProductionCatalog.region_music_cue(_active_region_id, "bed"), -7.0)
     _tension_player = _new_music_player("TensionMusic", ProductionCatalog.region_music_cue(_active_region_id, "tension"), -42.0)
     _boss_player = _new_music_player("BossMusic", ProductionCatalog.boss_music_cue(DEFAULT_BOSS_ID), -48.0)
+    _ambience_player = _new_music_player("ForestAmbience", ExternalAudio.AMBIENCE_CUE, -18.0)
 
 func _new_music_player(node_name: String, cue_id: String, volume_db: float) -> AudioStreamPlayer:
     var player := AudioStreamPlayer.new()
@@ -181,14 +190,18 @@ func _new_music_player(node_name: String, cue_id: String, volume_db: float) -> A
     player.stream = _stream_for(cue_id)
     player.volume_db = volume_db
     add_child(player)
-    player.play()
+    if player.stream != null:
+        player.play()
     return player
 
 func _replace_music_stream(player: AudioStreamPlayer, cue_id: String) -> void:
     if not is_instance_valid(player) or cue_id.is_empty():
         return
+    var stream := _stream_for(cue_id)
+    if stream == null:
+        return
     player.stop()
-    player.stream = _stream_for(cue_id)
+    player.stream = stream
     player.play()
 
 func _create_sfx_pool() -> void:
@@ -221,17 +234,27 @@ func _cue_spec(cue_id: String) -> Dictionary:
         spec = BossAudioCatalog.cue_spec(cue_id)
     if spec.is_empty():
         spec = ProductionCatalog.cue_spec(cue_id)
+    if spec.is_empty():
+        spec = ExternalAudio.cue_spec(cue_id)
     return spec
 
-func _stream_for(cue_id: String) -> AudioStreamWAV:
-    if not _stream_cache.has(cue_id):
-        if BossAudioCatalog.is_boss_cue(cue_id):
-            _stream_cache[cue_id] = BossAudioCatalog.render_cue(cue_id)
-        elif ProductionCatalog.has_cue(cue_id):
-            _stream_cache[cue_id] = ProductionAudio.render_cue(cue_id)
-        else:
-            _stream_cache[cue_id] = AudioLibrary.render_cue(cue_id)
-    return _stream_cache[cue_id]
+func _stream_for(cue_id: String) -> AudioStream:
+    if _stream_cache.has(cue_id):
+        return _stream_cache[cue_id] as AudioStream
+    var path := ExternalAudio.stream_path_for(cue_id)
+    if path.is_empty() or not ResourceLoader.exists(path):
+        return null
+    var stream := load(path) as AudioStream
+    if stream == null:
+        return null
+    var spec := _cue_spec(cue_id)
+    if bool(spec.get("loop", false)):
+        if stream is AudioStreamMP3:
+            (stream as AudioStreamMP3).loop = true
+        elif stream is AudioStreamOggVorbis:
+            (stream as AudioStreamOggVorbis).loop = true
+    _stream_cache[cue_id] = stream
+    return stream
 
 func _ensure_bus(bus_name: StringName) -> void:
     if AudioServer.get_bus_index(bus_name) >= 0:
@@ -303,6 +326,23 @@ func _on_weapon_action(action: Dictionary) -> void:
         play_cue(production_cue)
     else:
         play_cue(Catalog.COMBAT)
+    play_cue(ExternalAudio.HIT_CUE)
+    if _target_defeated_after_action(int(action.get("target_id", -1))):
+        play_cue(ExternalAudio.DEATH_CUE)
+
+func _target_defeated_after_action(target_id: int) -> bool:
+    if target_id < 0 or not is_instance_valid(_encounter) or not _encounter.has_method("combat_target_snapshot"):
+        return false
+    var snapshot: Variant = _encounter.call("combat_target_snapshot")
+    if not snapshot is Array:
+        return false
+    for raw_target in snapshot:
+        if not raw_target is Dictionary:
+            continue
+        var target: Dictionary = raw_target
+        if int(target.get("id", -1)) == target_id:
+            return not bool(target.get("active", true))
+    return true
 
 func _on_hit_feedback(_damage: int, remaining_health: int, _generation: int) -> void:
     if remaining_health <= 35:
