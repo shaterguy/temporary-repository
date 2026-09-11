@@ -49,7 +49,7 @@ jobs:
           grep -Fq 'resolve_enemy_runtime_position' game/combat/swarm_encounter.gd
           grep -Fq 'runtime spawn director' tests/unit/test_medieval_rebuild_world.gd
           grep -Fq 'runtime enemy movement' tests/unit/test_medieval_rebuild_world.gd
-          grep -Fq 'CombatCamera did not follow player waypoint' tests/unit/test_medieval_rebuild_runtime.gd
+          grep -Fq 'CombatCamera detached from the player at waypoint' tests/unit/test_medieval_rebuild_runtime.gd
           grep -Fq 'chapel footprint did not occlude a runtime weapon target' tests/unit/test_medieval_rebuild_runtime.gd
           grep -Fq 'tree_instances' tests/unit/test_medieval_rebuild_world.gd
           grep -Fq 'rock_instances' tests/unit/test_medieval_rebuild_world.gd
