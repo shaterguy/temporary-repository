@@ -13,10 +13,12 @@ This ledger is the admission gate for external art/audio used by the medieval re
 
 | Target file | Upstream path / blob | Modification | Target Git blob | Intended use | State |
 | --- | --- | --- | --- | --- | --- |
-| `assets/third_party/kaykit_medieval_hexagon/terrain/hex_grass.bin` | `addons/kaykit_medieval_hexagon_pack/Assets/gltf/tiles/base/hex_grass.bin` / `eae1af657f2acffc11bace562df95a8f25e0e465` | None; byte-identical copy | `eae1af657f2acffc11bace562df95a8f25e0e465` | Base terrain geometry | IMPORTED |
-| `assets/third_party/kaykit_medieval_hexagon/terrain/hex_grass.gltf` | `addons/kaykit_medieval_hexagon_pack/Assets/gltf/tiles/base/hex_grass.gltf` / `b2a4608f8935afbbc3261dd71af015900d8ec925` | Removed external atlas dependency and replaced material with a local PBR baseColorFactor/roughness so this first geometry sample is self-contained; mesh/accessor/buffer layout retained | `9875281b78e8e4aa3c416b16cc02ae00d64581f7` | Base terrain import/projection spike | IMPORTED_MODIFIED |
+| `assets/third_party/kaykit_medieval_hexagon/terrain/hex_grass.bin` | `addons/kaykit_medieval_hexagon_pack/Assets/gltf/tiles/base/hex_grass.bin` / `eae1af657f2acffc11bace562df95a8f25e0e465` | None; byte-identical copy | `eae1af657f2acffc11bace562df95a8f25e0e465` | Runtime 2.5D terrain geometry | RUNTIME_INTEGRATED_UNVALIDATED |
+| `assets/third_party/kaykit_medieval_hexagon/terrain/hex_grass.gltf` | `addons/kaykit_medieval_hexagon_pack/Assets/gltf/tiles/base/hex_grass.gltf` / `b2a4608f8935afbbc3261dd71af015900d8ec925` | Removed external atlas dependency and replaced material with a local PBR baseColorFactor/roughness so this first geometry sample is self-contained; mesh/accessor/buffer layout retained | `9875281b78e8e4aa3c416b16cc02ae00d64581f7` | Runtime 2.5D terrain projected through `MultiMeshInstance3D` | RUNTIME_INTEGRATED_UNVALIDATED |
 
 The modified `.gltf` is not claimed to be byte-identical to upstream. The paired `.bin` is byte-identical and its Git blob SHA is therefore both the upstream and target content identity.
+
+Runtime integration checkpoint: `game/presentation/medieval_field_2_5d.gd` mounts the admitted KayKit grass geometry as a non-authoritative 3D `MultiMeshInstance3D`; `game/ui/main_shell.tscn` renders it in a `SubViewport`, and `game/ui/main_shell_medieval_rebuild.gd` mirrors the authoritative `CombatCamera` focus into the 3D presentation camera. This state remains unvalidated until Godot runtime/render evidence is captured.
 
 ## Vetted but not yet imported
 
@@ -31,5 +33,5 @@ The modified `.gltf` is not claimed to be byte-identical to upstream. The paired
 3. Record an immutable upstream commit/tree/blob identity when available.
 4. Record every material, geometry, audio, metadata, or format modification.
 5. Store content identity using Git blob SHA; add package-provided checksums when an upstream package publishes them.
-6. Runtime integration is a separate state from import. `IMPORTED` does not mean visually validated or release-approved.
+6. Runtime integration is a separate state from import. `RUNTIME_INTEGRATED_UNVALIDATED` does not mean visually validated or release-approved.
 7. Final representative art/audio requires new runtime evidence under AC-07/AC-08; provenance alone does not satisfy those gates.
