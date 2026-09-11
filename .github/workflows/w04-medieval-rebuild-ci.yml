@@ -39,21 +39,29 @@ jobs:
           test -s assets/third_party/kaykit_medieval_hexagon/nature/rock_single_A.bin
           test -f game/world/medieval_world_layout.gd
           test -f tests/unit/test_medieval_rebuild_runtime.gd
-          grep -Fq 'TEST_CONTRACT=r04-medieval-rebuild-field-v4' tests/ci/test_main.gd
+          grep -Fq 'TEST_CONTRACT=r04-medieval-rebuild-field-v5' tests/ci/test_main.gd
           grep -Fq 'MedievalWorldLayoutScript.WORLD_BOUNDS' game/world/phase_battlefield_model.gd
           grep -Fq 'resolve_spawn_position_for_phase' game/world/phase_battlefield_model.gd
           grep -Fq 'is_attack_path_blocked' game/world/phase_battlefield_model.gd
           grep -Fq 'spawn_phase_for' game/combat/spawn_director.gd
           grep -Fq 'world_blocked' game/combat/w23_region_swarm_encounter.gd
+          grep -Fq 'MAX_ACTIVE_ENEMIES: int = 192' game/combat/w23_region_swarm_encounter.gd
+          grep -Fq 'REGULAR_ACTIVE_BUDGET: int = 191' game/combat/w23_region_swarm_encounter.gd
+          grep -Fq 'MAX_REGULAR_LIFETIME_SECONDS: float = 55.0' game/combat/w23_region_swarm_encounter.gd
+          grep -Fq 'CULL_DISTANCE: float = 1800.0' game/combat/w23_region_swarm_encounter.gd
+          grep -Fq 'runtime_performance_snapshot' game/combat/w23_region_swarm_encounter.gd
           grep -Fq 'configure_world_provider' game/combat/spawn_director.gd
           grep -Fq 'resolve_enemy_runtime_position' game/combat/swarm_encounter.gd
           grep -Fq 'runtime spawn director' tests/unit/test_medieval_rebuild_world.gd
           grep -Fq 'runtime enemy movement' tests/unit/test_medieval_rebuild_world.gd
           grep -Fq 'CombatCamera detached from the player at waypoint' tests/unit/test_medieval_rebuild_runtime.gd
           grep -Fq 'chapel footprint did not occlude a runtime weapon target' tests/unit/test_medieval_rebuild_runtime.gd
+          grep -Fq 'long-density stress never exercised the active-enemy admission budget' tests/unit/test_medieval_rebuild_runtime.gd
+          grep -Fq 'pool reuse regressed after distance cull' tests/unit/test_medieval_rebuild_runtime.gd
           grep -Fq 'tree_instances' tests/unit/test_medieval_rebuild_world.gd
           grep -Fq 'rock_instances' tests/unit/test_medieval_rebuild_world.gd
           test -f tests/visual/capture_w04_medieval_field.gd
+          grep -Fq 'W04_WAYPOINT_HASHES_DISTINCT=PASS' tests/visual/capture_w04_medieval_field.gd
 
       - name: Download pinned Godot editor
         shell: bash
@@ -99,11 +107,24 @@ jobs:
             echo "::error::W04 fast-test runner reported a failure"
             exit 1
           fi
-          grep -Fxq 'TEST_CONTRACT=r04-medieval-rebuild-field-v4' "$test_log"
+          grep -Fxq 'TEST_CONTRACT=r04-medieval-rebuild-field-v5' "$test_log"
           grep -Fxq 'SUITES=20' "$test_log"
+          grep -Fxq 'W04_RUNTIME_BUDGET=PASS' "$test_log"
+          grep -Fxq 'W04_RUNTIME_STRESS_SECONDS=120' "$test_log"
+          grep -Fxq 'W04_RUNTIME_POOL_REUSE=PASS' "$test_log"
+          peak_active="$(grep -E '^W04_RUNTIME_PEAK_ACTIVE=[0-9]+$' "$test_log" | tail -1 | cut -d= -f2)"
+          pool_capacity="$(grep -E '^W04_RUNTIME_POOL_CAPACITY=[0-9]+$' "$test_log" | tail -1 | cut -d= -f2)"
+          budget_rejections="$(grep -E '^W04_RUNTIME_BUDGET_REJECTIONS=[0-9]+$' "$test_log" | tail -1 | cut -d= -f2)"
+          distance_culls="$(grep -E '^W04_RUNTIME_DISTANCE_CULLS=[0-9]+$' "$test_log" | tail -1 | cut -d= -f2)"
+          lifetime_culls="$(grep -E '^W04_RUNTIME_LIFETIME_CULLS=[0-9]+$' "$test_log" | tail -1 | cut -d= -f2)"
+          test -n "$peak_active" && test "$peak_active" -le 191
+          test -n "$pool_capacity" && test "$pool_capacity" -le 191
+          test -n "$budget_rejections" && test "$budget_rejections" -gt 0
+          test -n "$distance_culls" && test "$distance_culls" -gt 0
+          test -n "$lifetime_culls" && test "$lifetime_culls" -gt 0
           grep -Fxq 'RESULT=PASS' "$test_log"
 
-      - name: Render actual W04 main shell and 3D field
+      - name: Render actual W04 camera waypoints and 3D field
         shell: bash
         run: |
           set -euo pipefail
@@ -120,9 +141,19 @@ jobs:
           fi
           grep -Fxq 'W04_RENDER=PASS' "$render_log"
           grep -Fxq 'W04_RENDER_SIZE=1280x720' "$render_log"
+          grep -Fxq 'W04_WAYPOINT_RENDER_COUNT=3' "$render_log"
+          grep -Fxq 'W04_WAYPOINT_HASHES_DISTINCT=PASS' "$render_log"
           test -s artifacts/w04/main-shell.png
           test -s artifacts/w04/field-3d.png
-          sha256sum artifacts/w04/main-shell.png artifacts/w04/field-3d.png
+          test -s artifacts/w04/field-waypoint-01-bridge.png
+          test -s artifacts/w04/field-waypoint-02-chapel.png
+          test -s artifacts/w04/field-waypoint-03-ridge.png
+          sha256sum \
+            artifacts/w04/main-shell.png \
+            artifacts/w04/field-3d.png \
+            artifacts/w04/field-waypoint-01-bridge.png \
+            artifacts/w04/field-waypoint-02-chapel.png \
+            artifacts/w04/field-waypoint-03-ridge.png
 
       - name: Upload W04 render evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -131,5 +162,8 @@ jobs:
           path: |
             artifacts/w04/main-shell.png
             artifacts/w04/field-3d.png
+            artifacts/w04/field-waypoint-01-bridge.png
+            artifacts/w04/field-waypoint-02-chapel.png
+            artifacts/w04/field-waypoint-03-ridge.png
           if-no-files-found: error
           retention-days: 14

@@ -59,7 +59,7 @@ func _run_tests() -> void:
         print("SUITE_START=%s" % suite_name)
         failures.append_array(suite.run())
         print("SUITE_DONE=%s" % suite_name)
-    print("TEST_CONTRACT=r04-medieval-rebuild-field-v4")
+    print("TEST_CONTRACT=r04-medieval-rebuild-field-v5")
     print("SUITES=%d" % TEST_SUITES.size())
     if failures.is_empty():
         print("RESULT=PASS")
