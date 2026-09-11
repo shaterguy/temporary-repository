@@ -1,0 +1,204 @@
+name: w07-audio-asset-bootstrap
+
+on:
+  push:
+    branches:
+      - 'work/sr-20260911-medieval-rebuild'
+    paths:
+      - '.github/workflows/w07-audio-asset-bootstrap.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: w07-audio-asset-bootstrap-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  import-cc0-audio:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout exact bootstrap candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Guard branch identity and prior import
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF_NAME" = 'work/sr-20260911-medieval-rebuild'
+          remote_head="$(git ls-remote origin "refs/heads/$GITHUB_REF_NAME" | cut -f1)"
+          test "$remote_head" = "$GITHUB_SHA"
+          if git ls-tree -r "origin/$GITHUB_REF_NAME" --name-only | grep -q '^assets/third_party/audio/w07/'; then
+            echo 'W07_AUDIO_BOOTSTRAP=ALREADY_IMPORTED'
+            exit 78
+          fi
+
+      - name: Download verified CC0 source packs
+        shell: bash
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          echo "$tmp" > /tmp/w07_audio_tmp
+          curl --fail --location --proto '=https' --tlsv1.2 \
+            'https://opengameart.org/sites/default/files/Exploration_0.mp3' \
+            --output "$tmp/exploration.mp3"
+          curl --fail --location --proto '=https' --tlsv1.2 \
+            'https://opengameart.org/sites/default/files/battle_8.mp3' \
+            --output "$tmp/battle.mp3"
+          curl --fail --location --proto '=https' --tlsv1.2 \
+            'https://opengameart.org/sites/default/files/Forest_Ambience.mp3' \
+            --output "$tmp/forest_ambience.mp3"
+          curl --fail --location --proto '=https' --tlsv1.2 \
+            'https://opengameart.org/sites/default/files/RPGsounds_Kenney.zip' \
+            --output "$tmp/rpg.zip"
+          curl --fail --location --proto '=https' --tlsv1.2 \
+            'https://opengameart.org/sites/default/files/Digital_SFX_Set.zip' \
+            --output "$tmp/digital.zip"
+          curl --fail --location --proto '=https' --tlsv1.2 \
+            'https://opengameart.org/sites/default/files/kenney_interfaceSounds.zip' \
+            --output "$tmp/interface.zip"
+          test -s "$tmp/exploration.mp3"
+          test -s "$tmp/battle.mp3"
+          test -s "$tmp/forest_ambience.mp3"
+          test -s "$tmp/rpg.zip"
+          test -s "$tmp/digital.zip"
+          test -s "$tmp/interface.zip"
+          sha256sum "$tmp"/* | tee "$tmp/upstream-sha256.txt"
+
+      - name: Select and normalize runtime asset set
+        shell: bash
+        run: |
+          set -euo pipefail
+          tmp="$(cat /tmp/w07_audio_tmp)"
+          unzip -q "$tmp/rpg.zip" -d "$tmp/rpg"
+          unzip -q "$tmp/digital.zip" -d "$tmp/digital"
+          unzip -q "$tmp/interface.zip" -d "$tmp/interface"
+
+          root='assets/third_party/audio/w07'
+          rm -rf "$root"
+          mkdir -p "$root/music" "$root/ambience" "$root/weapons" "$root/combat" "$root/ui"
+          cp "$tmp/exploration.mp3" "$root/music/medieval_exploration.mp3"
+          cp "$tmp/battle.mp3" "$root/music/medieval_battle.mp3"
+          cp "$tmp/forest_ambience.mp3" "$root/ambience/forest_ambience.mp3"
+
+          mapfile -t weapon_files < <(find "$tmp/digital" -type f \( -iname '*.wav' -o -iname '*.ogg' \) \
+            | grep -Ei '/(laser|phaser|zap|powerUp)[^/]*\.(wav|ogg)$' | sort | head -n 18)
+          test "${#weapon_files[@]}" -eq 18
+          index=1
+          for src in "${weapon_files[@]}"; do
+            ext="${src##*.}"
+            printf -v target 'weapon_%02d.%s' "$index" "${ext,,}"
+            cp "$src" "$root/weapons/$target"
+            index=$((index + 1))
+          done
+
+          hit_src="$(find "$tmp/rpg" -type f -iname 'metalPot1.ogg' | head -n 1)"
+          death_src="$(find "$tmp/rpg" -type f -iname 'chop.ogg' | head -n 1)"
+          test -n "$hit_src" && test -s "$hit_src"
+          test -n "$death_src" && test -s "$death_src"
+          cp "$hit_src" "$root/combat/hit_metal.ogg"
+          cp "$death_src" "$root/combat/death_chop.ogg"
+
+          mapfile -t ui_files < <(find "$tmp/interface" -type f -iname '*.ogg' | sort | head -n 6)
+          test "${#ui_files[@]}" -eq 6
+          index=1
+          for src in "${ui_files[@]}"; do
+            printf -v target 'ui_%02d.ogg' "$index"
+            cp "$src" "$root/ui/$target"
+            index=$((index + 1))
+          done
+
+          test "$(find "$root/weapons" -maxdepth 1 -type f | wc -l)" -eq 18
+          test "$(find "$root/ui" -maxdepth 1 -type f | wc -l)" -eq 6
+          test "$(find "$root/music" -maxdepth 1 -type f | wc -l)" -eq 2
+          test "$(find "$root/ambience" -maxdepth 1 -type f | wc -l)" -eq 1
+          test "$(find "$root/combat" -maxdepth 1 -type f | wc -l)" -eq 2
+          test -z "$(find "$root" -type f -size 0 -print -quit)"
+          (cd "$root" && find . -type f -print0 | sort -z | xargs -0 sha256sum) > "$root/SHA256SUMS.txt"
+
+      - name: Record source and license provenance
+        shell: bash
+        run: |
+          set -euo pipefail
+          tmp="$(cat /tmp/w07_audio_tmp)"
+          mkdir -p assets/licenses
+          exploration_sha="$(sha256sum "$tmp/exploration.mp3" | cut -d' ' -f1)"
+          battle_sha="$(sha256sum "$tmp/battle.mp3" | cut -d' ' -f1)"
+          ambience_sha="$(sha256sum "$tmp/forest_ambience.mp3" | cut -d' ' -f1)"
+          rpg_sha="$(sha256sum "$tmp/rpg.zip" | cut -d' ' -f1)"
+          digital_sha="$(sha256sum "$tmp/digital.zip" | cut -d' ' -f1)"
+          interface_sha="$(sha256sum "$tmp/interface.zip" | cut -d' ' -f1)"
+          cat > assets/licenses/W07_CC0_AUDIO.md <<EOF
+          # W07 External Production Audio Provenance
+
+          Acquired: 2026-09-12
+          Runtime directory: \`assets/third_party/audio/w07/\`
+          Redistribution: permitted under CC0 1.0 Universal for every imported source below.
+
+          ## Medieval music
+          - RandomMind — “Medieval: Exploration” — CC0.
+            - Source page: https://opengameart.org/content/medieval-exploration
+            - Imported file: https://opengameart.org/sites/default/files/Exploration_0.mp3
+            - Upstream SHA-256: \`$exploration_sha\`
+          - RandomMind — “Medieval: Battle” — CC0.
+            - Source page: https://opengameart.org/content/medieval-battle
+            - Imported file: https://opengameart.org/sites/default/files/battle_8.mp3
+            - Upstream SHA-256: \`$battle_sha\`
+
+          ## Ambience
+          - TinyWorlds — “Forest Ambience” — CC0; source states it loops seamlessly.
+            - Source page: https://opengameart.org/content/forest-ambience
+            - Imported file: https://opengameart.org/sites/default/files/Forest_Ambience.mp3
+            - Upstream SHA-256: \`$ambience_sha\`
+
+          ## Combat and UI sound packs
+          - Kenney — “50 RPG sound effects” — CC0; 50 OGG fantasy/RPG sounds.
+            - Source page: https://opengameart.org/content/50-rpg-sound-effects
+            - Imported archive: https://opengameart.org/sites/default/files/RPGsounds_Kenney.zip
+            - Upstream SHA-256: \`$rpg_sha\`
+            - Runtime selection: \`metalPot1.ogg\` for hit and \`chop.ogg\` for death.
+          - Kenney — “63 Digital sound effects” — CC0; recorded hardware-synth laser/phaser/zap/power sounds.
+            - Source page: https://opengameart.org/content/63-digital-sound-effects-lasers-phasers-space-etc
+            - Imported archive: https://opengameart.org/sites/default/files/Digital_SFX_Set.zip
+            - Upstream SHA-256: \`$digital_sha\`
+            - Runtime selection: first 18 sorted laser/phaser/zap/powerUp files, renamed \`weapon_01\`…\`weapon_18\` without resynthesis.
+          - Kenney — “Interface Sounds” — CC0; normalized OGG UI sounds.
+            - Source page: https://opengameart.org/content/interface-sounds
+            - Imported archive: https://opengameart.org/sites/default/files/kenney_interfaceSounds.zip
+            - Upstream SHA-256: \`$interface_sha\`
+            - Runtime selection: first 6 sorted OGG files, renamed \`ui_01.ogg\`…\`ui_06.ogg\`.
+
+          CC0 reference: https://creativecommons.org/publicdomain/zero/1.0/
+          Runtime file hashes are recorded in \`assets/third_party/audio/w07/SHA256SUMS.txt\`.
+          EOF
+
+      - name: Verify import contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s assets/licenses/W07_CC0_AUDIO.md
+          test "$(find assets/third_party/audio/w07 -type f \( -name '*.wav' -o -name '*.ogg' -o -name '*.mp3' \) | wc -l)" -eq 29
+          grep -Fq 'CC0 1.0 Universal' assets/licenses/W07_CC0_AUDIO.md
+          grep -Fq 'Runtime file hashes' assets/licenses/W07_CC0_AUDIO.md
+          echo 'W07_CC0_MUSIC=2'
+          echo 'W07_CC0_AMBIENCE=1'
+          echo 'W07_CC0_WEAPON_SFX=18'
+          echo 'W07_CC0_COMBAT_SFX=2'
+          echo 'W07_CC0_UI_SFX=6'
+          echo 'W07_AUDIO_BOOTSTRAP=PASS'
+
+      - name: Commit imported assets to exact work branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          remote_head="$(git ls-remote origin "refs/heads/$GITHUB_REF_NAME" | cut -f1)"
+          test "$remote_head" = "$GITHUB_SHA"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add assets/third_party/audio/w07 assets/licenses/W07_CC0_AUDIO.md
+          test -n "$(git diff --cached --name-only)"
+          git commit -m 'assets(w07): import CC0 production audio [w07-assets]'
+          git push origin "HEAD:$GITHUB_REF_NAME"
