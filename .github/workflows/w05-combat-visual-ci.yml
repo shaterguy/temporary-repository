@@ -53,6 +53,7 @@ jobs:
           test -s assets/third_party/kaykit_adventurers/LICENSE.txt
           test -s assets/licenses/W05_KAYKIT_ADVENTURERS.md
           test ! -e .github/workflows/w05-asset-import.yml
+          test ! -e .github/workflows/w05-runtime-fix.yml
           grep -Fq 'MedievalCombatVisuals3D' game/ui/main_shell.tscn
           grep -Fq 'record_weapon_action' game/ui/main_shell_medieval_rebuild.gd
           grep -Fq 'causal_stages' game/presentation/medieval_combat_visuals_2_5d.gd
@@ -79,8 +80,8 @@ jobs:
           godot_status=${PIPESTATUS[0]}
           set -e
           test "$godot_status" -eq 0
-          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$import_log"; then
-            echo "::error::Godot import reported script compilation errors"
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:|Node not inside tree|GDScript backtrace' "$import_log"; then
+            echo "::error::Godot import reported script/runtime errors"
             exit 1
           fi
 
@@ -94,7 +95,7 @@ jobs:
           godot_status=${PIPESTATUS[0]}
           set -e
           test "$godot_status" -eq 0
-          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$test_log"; then
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:|Node not inside tree|GDScript backtrace' "$test_log"; then
             echo "::error::W05 contract reported script/runtime errors"
             exit 1
           fi
@@ -116,7 +117,7 @@ jobs:
           godot_status=${PIPESTATUS[0]}
           set -e
           test "$godot_status" -eq 0
-          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$render_log"; then
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:|Node not inside tree|GDScript backtrace' "$render_log"; then
             echo "::error::W05 render reported script/runtime errors"
             exit 1
           fi
