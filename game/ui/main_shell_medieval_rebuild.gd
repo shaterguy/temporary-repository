@@ -21,6 +21,13 @@ func _mount_runtime_preview() -> void:
     _sync_medieval_presentation()
 
 
+func _on_weapon_action(action: Dictionary) -> void:
+    super._on_weapon_action(action)
+    var combat_visuals := get_node_or_null("WorldPresentation/SubViewport/MedievalCombatVisuals3D")
+    if combat_visuals != null and combat_visuals.has_method("record_weapon_action"):
+        combat_visuals.call("record_weapon_action", action, combat_preview, encounter_preview)
+
+
 func _retire_legacy_world_art_once() -> void:
     if _legacy_world_art_retired:
         return
@@ -40,6 +47,17 @@ func _sync_medieval_presentation() -> void:
     var field := get_node_or_null("WorldPresentation/SubViewport/MedievalField3D")
     if field != null and field.has_method("set_gameplay_focus"):
         field.call("set_gameplay_focus", combat_camera.global_position)
+
+    var expedition_active := shell_mode == MODE_EXPEDITION
+    var combat_visuals := get_node_or_null("WorldPresentation/SubViewport/MedievalCombatVisuals3D")
+    if combat_visuals != null and combat_visuals.has_method("sync_runtime"):
+        combat_visuals.call("sync_runtime", combat_preview, encounter_preview, expedition_active)
+        var player_canvas := combat_preview as CanvasItem
+        var encounter_canvas := encounter_preview as CanvasItem
+        if player_canvas != null:
+            player_canvas.visible = not expedition_active
+        if encounter_canvas != null:
+            encounter_canvas.visible = not expedition_active
 
 
 func _sync_story_event_art() -> void:

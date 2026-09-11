@@ -1,4 +1,4 @@
-[gd_scene load_steps=15 format=3]
+[gd_scene load_steps=16 format=3]
 
 [ext_resource type="Script" path="res://game/ui/main_shell_medieval_rebuild.gd" id="1_shell"]
 [ext_resource type="Texture2D" path="res://assets/runtime/w13/environment_twilight_shipyard.svg" id="2_w13_environment"]
@@ -12,6 +12,7 @@
 [ext_resource type="Script" path="res://game/ui/pre_expedition_touch_controls.gd" id="10_pre_expedition_touch"]
 [ext_resource type="Script" path="res://game/ui/screen_ui_bridge.gd" id="11_screen_ui"]
 [ext_resource type="Script" path="res://game/presentation/medieval_field_2_5d.gd" id="12_medieval_field"]
+[ext_resource type="Script" path="res://game/presentation/medieval_combat_visuals_2_5d.gd" id="13_combat_visuals"]
 
 [sub_resource type="SystemFont" id="SystemFont_ui"]
 font_names = PackedStringArray("Noto Sans CJK KR", "Noto Sans KR", "sans-serif")
@@ -72,6 +73,10 @@ render_target_update_mode = 4
 [node name="MedievalField3D" type="Node3D" parent="WorldPresentation/SubViewport"]
 unique_name_in_owner = true
 script = ExtResource("12_medieval_field")
+
+[node name="MedievalCombatVisuals3D" type="Node3D" parent="WorldPresentation/SubViewport"]
+unique_name_in_owner = true
+script = ExtResource("13_combat_visuals")
 
 [node name="W13RepresentativeArt" type="Node2D" parent="."]
 unique_name_in_owner = true
