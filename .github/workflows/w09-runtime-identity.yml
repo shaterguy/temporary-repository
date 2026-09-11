@@ -1,6 +1,17 @@
 name: w09-runtime-identity
 
 on:
+  push:
+    branches:
+      - 'work/sr-20260911-medieval-rebuild'
+    paths:
+      - 'game/combat/w23_region_swarm_encounter.gd'
+      - 'game/presentation/medieval_combat_visuals_2_5d.gd'
+      - 'game/presentation/medieval_field_2_5d.gd'
+      - 'game/ui/main_shell_medieval_rebuild.gd'
+      - 'tests/visual/w09_runtime_identity_review.gd'
+      - 'tests/visual/w09_runtime_identity_review.tscn'
+      - '.github/workflows/w09-runtime-identity.yml'
   workflow_dispatch:
 
 permissions:
