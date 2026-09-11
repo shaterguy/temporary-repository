@@ -5,6 +5,7 @@ on:
     branches:
       - 'v*-dev*'
       - 'v*-rc*'
+      - 'work/sr-20260911-medieval-rebuild'
     paths:
       - 'game/presentation/**'
       - 'tests/integration/r02_rendered_load_soak.gd'
