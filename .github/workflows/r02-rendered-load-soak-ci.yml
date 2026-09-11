@@ -6,11 +6,13 @@ on:
       - 'v*-dev*'
       - 'v*-rc*'
     paths:
+      - 'game/presentation/**'
       - 'tests/integration/r02_rendered_load_soak.gd'
       - 'docs/verification/R02_RENDERED_LOAD_SOAK.md'
       - '.github/workflows/r02-rendered-load-soak-ci.yml'
   pull_request:
     paths:
+      - 'game/presentation/**'
       - 'tests/integration/r02_rendered_load_soak.gd'
       - 'docs/verification/R02_RENDERED_LOAD_SOAK.md'
       - '.github/workflows/r02-rendered-load-soak-ci.yml'
