@@ -49,6 +49,7 @@ func configure_area_effect_provider(provider: Object) -> void:
 
 func configure_phase_provider(provider: Object) -> void:
     _phase_provider = provider
+    _director.configure_world_provider(provider)
     queue_redraw()
 
 
@@ -119,6 +120,18 @@ func cross_phase_warning_snapshot() -> Array[Dictionary]:
     for warning in _cross_phase_attacks:
         result.append(warning.duplicate(true))
     return result
+
+
+func resolve_enemy_runtime_position(from_position: Vector2, proposed_position: Vector2) -> Vector2:
+    if is_instance_valid(_phase_provider) and _phase_provider.has_method("resolve_enemy_position"):
+        var resolved: Variant = _phase_provider.call(
+            "resolve_enemy_position",
+            from_position,
+            proposed_position
+        )
+        if resolved is Vector2:
+            return resolved
+    return proposed_position
 
 
 func advance_cross_phase_attacks(delta: float) -> void:
@@ -264,7 +277,8 @@ func _advance_swarm(delta: float) -> void:
             velocity += tangent * sin(_director.elapsed_time * 1.2) * speed * 0.28
 
         velocity = velocity.limit_length(speed * 1.35) * _movement_multiplier_at(enemy_position)
-        var next_position := enemy_position + velocity * delta
+        var proposed_position := enemy_position + velocity * delta
+        var next_position := resolve_enemy_runtime_position(enemy_position, proposed_position)
         _pool.set_position(entity_id, next_position)
 
         var contact_remaining := _pool.advance_contact_timer(entity_id, delta)

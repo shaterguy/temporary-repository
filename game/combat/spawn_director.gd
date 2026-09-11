@@ -19,6 +19,7 @@ var _entry_direction: Vector2 = Vector2.ZERO
 var _threat_level: int = 1
 var _doctrine_plan: Dictionary = DisclosedDoctrineModelScript.neutral_plan()
 var _doctrine_warning_emitted: bool = false
+var _world_provider: Object
 
 
 func reset(seed: int = 1) -> void:
@@ -36,6 +37,10 @@ func reset(seed: int = 1) -> void:
 func set_route_context(entry_direction: Vector2, threat_level: int) -> void:
     _entry_direction = Vector2.ZERO if entry_direction.is_zero_approx() else entry_direction.normalized()
     _threat_level = clampi(threat_level, 1, 3)
+
+
+func configure_world_provider(provider: Object) -> void:
+    _world_provider = provider
 
 
 func configure_doctrine(plan: Dictionary) -> bool:
@@ -141,6 +146,7 @@ func _queue_spawn(
     var spawn_position := _spawn_position(_sequence, origin)
     if doctrine_response:
         spawn_position = _doctrine_spawn_position(_sequence, origin)
+    spawn_position = _resolve_spawn_position(spawn_position, origin)
     var pending := {
         "spawn_id": spawn_id,
         "archetype": archetype,
@@ -214,6 +220,14 @@ func _doctrine_spawn_position(sequence: int, origin: Vector2) -> Vector2:
             var angle := side * (0.90 + _sample01(sequence, 251) * 0.45)
             return origin + axis.rotated(angle) * distance
     return _spawn_position(sequence, origin)
+
+
+func _resolve_spawn_position(candidate: Vector2, origin: Vector2) -> Vector2:
+    if is_instance_valid(_world_provider) and _world_provider.has_method("resolve_spawn_position"):
+        var resolved: Variant = _world_provider.call("resolve_spawn_position", candidate, origin)
+        if resolved is Vector2:
+            return resolved
+    return candidate
 
 
 func _sample01(sequence: int, salt: int) -> float:

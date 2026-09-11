@@ -2,6 +2,8 @@ extends RefCounted
 
 const PhaseBattlefieldModelScript = preload("res://game/world/phase_battlefield_model.gd")
 const MedievalWorldLayoutScript = preload("res://game/world/medieval_world_layout.gd")
+const SpawnDirectorScript = preload("res://game/combat/spawn_director.gd")
+const SwarmEncounterScript = preload("res://game/combat/swarm_encounter.gd")
 const MainShellScene = preload("res://game/ui/main_shell.tscn")
 
 static func run() -> Array[String]:
@@ -45,6 +47,39 @@ static func run() -> Array[String]:
         failures.append("R04 authoritative spawn resolver did not move a river-surface spawn")
     if resolved_spawn.distance_to(Vector2.ZERO) < MedievalWorldLayoutScript.MIN_SPAWN_DISTANCE_FROM_ORIGIN:
         failures.append("R04 spawn resolver moved the spawn inside the minimum player clearance")
+
+    var director = SpawnDirectorScript.new()
+    director.reset(20260911)
+    director.configure_world_provider(terrain)
+    var director_events: Array[Dictionary] = director.step(1.0, Vector2.ZERO)
+    if director_events.is_empty():
+        failures.append("R04 runtime spawn director did not emit its first telegraph")
+    for event in director_events:
+        if str(event.get("type", "")) != "telegraph":
+            continue
+        var event_position: Vector2 = event.get("position", Vector2.ZERO)
+        if not terrain.is_spawn_position_allowed(event_position):
+            failures.append("R04 runtime spawn director emitted terrain-illegal telegraph: %s" % event_position)
+    var director_relocated: Variant = director.call("_resolve_spawn_position", blocked_spawn, Vector2.ZERO)
+    if not director_relocated is Vector2:
+        failures.append("R04 runtime spawn director did not return a Vector2 spawn")
+    else:
+        var relocated_position: Vector2 = director_relocated
+        if relocated_position.is_equal_approx(blocked_spawn):
+            failures.append("R04 runtime spawn director is not wired to the authoritative spawn resolver")
+
+    var encounter = SwarmEncounterScript.new()
+    encounter.configure_phase_provider(terrain)
+    var enemy_start := Vector2(-920.0, -520.0)
+    var blocked_enemy_target := MedievalWorldLayoutScript.CHAPEL_GAMEPLAY_POSITION
+    var enemy_resolved: Vector2 = encounter.resolve_enemy_runtime_position(enemy_start, blocked_enemy_target)
+    if not enemy_resolved.is_equal_approx(enemy_start):
+        failures.append("R04 runtime enemy movement crossed the chapel collision footprint")
+    var open_enemy_target := Vector2(0.0, 140.0)
+    var open_enemy_resolved: Vector2 = encounter.resolve_enemy_runtime_position(Vector2.ZERO, open_enemy_target)
+    if not open_enemy_resolved.is_equal_approx(open_enemy_target):
+        failures.append("R04 runtime enemy movement rejected the open bridge/ford corridor")
+    encounter.free()
 
     var shell = MainShellScene.instantiate()
     if shell == null:
