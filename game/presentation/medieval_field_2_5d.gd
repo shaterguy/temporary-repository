@@ -14,8 +14,8 @@ const SLOPED_GRASS_SCENE: PackedScene = preload("res://assets/third_party/kaykit
 const WorldProjection25D = preload("res://game/presentation/world_projection_2_5d.gd")
 
 const WORLD_BOUNDS_GAMEPLAY := Rect2(Vector2(-4608.0, -3072.0), Vector2(9216.0, 6144.0))
-const TILE_COLUMNS := 62
-const TILE_ROWS := 36
+const TILE_COLUMNS := 86
+const TILE_ROWS := 50
 const TILE_SPACING_X := 1.5
 const TILE_SPACING_Z := 1.7320508
 const CAMERA_OFFSET := Vector3(0.0, 18.0, 14.0)
