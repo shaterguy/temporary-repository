@@ -31,11 +31,17 @@ const SUPPORTED_REGION_IDS := ["twilight_shipyard", "glass_garden", "flooded_arc
 const FOREST_CLUSTER_CENTERS := [
     Vector2(-720.0, -430.0), Vector2(760.0, -360.0), Vector2(-880.0, 690.0), Vector2(930.0, 760.0),
     Vector2(-2750.0, -1900.0), Vector2(2650.0, -1850.0), Vector2(-2450.0, 2050.0), Vector2(2750.0, 1900.0),
+    Vector2(-4200.0, -1700.0), Vector2(-4200.0, -250.0), Vector2(-4200.0, 1350.0),
+    Vector2(4100.0, -1650.0), Vector2(4100.0, 250.0), Vector2(4100.0, 1550.0),
+    Vector2(-1800.0, -2650.0), Vector2(0.0, -2550.0), Vector2(1800.0, -2650.0),
+    Vector2(-1800.0, 2550.0), Vector2(0.0, 2450.0), Vector2(1800.0, 2550.0),
 ]
 
 const ROCK_CLUSTER_CENTERS := [
     Vector2(-320.0, 240.0), Vector2(420.0, -280.0), Vector2(-1500.0, -950.0),
     Vector2(1550.0, 1050.0), Vector2(-3250.0, 850.0), Vector2(3350.0, -900.0),
+    Vector2(-4100.0, -700.0), Vector2(-4050.0, 900.0), Vector2(4050.0, -700.0), Vector2(4150.0, 900.0),
+    Vector2(-2100.0, -2450.0), Vector2(2100.0, -2400.0), Vector2(-2000.0, 2450.0), Vector2(2200.0, 2400.0),
 ]
 
 const ROAD_GAMEPLAY_POINTS := [
@@ -52,7 +58,12 @@ const RIVER_GAMEPLAY_POINTS := [
     Vector2(0.0, 692.0), Vector2(0.0, 865.0), Vector2(0.0, 1038.0), Vector2(0.0, 1211.0), Vector2(0.0, 1384.0),
 ]
 
-const HAMLET_GAMEPLAY_POINTS := [Vector2(720.0, 520.0), Vector2(980.0, 660.0), Vector2(820.0, 880.0)]
+const HAMLET_GAMEPLAY_POINTS := [
+    Vector2(720.0, 520.0), Vector2(980.0, 660.0), Vector2(820.0, 880.0),
+    Vector2(3900.0, 260.0), Vector2(4150.0, 520.0),
+    Vector2(-3950.0, -320.0), Vector2(-4200.0, -560.0),
+    Vector2(1550.0, 2450.0), Vector2(-1550.0, -2420.0),
+]
 
 # The high-slope pieces are long-distance silhouettes, not a spawn-screen wall.
 # Keeping them beyond the initial camera and at sub-unit scale avoids the large
@@ -66,6 +77,7 @@ const CHAPEL_GAMEPLAY_POSITION := Vector2(-760.0, -520.0)
 const BRIDGE_GAMEPLAY_POSITION := Vector2.ZERO
 const WAYFINDING_LANDMARK_CENTERS := [
     BRIDGE_GAMEPLAY_POSITION, CHAPEL_GAMEPLAY_POSITION, Vector2(840.0, 680.0), Vector2(-900.0, 1750.0),
+    Vector2(4025.0, 390.0), Vector2(-4075.0, -440.0), Vector2(1550.0, 2450.0), Vector2(-1550.0, -2420.0),
 ]
 
 var _camera: Camera3D
