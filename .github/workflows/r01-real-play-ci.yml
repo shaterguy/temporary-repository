@@ -7,6 +7,7 @@ on:
       - 'v*-rc*'
     paths:
       - 'game/ui/main_shell.tscn'
+      - 'game/presentation/**'
       - 'tests/integration/r01_real_play_smoke.gd'
       - 'tests/visual/capture_r01_real_play.gd'
       - 'docs/verification/R01_REAL_PLAY_INTEGRATION.md'
@@ -14,6 +15,7 @@ on:
   pull_request:
     paths:
       - 'game/ui/main_shell.tscn'
+      - 'game/presentation/**'
       - 'tests/integration/r01_real_play_smoke.gd'
       - 'tests/visual/capture_r01_real_play.gd'
       - 'docs/verification/R01_REAL_PLAY_INTEGRATION.md'
