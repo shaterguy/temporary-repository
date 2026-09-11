@@ -4,6 +4,13 @@ extends Node3D
 const GRASS_TILE_SCENE: PackedScene = preload("res://assets/third_party/kaykit_medieval_hexagon/terrain/hex_grass.gltf")
 const TREE_SCENE: PackedScene = preload("res://assets/third_party/kaykit_medieval_hexagon/nature/tree_single_A.gltf")
 const ROCK_SCENE: PackedScene = preload("res://assets/third_party/kaykit_medieval_hexagon/nature/rock_single_A.gltf")
+const HOME_SCENE: PackedScene = preload("res://assets/third_party/kaykit_medieval_hexagon/landmarks/blue/building_home_A_blue.gltf")
+const CHURCH_SCENE: PackedScene = preload("res://assets/third_party/kaykit_medieval_hexagon/landmarks/blue/building_church_blue.gltf")
+const BRIDGE_SCENE: PackedScene = preload("res://assets/third_party/kaykit_medieval_hexagon/landmarks/neutral/building_bridge_A.gltf")
+const ROAD_SCENE: PackedScene = preload("res://assets/third_party/kaykit_medieval_hexagon/terrain/roads/hex_road_A.gltf")
+const RIVER_SCENE: PackedScene = preload("res://assets/third_party/kaykit_medieval_hexagon/terrain/rivers/hex_river_A.gltf")
+const RIVER_CROSSING_SCENE: PackedScene = preload("res://assets/third_party/kaykit_medieval_hexagon/terrain/rivers/hex_river_crossing_A.gltf")
+const SLOPED_GRASS_SCENE: PackedScene = preload("res://assets/third_party/kaykit_medieval_hexagon/terrain/elevation/hex_grass_sloped_high.gltf")
 const WorldProjection25D = preload("res://game/presentation/world_projection_2_5d.gd")
 
 const WORLD_BOUNDS_GAMEPLAY := Rect2(Vector2(-4608.0, -3072.0), Vector2(9216.0, 6144.0))
@@ -16,6 +23,8 @@ const CAMERA_ORTHO_SIZE := 14.0
 const TREES_PER_CLUSTER := 9
 const ROCKS_PER_CLUSTER := 4
 const NATURE_VISIBILITY_RANGE := 90.0
+const LANDMARK_VISIBILITY_RANGE := 120.0
+const CLEAR_CORRIDOR_WIDTH_GAMEPLAY := 300.0
 
 # The first four groves frame the initial expedition spawn so the 2.5D
 # silhouette is visible immediately. The remaining groves carry that rhythm
@@ -40,11 +49,55 @@ const ROCK_CLUSTER_CENTERS := [
     Vector2(3350.0, -900.0),
 ]
 
+# Crossroads and river pieces are spaced on the same world scale as the
+# authoritative 2D battlefield. They are presentation-only wayfinding cues;
+# collision and spawn authority stay in the existing gameplay model.
+const ROAD_GAMEPLAY_POINTS := [
+    Vector2(-1200.0, 0.0), Vector2(-1050.0, 0.0), Vector2(-900.0, 0.0),
+    Vector2(-750.0, 0.0), Vector2(-600.0, 0.0), Vector2(-450.0, 0.0),
+    Vector2(-300.0, 0.0), Vector2(-150.0, 0.0), Vector2(0.0, 0.0),
+    Vector2(150.0, 0.0), Vector2(300.0, 0.0), Vector2(450.0, 0.0),
+    Vector2(600.0, 0.0), Vector2(750.0, 0.0), Vector2(900.0, 0.0),
+    Vector2(1050.0, 0.0), Vector2(1200.0, 0.0),
+]
+
+const RIVER_GAMEPLAY_POINTS := [
+    Vector2(0.0, -1384.0), Vector2(0.0, -1211.0), Vector2(0.0, -1038.0),
+    Vector2(0.0, -865.0), Vector2(0.0, -692.0), Vector2(0.0, -519.0),
+    Vector2(0.0, -346.0), Vector2(0.0, -173.0), Vector2(0.0, 0.0),
+    Vector2(0.0, 173.0), Vector2(0.0, 346.0), Vector2(0.0, 519.0),
+    Vector2(0.0, 692.0), Vector2(0.0, 865.0), Vector2(0.0, 1038.0),
+    Vector2(0.0, 1211.0), Vector2(0.0, 1384.0),
+]
+
+const HAMLET_GAMEPLAY_POINTS := [
+    Vector2(720.0, 520.0),
+    Vector2(980.0, 660.0),
+    Vector2(820.0, 880.0),
+]
+
+const RIDGE_GAMEPLAY_POINTS := [
+    Vector2(-1050.0, 1150.0), Vector2(-750.0, 1150.0),
+    Vector2(-450.0, 1150.0), Vector2(-150.0, 1150.0),
+    Vector2(150.0, 1150.0), Vector2(450.0, 1150.0),
+    Vector2(750.0, 1150.0), Vector2(1050.0, 1150.0),
+]
+
+const CHAPEL_GAMEPLAY_POSITION := Vector2(-760.0, -520.0)
+const BRIDGE_GAMEPLAY_POSITION := Vector2.ZERO
+const WAYFINDING_LANDMARK_CENTERS := [
+    BRIDGE_GAMEPLAY_POSITION,
+    CHAPEL_GAMEPLAY_POSITION,
+    Vector2(840.0, 680.0),
+    Vector2(-900.0, 1150.0),
+]
+
 var _camera: Camera3D
 
 func _ready() -> void:
     _build_terrain()
     _build_nature_landmarks()
+    _build_wayfinding_landmarks()
     _build_environment()
     _build_camera()
     set_gameplay_focus(Vector2.ZERO)
@@ -67,19 +120,42 @@ func presentation_spec() -> Dictionary:
             "res://assets/third_party/kaykit_medieval_hexagon/nature/tree_single_A.gltf",
             "res://assets/third_party/kaykit_medieval_hexagon/nature/rock_single_A.gltf",
         ],
+        "landmark_asset_paths": [
+            "res://assets/third_party/kaykit_medieval_hexagon/landmarks/blue/building_home_A_blue.gltf",
+            "res://assets/third_party/kaykit_medieval_hexagon/landmarks/blue/building_church_blue.gltf",
+            "res://assets/third_party/kaykit_medieval_hexagon/landmarks/neutral/building_bridge_A.gltf",
+            "res://assets/third_party/kaykit_medieval_hexagon/terrain/roads/hex_road_A.gltf",
+            "res://assets/third_party/kaykit_medieval_hexagon/terrain/rivers/hex_river_A.gltf",
+            "res://assets/third_party/kaykit_medieval_hexagon/terrain/rivers/hex_river_crossing_A.gltf",
+            "res://assets/third_party/kaykit_medieval_hexagon/terrain/elevation/hex_grass_sloped_high.gltf",
+        ],
+        "landmark_types": ["chapel", "hamlet", "bridge", "road", "river", "elevated_ridge"],
         "asset_backed": true,
-        "rendering": "MultiMesh terrain + PackedScene nature",
+        "rendering": "MultiMesh terrain + PackedScene nature/landmarks/routes",
         "terrain_instances": TILE_COLUMNS * TILE_ROWS,
         "tree_instances": FOREST_CLUSTER_CENTERS.size() * TREES_PER_CLUSTER,
         "rock_instances": ROCK_CLUSTER_CENTERS.size() * ROCKS_PER_CLUSTER,
         "nature_clusters": FOREST_CLUSTER_CENTERS.size() + ROCK_CLUSTER_CENTERS.size(),
         "spawn_area_forest_clusters": 4,
         "spawn_area_rock_clusters": 2,
+        "road_instances": ROAD_GAMEPLAY_POINTS.size(),
+        "river_instances": RIVER_GAMEPLAY_POINTS.size(),
+        "building_instances": HAMLET_GAMEPLAY_POINTS.size() + 2,
+        "elevation_instances": RIDGE_GAMEPLAY_POINTS.size(),
+        "wayfinding_landmarks": WAYFINDING_LANDMARK_CENTERS.size(),
+        "wayfinding_landmark_centers_gameplay": WAYFINDING_LANDMARK_CENTERS,
+        "spawn_area_wayfinding_landmarks": 3,
+        "route_pattern": "crossroads_river_ford",
+        "clear_corridor_width_gameplay": CLEAR_CORRIDOR_WIDTH_GAMEPLAY,
+        "river_crossing_passable_visual": true,
         "world_size_gameplay": WORLD_BOUNDS_GAMEPLAY.size,
         "world_size_meters": WorldProjection25D.gameplay_size_to_world(WORLD_BOUNDS_GAMEPLAY.size),
         "camera_projection": "orthogonal_3d",
         "camera_sync_source": "CombatCamera",
-        "depth_cues": ["height", "cast_shadows", "camera-relative parallax", "cluster silhouette"],
+        "depth_cues": [
+            "height", "cast_shadows", "camera-relative parallax", "cluster silhouette",
+            "architectural scale", "elevation break",
+        ],
         "authoritative_gameplay": false,
     }
 
@@ -127,7 +203,7 @@ func _build_nature_landmarks() -> void:
             tree.rotation.y = angle * 0.61
             var scale_variation := 1.55 + float((tree_index + cluster_index * 2) % 5) * 0.12
             tree.scale = Vector3.ONE * scale_variation
-            _configure_nature_geometry(tree)
+            _configure_geometry(tree, NATURE_VISIBILITY_RANGE)
             nature_root.add_child(tree)
 
     for cluster_index in range(ROCK_CLUSTER_CENTERS.size()):
@@ -142,17 +218,108 @@ func _build_nature_landmarks() -> void:
             rock.rotation.y = angle
             var scale_variation := 4.4 + float((rock_index + cluster_index) % 4) * 0.55
             rock.scale = Vector3.ONE * scale_variation
-            _configure_nature_geometry(rock)
+            _configure_geometry(rock, NATURE_VISIBILITY_RANGE)
             nature_root.add_child(rock)
 
-func _configure_nature_geometry(node: Node) -> void:
+func _build_wayfinding_landmarks() -> void:
+    var landmark_root := Node3D.new()
+    landmark_root.name = "KayKitWayfindingLandmarks"
+    add_child(landmark_root)
+
+    for road_index in range(ROAD_GAMEPLAY_POINTS.size()):
+        _spawn_landmark_scene(
+            ROAD_SCENE,
+            "Crossroad_%02d" % road_index,
+            ROAD_GAMEPLAY_POINTS[road_index],
+            0.025,
+            1.0,
+            0.0,
+            landmark_root
+        )
+
+    for river_index in range(RIVER_GAMEPLAY_POINTS.size()):
+        var gameplay_position: Vector2 = RIVER_GAMEPLAY_POINTS[river_index]
+        var river_scene := RIVER_CROSSING_SCENE if gameplay_position == Vector2.ZERO else RIVER_SCENE
+        _spawn_landmark_scene(
+            river_scene,
+            "River_%02d" % river_index,
+            gameplay_position,
+            0.03,
+            1.0,
+            PI * 0.5,
+            landmark_root
+        )
+
+    _spawn_landmark_scene(
+        BRIDGE_SCENE,
+        "CentralStoneBridge",
+        BRIDGE_GAMEPLAY_POSITION,
+        0.075,
+        1.35,
+        PI * 0.5,
+        landmark_root
+    )
+    _spawn_landmark_scene(
+        CHURCH_SCENE,
+        "MoonChapel",
+        CHAPEL_GAMEPLAY_POSITION,
+        0.04,
+        1.65,
+        0.28,
+        landmark_root
+    )
+
+    for home_index in range(HAMLET_GAMEPLAY_POINTS.size()):
+        _spawn_landmark_scene(
+            HOME_SCENE,
+            "EastHamletHome_%02d" % home_index,
+            HAMLET_GAMEPLAY_POINTS[home_index],
+            0.04,
+            1.45 + float(home_index) * 0.08,
+            -0.32 + float(home_index) * 0.29,
+            landmark_root
+        )
+
+    for ridge_index in range(RIDGE_GAMEPLAY_POINTS.size()):
+        _spawn_landmark_scene(
+            SLOPED_GRASS_SCENE,
+            "NorthRidge_%02d" % ridge_index,
+            RIDGE_GAMEPLAY_POINTS[ridge_index],
+            0.015,
+            1.2,
+            PI if ridge_index % 2 == 1 else 0.0,
+            landmark_root
+        )
+
+func _spawn_landmark_scene(
+    scene: PackedScene,
+    node_name: String,
+    gameplay_position: Vector2,
+    elevation: float,
+    uniform_scale: float,
+    rotation_y: float,
+    parent: Node3D
+) -> Node3D:
+    var instance := scene.instantiate() as Node3D
+    if instance == null:
+        push_error("MedievalField25D could not instantiate landmark %s" % node_name)
+        return null
+    instance.name = node_name
+    instance.position = WorldProjection25D.gameplay_to_world3d(gameplay_position, elevation)
+    instance.rotation.y = rotation_y
+    instance.scale = Vector3.ONE * uniform_scale
+    _configure_geometry(instance, LANDMARK_VISIBILITY_RANGE)
+    parent.add_child(instance)
+    return instance
+
+func _configure_geometry(node: Node, visibility_range: float) -> void:
     if node is GeometryInstance3D:
         var geometry := node as GeometryInstance3D
         geometry.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
-        geometry.visibility_range_end = NATURE_VISIBILITY_RANGE
+        geometry.visibility_range_end = visibility_range
         geometry.visibility_range_end_margin = 8.0
     for child in node.get_children():
-        _configure_nature_geometry(child)
+        _configure_geometry(child, visibility_range)
 
 func _build_environment() -> void:
     var environment := Environment.new()
