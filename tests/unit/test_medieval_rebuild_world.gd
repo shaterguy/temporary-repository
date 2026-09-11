@@ -64,6 +64,23 @@ static func run() -> Array[String]:
             failures.append("R04 medieval field is not using the admitted KayKit terrain asset")
         if int(spec.get("terrain_instances", 0)) < 2000:
             failures.append("R04 terrain coverage is too small for the mapped world")
+        var nature_paths: Array = spec.get("nature_asset_paths", [])
+        if nature_paths.size() < 2:
+            failures.append("R04 nature layer does not expose multiple admitted KayKit assets")
+        if not nature_paths.has("res://assets/third_party/kaykit_medieval_hexagon/nature/tree_single_A.gltf"):
+            failures.append("R04 KayKit tree asset is not in the presentation contract")
+        if not nature_paths.has("res://assets/third_party/kaykit_medieval_hexagon/nature/rock_single_A.gltf"):
+            failures.append("R04 KayKit rock asset is not in the presentation contract")
+        if int(spec.get("tree_instances", 0)) < 72:
+            failures.append("R04 forest depth layer is too sparse")
+        if int(spec.get("rock_instances", 0)) < 24:
+            failures.append("R04 rock depth layer is too sparse")
+        if int(spec.get("nature_clusters", 0)) < 14:
+            failures.append("R04 nature landmarks do not cover enough of the multi-screen world")
+        var depth_cues: Array = spec.get("depth_cues", [])
+        for cue in ["height", "cast_shadows", "camera-relative parallax", "cluster silhouette"]:
+            if not depth_cues.has(cue):
+                failures.append("R04 missing 2.5D depth cue: %s" % cue)
         if bool(spec.get("authoritative_gameplay", true)):
             failures.append("R04 visual 3D layer incorrectly became gameplay-authoritative")
     shell.free()
