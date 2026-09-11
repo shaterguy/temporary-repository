@@ -55,16 +55,12 @@ jobs:
             'https://opengameart.org/sites/default/files/RPGsounds_Kenney.zip' \
             --output "$tmp/rpg.zip"
           curl --fail --location --proto '=https' --tlsv1.2 \
-            'https://opengameart.org/sites/default/files/Digital_SFX_Set.zip' \
-            --output "$tmp/digital.zip"
-          curl --fail --location --proto '=https' --tlsv1.2 \
             'https://opengameart.org/sites/default/files/kenney_interfaceSounds.zip' \
             --output "$tmp/interface.zip"
           test -s "$tmp/exploration.mp3"
           test -s "$tmp/battle.mp3"
           test -s "$tmp/forest_ambience.mp3"
           test -s "$tmp/rpg.zip"
-          test -s "$tmp/digital.zip"
           test -s "$tmp/interface.zip"
           sha256sum "$tmp"/* | tee "$tmp/upstream-sha256.txt"
 
@@ -74,7 +70,6 @@ jobs:
           set -euo pipefail
           tmp="$(cat /tmp/w07_audio_tmp)"
           unzip -q "$tmp/rpg.zip" -d "$tmp/rpg"
-          unzip -q "$tmp/digital.zip" -d "$tmp/digital"
           unzip -q "$tmp/interface.zip" -d "$tmp/interface"
 
           root='assets/third_party/audio/w07'
@@ -84,13 +79,12 @@ jobs:
           cp "$tmp/battle.mp3" "$root/music/medieval_battle.mp3"
           cp "$tmp/forest_ambience.mp3" "$root/ambience/forest_ambience.mp3"
 
-          mapfile -t weapon_files < <(find "$tmp/digital" -type f \( -iname '*.wav' -o -iname '*.ogg' \) -print | sort | sed -n '1,18p')
-          echo "W07_DIGITAL_SOURCE_COUNT=$(find "$tmp/digital" -type f \( -iname '*.wav' -o -iname '*.ogg' \) | wc -l)"
+          mapfile -t weapon_files < <(find "$tmp/rpg" -type f -iname '*.ogg' -print | sort | grep -Ev '/(metalPot1|chop)\.ogg$' | sed -n '1,18p')
+          echo "W07_RPG_SOURCE_COUNT=$(find "$tmp/rpg" -type f -iname '*.ogg' | wc -l)"
           test "${#weapon_files[@]}" -eq 18
           index=1
           for src in "${weapon_files[@]}"; do
-            ext="${src##*.}"
-            printf -v target 'weapon_%02d.%s' "$index" "${ext,,}"
+            printf -v target 'weapon_%02d.ogg' "$index"
             cp "$src" "$root/weapons/$target"
             index=$((index + 1))
           done
@@ -130,7 +124,6 @@ jobs:
           battle_sha="$(sha256sum "$tmp/battle.mp3" | cut -d' ' -f1)"
           ambience_sha="$(sha256sum "$tmp/forest_ambience.mp3" | cut -d' ' -f1)"
           rpg_sha="$(sha256sum "$tmp/rpg.zip" | cut -d' ' -f1)"
-          digital_sha="$(sha256sum "$tmp/digital.zip" | cut -d' ' -f1)"
           interface_sha="$(sha256sum "$tmp/interface.zip" | cut -d' ' -f1)"
           cat > assets/licenses/W07_CC0_AUDIO.md <<EOF
           # W07 External Production Audio Provenance
@@ -156,16 +149,11 @@ jobs:
             - Upstream SHA-256: \`$ambience_sha\`
 
           ## Combat and UI sound packs
-          - Kenney — “50 RPG sound effects” — CC0; 50 OGG fantasy/RPG sounds.
+          - Kenney — “50 RPG sound effects” — CC0; 50 OGG fantasy/RPG/adventure sounds.
             - Source page: https://opengameart.org/content/50-rpg-sound-effects
             - Imported archive: https://opengameart.org/sites/default/files/RPGsounds_Kenney.zip
             - Upstream SHA-256: \`$rpg_sha\`
-            - Runtime selection: \`metalPot1.ogg\` for hit and \`chop.ogg\` for death.
-          - Kenney — “63 Digital sound effects” — CC0; recorded hardware-synth laser/phaser/zap/power sounds.
-            - Source page: https://opengameart.org/content/63-digital-sound-effects-lasers-phasers-space-etc
-            - Imported archive: https://opengameart.org/sites/default/files/Digital_SFX_Set.zip
-            - Upstream SHA-256: \`$digital_sha\`
-            - Runtime selection: first 18 sorted WAV/OGG files, renamed \`weapon_01\`…\`weapon_18\` without resynthesis.
+            - Runtime selection: 18 distinct sorted OGG files for weapon cues, excluding the dedicated hit/death files; \`metalPot1.ogg\` for hit and \`chop.ogg\` for death.
           - Kenney — “Interface Sounds” — CC0; normalized OGG UI sounds.
             - Source page: https://opengameart.org/content/interface-sounds
             - Imported archive: https://opengameart.org/sites/default/files/kenney_interfaceSounds.zip
