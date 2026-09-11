@@ -30,8 +30,9 @@ func _capture() -> void:
         await process_frame
 
     field.set_gameplay_focus(Vector2(240.0, -10.0))
+    combat.set_process(false)
     combat.configure_showcase()
-    for _frame in range(3):
+    for _frame in range(2):
         await process_frame
 
     var output_dir_absolute := ProjectSettings.globalize_path(OUTPUT_DIR)
