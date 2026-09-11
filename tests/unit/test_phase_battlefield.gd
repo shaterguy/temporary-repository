@@ -67,7 +67,8 @@ static func run() -> Array[String]:
     movement.request_transition(valid_position, 0, false, false)
     if movement.resolve_player_position(from_position, through_material_wall) != through_material_wall:
         failures.append("shadow collision mask did not expose the alternate same-coordinate path")
-    if movement.resolve_player_position(from_position, Vector2(20.0, 340.0)) != from_position:
+    var outside_world := Vector2(PhaseBattlefieldModelScript.WORLD_BOUNDS.position.x - 1.0, from_position.y)
+    if movement.resolve_player_position(from_position, outside_world) != from_position:
         failures.append("phase movement allowed escape through the map edge")
 
     var traveling_ark = ArkRouteModelScript.new()
