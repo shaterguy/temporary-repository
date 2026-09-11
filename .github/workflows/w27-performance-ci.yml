@@ -5,6 +5,7 @@ on:
     branches:
       - 'v*-dev*'
       - 'v*-rc*'
+      - 'work/sr-20260911-medieval-rebuild'
     paths:
       - 'game/combat/enemy_pool.gd'
       - 'game/combat/spatial_hash.gd'
