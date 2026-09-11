@@ -76,14 +76,14 @@ func _run() -> void:
         _expect(int(hub_ui.get("status_font_size", 0)) >= 20, "W08 real HUB status text is too small")
         _expect(int(hub_ui.get("button_font_size", 0)) >= 22, "W08 real HUB choice text is too small")
         _expect(bool(hub_ui.get("dimmer_blocks_input", false)), "W08 real HUB dimmer does not block touch leakage")
-    _save_capture("%s/hub-menu.png" % OUTPUT_DIR)
+    await _save_capture("%s/hub-menu.png" % OUTPUT_DIR)
 
     _expect(bool(shell.call("select_world_choice", 0)), "W08 real HUB choice could not begin an expedition")
     await get_tree().process_frame
     await get_tree().physics_frame
     await get_tree().process_frame
     _expect(str(shell.get("shell_mode")) == "EXPEDITION", "W08 real HUB choice did not enter EXPEDITION")
-    _save_capture("%s/expedition-start.png" % OUTPUT_DIR)
+    await _save_capture("%s/expedition-start.png" % OUTPUT_DIR)
 
     combat = shell.get("combat_preview") as Node2D
     var camera: Camera2D = null
@@ -140,12 +140,12 @@ func _run() -> void:
             max_camera_error = maxf(max_camera_error, camera.global_position.distance_to(combat.global_position))
 
         if not mid_saved and reached_distance >= MID_TRAVEL_DISTANCE:
-            _save_capture("%s/travel-mid.png" % OUTPUT_DIR)
+            await _save_capture("%s/travel-mid.png" % OUTPUT_DIR)
             mid_saved = true
 
         if not _first_weapon_action.is_empty():
             if combat_stage == 0:
-                _save_capture("%s/combat-trigger.png" % OUTPUT_DIR)
+                await _save_capture("%s/combat-trigger.png" % OUTPUT_DIR)
                 combat_audio_paths = _collect_combat_audio_paths(audio)
                 combat_stage = 1
                 combat_stage_frames = 0
@@ -157,11 +157,11 @@ func _run() -> void:
                 var active_effects := int(stage_snapshot.get("active_effects", 0))
                 var visible_impact_cues := int(stage_snapshot.get("visible_impact_cues", 0))
                 if combat_stage == 1 and combat_stage_frames >= 1 and active_effects > 0 and visible_impact_cues == 0:
-                    _save_capture("%s/combat-travel.png" % OUTPUT_DIR)
+                    await _save_capture("%s/combat-travel.png" % OUTPUT_DIR)
                     combat_stage = 2
                     combat_stage_frames = 0
                 elif combat_stage == 2 and visible_impact_cues > 0:
-                    _save_capture("%s/combat-impact.png" % OUTPUT_DIR)
+                    await _save_capture("%s/combat-impact.png" % OUTPUT_DIR)
                     combat_stage = 3
                     combat_stage_frames = 0
 
@@ -194,7 +194,7 @@ func _run() -> void:
     _expect(weapon_audio_found, "W08 natural combat action did not route an external weapon SFX")
     _expect(hit_audio_found, "W08 natural combat action did not route the external hit SFX")
 
-    _save_capture("%s/travel-far.png" % OUTPUT_DIR)
+    await _save_capture("%s/travel-far.png" % OUTPUT_DIR)
     var end_position: Vector2 = combat.global_position if is_instance_valid(combat) else start_position
     var end_camera: Vector2 = camera.global_position if camera != null else start_camera
     _assert_screenshot_set()
@@ -302,6 +302,7 @@ func _collect_combat_audio_paths(audio: Node) -> Array[String]:
 
 
 func _save_capture(path: String) -> bool:
+    await RenderingServer.frame_post_draw
     var image: Image = get_viewport().get_texture().get_image()
     if image == null or image.get_width() != EXPECTED_SIZE.x or image.get_height() != EXPECTED_SIZE.y:
         var actual := Vector2i.ZERO if image == null else Vector2i(image.get_width(), image.get_height())
