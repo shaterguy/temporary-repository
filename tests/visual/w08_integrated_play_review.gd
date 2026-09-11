@@ -116,6 +116,8 @@ func _run() -> void:
     _expect(overlay_movement.x > 0.70, "W08 real touch drag did not produce movement input")
     _expect(shell_movement.x > 0.70, "W08 real touch drag did not reach the shell bridge")
 
+    var combat_visuals := shell.get_node_or_null("WorldPresentation/SubViewport/MedievalCombatVisuals3D")
+    _expect(combat_visuals != null and combat_visuals.has_method("visual_debug_snapshot"), "W08 real combat visual state is unavailable")
     var mid_saved := false
     var combat_stage := 0
     var combat_stage_frames := 0
@@ -149,11 +151,16 @@ func _run() -> void:
                 combat_stage_frames = 0
             else:
                 combat_stage_frames += 1
-                if combat_stage == 1 and combat_stage_frames >= 10:
+                var stage_snapshot: Dictionary = {}
+                if combat_visuals != null and combat_visuals.has_method("visual_debug_snapshot"):
+                    stage_snapshot = combat_visuals.call("visual_debug_snapshot")
+                var active_effects := int(stage_snapshot.get("active_effects", 0))
+                var visible_impact_cues := int(stage_snapshot.get("visible_impact_cues", 0))
+                if combat_stage == 1 and combat_stage_frames >= 1 and active_effects > 0 and visible_impact_cues == 0:
                     _save_capture("%s/combat-travel.png" % OUTPUT_DIR)
                     combat_stage = 2
                     combat_stage_frames = 0
-                elif combat_stage == 2 and combat_stage_frames >= 12:
+                elif combat_stage == 2 and visible_impact_cues > 0:
                     _save_capture("%s/combat-impact.png" % OUTPUT_DIR)
                     combat_stage = 3
                     combat_stage_frames = 0
@@ -192,7 +199,6 @@ func _run() -> void:
     var end_camera: Vector2 = camera.global_position if camera != null else start_camera
     _assert_screenshot_set()
 
-    var combat_visuals := shell.get_node_or_null("WorldPresentation/SubViewport/MedievalCombatVisuals3D")
     var combat_visual_snapshot: Dictionary = {}
     if combat_visuals != null and combat_visuals.has_method("visual_debug_snapshot"):
         var raw_visual_snapshot: Dictionary = combat_visuals.call("visual_debug_snapshot")
@@ -229,6 +235,7 @@ func _run() -> void:
             "target_id": int(_first_weapon_action.get("target_id", -1)),
             "damage": int(_first_weapon_action.get("damage", 0)),
         },
+        "combat_capture_mode": "runtime_visual_state",
         "combat_visual_snapshot": combat_visual_snapshot,
         "combat_audio_paths": combat_audio_paths,
         "audio_runtime": {
