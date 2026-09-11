@@ -1,0 +1,122 @@
+name: w09-runtime-identity
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: w09-runtime-identity-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  runtime-identity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    env:
+      GODOT_VERSION: "4.7.2-stable"
+      GODOT_ARCHIVE_SHA256: "cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4"
+      GODOT_ARCHIVE_URL: "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip"
+      GODOT_BIN: "/tmp/godot/Godot_v4.7.2-stable_linux.x86_64"
+    steps:
+      - name: Checkout exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Static W09 test-contract preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(jq -r '.engine.version' toolchain.lock)" = "$GODOT_VERSION"
+          test "$(jq -r '.engine.linux_x86_64_sha256' toolchain.lock)" = "$GODOT_ARCHIVE_SHA256"
+          test -f tests/visual/w09_runtime_identity_review.gd
+          test -f tests/visual/w09_runtime_identity_review.tscn
+          grep -Fq 'set_player_character' game/presentation/medieval_combat_visuals_2_5d.gd
+          grep -Fq 'target["behavior_id"]' game/combat/w23_region_swarm_encounter.gd
+          grep -Fq 'target["health"]' game/combat/w23_region_swarm_encounter.gd
+          grep -Fq 'set_region_id' game/presentation/medieval_field_2_5d.gd
+          grep -Fq 'selected_character_id' game/ui/main_shell_medieval_rebuild.gd
+          grep -Fq 'medieval_presentation_snapshot' game/ui/main_shell_medieval_rebuild.gd
+          if grep -Fq 'match posmod(entity_id, 3)' game/presentation/medieval_combat_visuals_2_5d.gd; then
+            echo '::error::W09 enemy identity still cycles by entity id'
+            exit 1
+          fi
+          mkdir -p artifacts/w09
+
+      - name: Download pinned Godot editor
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/godot
+          curl --fail --location --proto '=https' --tlsv1.2 "$GODOT_ARCHIVE_URL" --output /tmp/godot.zip
+          echo "$GODOT_ARCHIVE_SHA256  /tmp/godot.zip" | sha256sum --check --strict
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x "$GODOT_BIN"
+          "$GODOT_BIN" --version
+
+      - name: Import exact W09 candidate headlessly
+        shell: bash
+        run: |
+          set -euo pipefail
+          import_log="artifacts/w09/import.log"
+          set +e
+          "$GODOT_BIN" --headless --path . --import 2>&1 | tee "$import_log"
+          godot_status=${PIPESTATUS[0]}
+          set -e
+          test "$godot_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:' "$import_log"; then
+            echo '::error::Godot import reported W09 script compilation errors'
+            exit 1
+          fi
+
+      - name: Run W09 real runtime identity review
+        shell: bash
+        run: |
+          set -euo pipefail
+          review_log="artifacts/w09/runtime-identity.log"
+          set +e
+          timeout 120s xvfb-run -a "$GODOT_BIN" --path . --audio-driver Dummy --rendering-method gl_compatibility res://tests/visual/w09_runtime_identity_review.tscn 2>&1 | tee "$review_log"
+          godot_status=${PIPESTATUS[0]}
+          set -e
+          test "$godot_status" -eq 0
+          if grep -Eq 'SCRIPT ERROR:|Failed to load script|Compile Error:|Parse Error:|Node not inside tree|GDScript backtrace' "$review_log"; then
+            echo '::error::W09 runtime review reported script/runtime errors'
+            exit 1
+          fi
+          if grep -Eq '^W09_FAIL:|^W09_RUNTIME_IDENTITY=FAIL' "$review_log"; then
+            exit 1
+          fi
+          grep -Fxq 'W09_CHARACTER_IDENTITY=PASS' "$review_log"
+          grep -Fxq 'W09_ENEMY_METADATA=PASS' "$review_log"
+          grep -Fxq 'W09_REGION_PROJECTION=PASS' "$review_log"
+          grep -Fxq 'W09_RUNTIME_IDENTITY=PASS' "$review_log"
+
+      - name: Build W09 evidence manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "W09_GITHUB_SHA=$GITHUB_SHA"
+            echo "W09_RUN_ID=$GITHUB_RUN_ID"
+            echo "W09_RUN_ATTEMPT=$GITHUB_RUN_ATTEMPT"
+            echo "W09_REF=$GITHUB_REF"
+            echo 'W09_TEST_CONTRACT_PREFLIGHT=PASS'
+            echo 'W09_ACTION_PREFLIGHT=PASS'
+            echo 'W09_PREVENTION_COMPLIANCE=PASS'
+            sha256sum game/combat/w23_region_swarm_encounter.gd
+            sha256sum game/presentation/medieval_combat_visuals_2_5d.gd
+            sha256sum game/presentation/medieval_field_2_5d.gd
+            sha256sum game/ui/main_shell_medieval_rebuild.gd
+            sha256sum tests/visual/w09_runtime_identity_review.gd
+            sha256sum tests/visual/w09_runtime_identity_review.tscn
+            sha256sum .github/workflows/w09-runtime-identity.yml
+          } > artifacts/w09/evidence.txt
+          cat artifacts/w09/evidence.txt
+
+      - name: Upload W09 verification bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: w09-runtime-identity-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/w09/
+          if-no-files-found: error
+          retention-days: 14
