@@ -1,10 +1,12 @@
 extends RefCounted
 
+const MedievalWorldLayoutScript = preload("res://game/world/medieval_world_layout.gd")
+
 const SNAPSHOT_SCHEMA: String = "phase-battlefield-v1"
 const PHASE_MATERIAL: String = "material"
 const PHASE_SHADOW: String = "shadow"
 const SWITCH_COOLDOWN_SECONDS: float = 4.0
-const WORLD_BOUNDS: Rect2 = Rect2(-3456.0, -2712.0, 6912.0, 5424.0)
+const WORLD_BOUNDS: Rect2 = MedievalWorldLayoutScript.WORLD_BOUNDS
 const MATERIAL_BLOCKERS := [
     Rect2(500.0, 250.0, 120.0, 220.0),
     Rect2(860.0, 390.0, 170.0, 80.0),
@@ -118,23 +120,50 @@ func is_position_walkable(phase_id: String, world_position: Vector2) -> bool:
 
 
 func resolve_player_position(from_position: Vector2, proposed_position: Vector2) -> Vector2:
-    if from_position.is_equal_approx(proposed_position):
-        return proposed_position
-    if not WORLD_BOUNDS.has_point(proposed_position):
-        return from_position
-    for blocker_value in blocker_rects(current_phase):
-        var blocker: Rect2 = blocker_value
-        if blocker.has_point(proposed_position) or _segment_intersects_rect(from_position, proposed_position, blocker):
-            return from_position
-    return proposed_position
+    return _resolve_actor_position(from_position, proposed_position)
+
+
+func resolve_enemy_position(from_position: Vector2, proposed_position: Vector2) -> Vector2:
+    return _resolve_actor_position(from_position, proposed_position)
+
+
+func is_spawn_position_allowed(world_position: Vector2) -> bool:
+    return (
+        MedievalWorldLayoutScript.is_spawn_position_allowed(world_position)
+        and _occupancy_rejection(current_phase, world_position).is_empty()
+    )
+
+
+func resolve_spawn_position(candidate: Vector2, origin: Vector2) -> Vector2:
+    var resolved: Vector2 = MedievalWorldLayoutScript.resolve_spawn_position(candidate, origin)
+    if is_spawn_position_allowed(resolved):
+        return resolved
+
+    var radial := candidate - origin
+    if radial.is_zero_approx():
+        radial = Vector2.RIGHT
+    var base_radius := maxf(360.0, radial.length())
+    var base_angle := radial.angle()
+    for ring_index in range(5):
+        var radius := base_radius + float(ring_index) * 84.0
+        for angle_index in range(24):
+            var angle := base_angle + float(angle_index) * TAU / 24.0
+            var probe := MedievalWorldLayoutScript.clamp_to_world(
+                origin + Vector2.RIGHT.rotated(angle) * radius,
+                MedievalWorldLayoutScript.WORLD_EDGE_MARGIN
+            )
+            if is_spawn_position_allowed(probe):
+                return probe
+    return resolved
 
 
 func blocker_rects(phase_id: String) -> Array:
+    var result: Array = MedievalWorldLayoutScript.shared_blocker_rects()
     if phase_id == PHASE_MATERIAL:
-        return MATERIAL_BLOCKERS.duplicate()
-    if phase_id == PHASE_SHADOW:
-        return SHADOW_BLOCKERS.duplicate()
-    return []
+        result.append_array(MATERIAL_BLOCKERS)
+    elif phase_id == PHASE_SHADOW:
+        result.append_array(SHADOW_BLOCKERS)
+    return result
 
 
 func cover_rects(phase_id: String) -> Array:
@@ -191,6 +220,18 @@ func restore_snapshot(snapshot_state: Dictionary) -> bool:
     last_rejection_reason = ""
     last_preview_threat_count = 0
     return true
+
+
+func _resolve_actor_position(from_position: Vector2, proposed_position: Vector2) -> Vector2:
+    if from_position.is_equal_approx(proposed_position):
+        return proposed_position
+    if not WORLD_BOUNDS.has_point(proposed_position):
+        return from_position
+    for blocker_value in blocker_rects(current_phase):
+        var blocker: Rect2 = blocker_value
+        if blocker.has_point(proposed_position) or _segment_intersects_rect(from_position, proposed_position, blocker):
+            return from_position
+    return proposed_position
 
 
 func _rejected_transition(world_position: Vector2, immediate_threat_count: int) -> Dictionary:

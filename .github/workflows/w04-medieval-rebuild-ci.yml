@@ -37,7 +37,10 @@ jobs:
           test -s assets/third_party/kaykit_medieval_hexagon/nature/tree_single_A.bin
           test -s assets/third_party/kaykit_medieval_hexagon/nature/rock_single_A.gltf
           test -s assets/third_party/kaykit_medieval_hexagon/nature/rock_single_A.bin
-          grep -Fq 'TEST_CONTRACT=r04-medieval-rebuild-field-v1' tests/ci/test_main.gd
+          test -f game/world/medieval_world_layout.gd
+          grep -Fq 'TEST_CONTRACT=r04-medieval-rebuild-field-v2' tests/ci/test_main.gd
+          grep -Fq 'MedievalWorldLayoutScript.WORLD_BOUNDS' game/world/phase_battlefield_model.gd
+          grep -Fq 'resolve_spawn_position' game/world/phase_battlefield_model.gd
           grep -Fq 'tree_instances' tests/unit/test_medieval_rebuild_world.gd
           grep -Fq 'rock_instances' tests/unit/test_medieval_rebuild_world.gd
           test -f tests/visual/capture_w04_medieval_field.gd
@@ -86,7 +89,7 @@ jobs:
             echo "::error::W04 fast-test runner reported a failure"
             exit 1
           fi
-          grep -Fxq 'TEST_CONTRACT=r04-medieval-rebuild-field-v1' "$test_log"
+          grep -Fxq 'TEST_CONTRACT=r04-medieval-rebuild-field-v2' "$test_log"
           grep -Fxq 'SUITES=19' "$test_log"
           grep -Fxq 'RESULT=PASS' "$test_log"
 
