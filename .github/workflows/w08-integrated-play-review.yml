@@ -5,6 +5,11 @@ on:
     branches:
       - 'work/sr-20260911-medieval-rebuild'
     paths:
+      - 'game/**'
+      - 'project.godot'
+      - 'toolchain.lock'
+      - 'assets/third_party/audio/w07/**'
+      - 'assets/licenses/W07_CC0_AUDIO.md'
       - 'tests/visual/w08_integrated_play_review.gd'
       - 'tests/visual/w08_integrated_play_review.tscn'
       - 'docs/verification/W08_INTEGRATED_PLAY_REVIEW.md'
