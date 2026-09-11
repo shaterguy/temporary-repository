@@ -58,6 +58,8 @@ jobs:
           grep -Fq 'record_weapon_action' game/ui/main_shell_medieval_rebuild.gd
           grep -Fq 'causal_stages' game/presentation/medieval_combat_visuals_2_5d.gd
           grep -Fq 'trigger", "travel", "impact", "damage", "death' game/presentation/medieval_combat_visuals_2_5d.gd
+          grep -Fq 'readability_cues' game/presentation/medieval_combat_visuals_2_5d.gd
+          grep -Fq 'visible_death_cues' game/presentation/medieval_combat_visuals_2_5d.gd
 
       - name: Download pinned Godot editor
         shell: bash
@@ -99,11 +101,17 @@ jobs:
             echo "::error::W05 contract reported script/runtime errors"
             exit 1
           fi
-          grep -Fxq 'W05_CONTRACT=r05-combat-visuals-v1' "$test_log"
+          grep -Fxq 'W05_CONTRACT=r05-combat-visuals-v2' "$test_log"
           grep -Fxq 'W05_ASSET_SCENES=9' "$test_log"
           grep -Fxq 'W05_ENEMY_VARIANTS=3' "$test_log"
           grep -Fxq 'W05_WEAPON_DELIVERIES=6' "$test_log"
           grep -Fxq 'W05_CAUSAL_STAGES=5' "$test_log"
+          grep -Fxq 'W05_READABILITY_CUES=6' "$test_log"
+          grep -Fxq 'W05_IMPACT_CUES=3' "$test_log"
+          grep -Fxq 'W05_DAMAGE_CUES=3' "$test_log"
+          grep -Fxq 'W05_DEATH_CUES=1' "$test_log"
+          grep -Fxq 'W05_CHAIN_CUES=1' "$test_log"
+          grep -Fxq 'W05_AREA_CUES=1' "$test_log"
           grep -Fxq 'W05_COMBAT_VISUALS=PASS' "$test_log"
 
       - name: Render causal combat sequence
@@ -125,6 +133,11 @@ jobs:
           grep -Fxq 'W05_RENDER_SIZE=1280x720' "$render_log"
           grep -Fxq 'W05_RENDER_FRAMES=3' "$render_log"
           grep -Fxq 'W05_RENDER_HASHES_DISTINCT=PASS' "$render_log"
+          grep -Fxq 'W05_RENDER_VISIBLE_IMPACT_CUES=3' "$render_log"
+          grep -Fxq 'W05_RENDER_VISIBLE_DAMAGE_CUES=3' "$render_log"
+          grep -Fxq 'W05_RENDER_VISIBLE_DEATH_CUES=1' "$render_log"
+          grep -Fxq 'W05_RENDER_VISIBLE_CHAIN_CUES=1' "$render_log"
+          grep -Fxq 'W05_RENDER_VISIBLE_AREA_CUES=1' "$render_log"
           test -s artifacts/w05/combat-trigger.png
           test -s artifacts/w05/combat-travel.png
           test -s artifacts/w05/combat-impact.png

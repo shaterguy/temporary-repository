@@ -54,9 +54,30 @@ func _capture() -> void:
     combat.debug_step_effects(0.24)
     for _frame in range(2):
         await process_frame
+    var impact_snapshot: Dictionary = combat.visual_debug_snapshot()
+    if int(impact_snapshot.get("visible_impact_cues", 0)) < 3:
+        printerr("W05_RENDER=FAIL_IMPACT_CUES")
+        quit(5)
+        return
+    if int(impact_snapshot.get("visible_damage_cues", 0)) < 3:
+        printerr("W05_RENDER=FAIL_DAMAGE_CUES")
+        quit(6)
+        return
+    if int(impact_snapshot.get("visible_death_cues", 0)) < 1:
+        printerr("W05_RENDER=FAIL_DEATH_CUE")
+        quit(7)
+        return
+    if int(impact_snapshot.get("visible_chain_cues", 0)) < 1:
+        printerr("W05_RENDER=FAIL_CHAIN_CUE")
+        quit(8)
+        return
+    if int(impact_snapshot.get("visible_area_cues", 0)) < 1:
+        printerr("W05_RENDER=FAIL_AREA_CUE")
+        quit(9)
+        return
     if not _save_frame(IMPACT_OUTPUT):
         printerr("W05_RENDER=FAIL_IMPACT")
-        quit(5)
+        quit(10)
         return
 
     var hashes := [
@@ -69,7 +90,7 @@ func _capture() -> void:
         unique_hashes[hash_value] = true
     if unique_hashes.size() != 3:
         printerr("W05_RENDER=FAIL_HASH_COLLISION")
-        quit(6)
+        quit(11)
         return
 
     var snapshot: Dictionary = combat.visual_debug_snapshot()
@@ -78,6 +99,11 @@ func _capture() -> void:
     print("W05_RENDER_FRAMES=3")
     print("W05_RENDER_HASHES_DISTINCT=PASS")
     print("W05_RENDER_ENEMIES=%d" % int(snapshot.get("enemy_visual_count", 0)))
+    print("W05_RENDER_VISIBLE_IMPACT_CUES=%d" % int(impact_snapshot.get("visible_impact_cues", 0)))
+    print("W05_RENDER_VISIBLE_DAMAGE_CUES=%d" % int(impact_snapshot.get("visible_damage_cues", 0)))
+    print("W05_RENDER_VISIBLE_DEATH_CUES=%d" % int(impact_snapshot.get("visible_death_cues", 0)))
+    print("W05_RENDER_VISIBLE_CHAIN_CUES=%d" % int(impact_snapshot.get("visible_chain_cues", 0)))
+    print("W05_RENDER_VISIBLE_AREA_CUES=%d" % int(impact_snapshot.get("visible_area_cues", 0)))
     print("W05_TRIGGER_SHA256=%s" % hashes[0])
     print("W05_TRAVEL_SHA256=%s" % hashes[1])
     print("W05_IMPACT_SHA256=%s" % hashes[2])

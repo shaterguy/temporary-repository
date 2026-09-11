@@ -14,9 +14,12 @@ const DAGGER_SCENE: PackedScene = preload("res://assets/third_party/kaykit_adven
 const CROSSBOW_SCENE: PackedScene = preload("res://assets/third_party/kaykit_adventurers/weapons/crossbow_1handed.gltf")
 const ARROW_SCENE: PackedScene = preload("res://assets/third_party/kaykit_adventurers/weapons/arrow.gltf")
 
-const TRAVEL_SECONDS: float = 0.38
-const EFFECT_SECONDS: float = 0.82
-const IMPACT_SECONDS: float = 0.18
+const TRAVEL_SECONDS: float = 0.40
+const EFFECT_SECONDS: float = 1.16
+const IMPACT_SECONDS: float = 0.44
+const DAMAGE_LABEL_SECONDS: float = 0.72
+const DEATH_CUE_SECONDS: float = 0.88
+const SECONDARY_CUE_SECONDS: float = 0.78
 const PLAYER_SCALE: float = 0.78
 const ENEMY_SCALE: float = 0.72
 const BOSS_SCALE: float = 1.05
@@ -161,6 +164,21 @@ func presentation_spec() -> Dictionary:
         },
         "projectile_asset": "res://assets/third_party/kaykit_adventurers/weapons/arrow.gltf",
         "causal_stages": ["trigger", "travel", "impact", "damage", "death"],
+        "readability_cues": [
+            "impact_burst",
+            "damage_number",
+            "hit_reaction",
+            "death_marker",
+            "chain_marker",
+            "area_marker",
+        ],
+        "effect_timing": {
+            "travel_seconds": TRAVEL_SECONDS,
+            "impact_seconds": IMPACT_SECONDS,
+            "damage_seconds": DAMAGE_LABEL_SECONDS,
+            "death_seconds": DEATH_CUE_SECONDS,
+            "secondary_seconds": SECONDARY_CUE_SECONDS,
+        },
         "supplemental_vfx_only": true,
     }
 
@@ -174,6 +192,12 @@ func visual_debug_snapshot() -> Dictionary:
         "active_effects": _effects.size(),
         "pending_targets": _pending_by_target.size(),
         "stages": presentation_spec().get("causal_stages", []).duplicate(),
+        "readability_cues": presentation_spec().get("readability_cues", []).duplicate(),
+        "visible_impact_cues": _count_visible_effect_nodes("impact"),
+        "visible_damage_cues": _count_visible_effect_nodes("damage_label"),
+        "visible_death_cues": _count_visible_effect_nodes("death_label"),
+        "visible_chain_cues": _count_visible_effect_nodes("chain_ring"),
+        "visible_area_cues": _count_visible_effect_nodes("area_ring"),
     }
 
 
@@ -183,7 +207,7 @@ func configure_showcase() -> void:
     _player_root.position = WorldProjection25DScript.gameplay_to_world3d(Vector2.ZERO, 0.03)
     _set_weapon_visual("ember_bolt", "lantern_bolt")
     var showcase_targets := [
-        {"id": 101, "position": Vector2(190.0, -55.0), "health": 48, "max_health": 48, "archetype": "swarm"},
+        {"id": 101, "position": Vector2(190.0, -55.0), "health": 18, "max_health": 48, "archetype": "swarm"},
         {"id": 102, "position": Vector2(365.0, 85.0), "health": 54, "max_health": 54, "archetype": "caster"},
         {"id": 103, "position": Vector2(510.0, -120.0), "health": 76, "max_health": 76, "archetype": "brute"},
     ]
@@ -198,6 +222,11 @@ func configure_showcase() -> void:
         {"type": "weapon_damage", "weapon_id": "arklight_arc", "delivery": "chain_arc", "trigger": "steady_fire", "transform": "ark_resonance", "cause_id": "showcase-chain", "chain_depth": 2, "damage": 14, "target_id": 102},
         Vector2.ZERO,
         Vector2(365.0, 85.0)
+    )
+    record_showcase_effect(
+        {"type": "weapon_damage", "weapon_id": "sunward_pulse", "delivery": "radiant_pulse", "trigger": "steady_fire", "transform": "ward_bloom", "cause_id": "showcase-area", "chain_depth": 1, "damage": 20, "target_id": 103},
+        Vector2.ZERO,
+        Vector2(510.0, -120.0)
     )
 
 
@@ -347,13 +376,47 @@ func _queue_effect(action: Dictionary, origin_2d: Vector2, target_2d: Vector2, s
     var trail := _create_trail(origin, target, color)
     var impact := _create_impact(target, color)
     impact.visible = false
-    var damage_label := _make_label("-%d" % maxi(1, int(action.get("damage", 1))), 42, 12)
-    damage_label.position = target + Vector3(0.0, 1.65, 0.0)
-    damage_label.modulate = color
+
+    var damage_label := _make_label("-%d  HIT" % maxi(1, int(action.get("damage", 1))), 62, 18)
+    damage_label.position = target + Vector3(0.0, 1.78, 0.0)
+    damage_label.modulate = Color(1.0, 0.96, 0.78, 1.0)
     damage_label.visible = false
     _effect_root.add_child(damage_label)
-    var trigger_label := _make_label("TRIGGER  %s" % str(action.get("weapon_id", "weapon")), 28, 8)
-    trigger_label.position = origin + Vector3(0.0, 1.05, 0.0)
+
+    var impact_label := _make_label("IMPACT", 34, 12)
+    impact_label.position = target + Vector3(0.0, 1.20, 0.0)
+    impact_label.modulate = color
+    impact_label.visible = false
+    _effect_root.add_child(impact_label)
+
+    var death_label := _make_label("DEFEATED", 48, 16)
+    death_label.position = target + Vector3(0.0, 2.48, 0.0)
+    death_label.modulate = Color(1.0, 0.34, 0.20, 1.0)
+    death_label.visible = false
+    _effect_root.add_child(death_label)
+
+    var chain_ring := _create_chain_ring(target, color) if delivery == "chain_arc" else null
+    if chain_ring != null:
+        chain_ring.visible = false
+    var chain_label := _make_label("CHAIN x%d" % maxi(2, int(action.get("chain_depth", 0))), 36, 12) if delivery == "chain_arc" else null
+    if chain_label != null:
+        chain_label.position = target + Vector3(0.0, 2.14, 0.0)
+        chain_label.modulate = color
+        chain_label.visible = false
+        _effect_root.add_child(chain_label)
+
+    var area_ring := _create_area_ring(target, color) if _is_area_delivery(delivery) else null
+    if area_ring != null:
+        area_ring.visible = false
+    var area_label := _make_label("AREA", 34, 12) if _is_area_delivery(delivery) else null
+    if area_label != null:
+        area_label.position = target + Vector3(0.0, 1.08, 0.0)
+        area_label.modulate = color
+        area_label.visible = false
+        _effect_root.add_child(area_label)
+
+    var trigger_label := _make_label("TRIGGER  %s" % str(action.get("weapon_id", "weapon")), 32, 10)
+    trigger_label.position = origin + Vector3(0.0, 1.10, 0.0)
     trigger_label.modulate = color
     _effect_root.add_child(trigger_label)
 
@@ -364,7 +427,13 @@ func _queue_effect(action: Dictionary, origin_2d: Vector2, target_2d: Vector2, s
         "projectile": projectile,
         "trail": trail,
         "impact": impact,
+        "impact_label": impact_label,
         "damage_label": damage_label,
+        "death_label": death_label,
+        "chain_ring": chain_ring,
+        "chain_label": chain_label,
+        "area_ring": area_ring,
+        "area_label": area_label,
         "trigger_label": trigger_label,
         "origin": origin,
         "target": target,
@@ -396,22 +465,55 @@ func _advance_effects(delta: float) -> void:
 
         var trigger_label := effect.get("trigger_label") as Label3D
         if is_instance_valid(trigger_label):
-            trigger_label.visible = age <= 0.20
+            trigger_label.visible = age <= 0.28
 
         if age >= travel and not bool(effect.get("hit_applied", false)):
             effect["hit_applied"] = true
             _apply_display_hit(effect)
         if bool(effect.get("hit_applied", false)):
-            var hit_age := age - travel
+            var hit_age := maxf(0.0, age - travel)
             var impact := effect.get("impact") as MeshInstance3D
             if is_instance_valid(impact):
                 impact.visible = hit_age <= IMPACT_SECONDS
-                var pulse := 1.0 + clampf(hit_age / IMPACT_SECONDS, 0.0, 1.0) * 2.5
+                var pulse := 1.0 + clampf(hit_age / IMPACT_SECONDS, 0.0, 1.0) * 4.2
                 impact.scale = Vector3.ONE * pulse
+
+            var impact_label := effect.get("impact_label") as Label3D
+            if is_instance_valid(impact_label):
+                impact_label.visible = hit_age <= 0.38
+                impact_label.position = target + Vector3(0.0, 1.20 + hit_age * 0.45, 0.0)
+
             var damage_label := effect.get("damage_label") as Label3D
             if is_instance_valid(damage_label):
-                damage_label.visible = hit_age <= 0.34
-                damage_label.position = target + Vector3(0.0, 1.65 + hit_age * 1.4, 0.0)
+                damage_label.visible = hit_age <= DAMAGE_LABEL_SECONDS
+                damage_label.position = target + Vector3(0.0, 1.78 + hit_age * 1.10, 0.0)
+
+            var death_label := effect.get("death_label") as Label3D
+            if is_instance_valid(death_label):
+                death_label.visible = int(effect.get("end_health", 1)) <= 0 and hit_age <= DEATH_CUE_SECONDS
+                death_label.position = target + Vector3(0.0, 2.48 + hit_age * 0.32, 0.0)
+
+            var chain_ring := effect.get("chain_ring") as MeshInstance3D
+            if is_instance_valid(chain_ring):
+                chain_ring.visible = hit_age <= SECONDARY_CUE_SECONDS
+                var chain_pulse := 0.80 + clampf(hit_age / SECONDARY_CUE_SECONDS, 0.0, 1.0) * 1.85
+                chain_ring.scale = Vector3.ONE * chain_pulse
+            var chain_label := effect.get("chain_label") as Label3D
+            if is_instance_valid(chain_label):
+                chain_label.visible = hit_age <= SECONDARY_CUE_SECONDS
+                chain_label.position = target + Vector3(0.0, 2.14 + hit_age * 0.48, 0.0)
+
+            var area_ring := effect.get("area_ring") as MeshInstance3D
+            if is_instance_valid(area_ring):
+                area_ring.visible = hit_age <= SECONDARY_CUE_SECONDS
+                var area_pulse := 0.90 + clampf(hit_age / SECONDARY_CUE_SECONDS, 0.0, 1.0) * 1.65
+                area_ring.scale = Vector3.ONE * area_pulse
+            var area_label := effect.get("area_label") as Label3D
+            if is_instance_valid(area_label):
+                area_label.visible = hit_age <= SECONDARY_CUE_SECONDS
+                area_label.position = target + Vector3(0.0, 1.08 + hit_age * 0.34, 0.0)
+
+            _animate_target_reaction(effect, hit_age)
 
         if age >= float(effect.get("duration", EFFECT_SECONDS)):
             _finish_effect(effect)
@@ -427,16 +529,34 @@ func _apply_display_hit(effect: Dictionary) -> void:
         return
     visual["display_health"] = maxi(0, int(effect.get("end_health", 0)))
     visual["dead_after_effect"] = int(visual.get("display_health", 0)) <= 0
-    var root_node := visual.get("root") as Node3D
-    if is_instance_valid(root_node):
-        var base_scale := float(visual.get("base_scale", ENEMY_SCALE))
-        root_node.scale = Vector3.ONE * base_scale * (0.55 if bool(visual.get("dead_after_effect", false)) else 1.12)
     _refresh_enemy_label(visual)
     _enemy_visuals[target_id] = visual
 
 
+func _animate_target_reaction(effect: Dictionary, hit_age: float) -> void:
+    var target_id := int(effect.get("target_id", -1))
+    var visual: Dictionary = _enemy_visuals.get(target_id, {})
+    if visual.is_empty():
+        return
+    var root_node := visual.get("root") as Node3D
+    if not is_instance_valid(root_node):
+        return
+    var base_scale := float(visual.get("base_scale", ENEMY_SCALE))
+    var direction := -1.0 if posmod(target_id, 2) == 0 else 1.0
+    if bool(visual.get("dead_after_effect", false)):
+        var death_progress := clampf(hit_age / DEATH_CUE_SECONDS, 0.0, 1.0)
+        root_node.scale = Vector3.ONE * base_scale * lerpf(1.08, 0.66, death_progress)
+        root_node.rotation.z = direction * lerpf(0.0, 0.92, death_progress)
+        root_node.rotation.x = lerpf(0.0, -0.24, death_progress)
+    else:
+        var kick := 1.0 - clampf(hit_age / 0.30, 0.0, 1.0)
+        root_node.scale = Vector3.ONE * base_scale * (1.0 + 0.20 * kick)
+        root_node.rotation.z = direction * 0.16 * kick
+        root_node.rotation.x = -0.08 * kick
+
+
 func _finish_effect(effect: Dictionary) -> void:
-    for key in ["projectile", "trail", "impact", "damage_label", "trigger_label"]:
+    for key in ["projectile", "trail", "impact", "impact_label", "damage_label", "death_label", "chain_ring", "chain_label", "area_ring", "area_label", "trigger_label"]:
         var node := effect.get(key) as Node
         if is_instance_valid(node):
             node.queue_free()
@@ -453,6 +573,8 @@ func _finish_effect(effect: Dictionary) -> void:
             var root_node := visual.get("root") as Node3D
             if is_instance_valid(root_node):
                 root_node.scale = Vector3.ONE * float(visual.get("base_scale", ENEMY_SCALE))
+                root_node.rotation.x = 0.0
+                root_node.rotation.z = 0.0
     else:
         _pending_by_target[target_id] = pending
 
@@ -486,14 +608,14 @@ func _create_projectile(delivery: String, origin: Vector3, target: Vector3) -> N
 func _create_trail(origin: Vector3, target: Vector3, color: Color) -> MeshInstance3D:
     var distance := origin.distance_to(target)
     var mesh := CylinderMesh.new()
-    mesh.top_radius = 0.035
-    mesh.bottom_radius = 0.035
+    mesh.top_radius = 0.060
+    mesh.bottom_radius = 0.060
     mesh.height = maxf(0.05, distance)
-    mesh.radial_segments = 8
+    mesh.radial_segments = 10
     var trail := MeshInstance3D.new()
     trail.name = "CausalTrail"
     trail.mesh = mesh
-    trail.material_override = _emissive_material(color)
+    trail.material_override = _emissive_material(color, 3.4)
     trail.position = (origin + target) * 0.5
     if distance > 0.001:
         trail.look_at_from_position(trail.position, target, Vector3.UP)
@@ -504,23 +626,69 @@ func _create_trail(origin: Vector3, target: Vector3, color: Color) -> MeshInstan
 
 func _create_impact(position_3d: Vector3, color: Color) -> MeshInstance3D:
     var mesh := SphereMesh.new()
-    mesh.radius = 0.14
-    mesh.height = 0.28
+    mesh.radius = 0.22
+    mesh.height = 0.44
+    mesh.radial_segments = 20
+    mesh.rings = 10
     var impact := MeshInstance3D.new()
-    impact.name = "ImpactPulse"
+    impact.name = "ImpactBurst"
     impact.mesh = mesh
-    impact.material_override = _emissive_material(color)
+    impact.material_override = _emissive_material(color, 5.0)
     impact.position = position_3d
     _effect_root.add_child(impact)
     return impact
 
 
-func _emissive_material(color: Color) -> StandardMaterial3D:
+func _create_chain_ring(position_3d: Vector3, color: Color) -> MeshInstance3D:
+    var mesh := TorusMesh.new()
+    mesh.inner_radius = 0.30
+    mesh.outer_radius = 0.42
+    mesh.ring_segments = 18
+    mesh.rings = 32
+    var ring := MeshInstance3D.new()
+    ring.name = "ChainMarker"
+    ring.mesh = mesh
+    ring.material_override = _emissive_material(color, 4.6)
+    ring.position = position_3d + Vector3(0.0, 0.18, 0.0)
+    ring.rotation.x = PI * 0.5
+    _effect_root.add_child(ring)
+    return ring
+
+
+func _create_area_ring(position_3d: Vector3, color: Color) -> MeshInstance3D:
+    var mesh := TorusMesh.new()
+    mesh.inner_radius = 0.54
+    mesh.outer_radius = 0.70
+    mesh.ring_segments = 18
+    mesh.rings = 40
+    var ring := MeshInstance3D.new()
+    ring.name = "AreaMarker"
+    ring.mesh = mesh
+    ring.material_override = _emissive_material(color, 4.2)
+    ring.position = position_3d + Vector3(0.0, -1.00, 0.0)
+    _effect_root.add_child(ring)
+    return ring
+
+
+func _count_visible_effect_nodes(key: String) -> int:
+    var count := 0
+    for effect: Dictionary in _effects:
+        var node := effect.get(key) as GeometryInstance3D
+        if is_instance_valid(node) and node.visible:
+            count += 1
+    return count
+
+
+func _is_area_delivery(delivery: String) -> bool:
+    return delivery in ["halo_orbit", "radiant_pulse", "fan_shards"]
+
+
+func _emissive_material(color: Color, energy: float = 3.2) -> StandardMaterial3D:
     var material := StandardMaterial3D.new()
     material.albedo_color = color
     material.emission_enabled = true
     material.emission = color
-    material.emission_energy_multiplier = 2.8
+    material.emission_energy_multiplier = energy
     return material
 
 
