@@ -44,6 +44,28 @@ static func run() -> Array[String]:
             failures.append("R03 missing fixed screen-space node: %s" % path)
     if shell.get_node_or_null("W13Environment") == null or shell.get_node_or_null("W13RepresentativeArt") == null:
         failures.append("R03 world-space presentation nodes were incorrectly moved into screen UI")
+
+    var viewport_container := shell.get_node_or_null("WorldPresentation")
+    if not viewport_container is SubViewportContainer:
+        failures.append("R04 3D world presentation is not mounted through a SubViewportContainer")
+    var presentation_viewport := shell.get_node_or_null("WorldPresentation/SubViewport")
+    if not presentation_viewport is SubViewport:
+        failures.append("R04 3D world presentation is missing its SubViewport")
+    var field := shell.get_node_or_null("WorldPresentation/SubViewport/MedievalField3D")
+    if not field is Node3D:
+        failures.append("R04 medieval field is not a Node3D presentation layer")
+    elif not field.has_method("presentation_spec"):
+        failures.append("R04 medieval field does not expose its presentation contract")
+    else:
+        var spec: Dictionary = field.call("presentation_spec")
+        if not bool(spec.get("asset_backed", false)):
+            failures.append("R04 medieval field is not asset-backed")
+        if str(spec.get("asset_path", "")) != "res://assets/third_party/kaykit_medieval_hexagon/terrain/hex_grass.gltf":
+            failures.append("R04 medieval field is not using the admitted KayKit terrain asset")
+        if int(spec.get("terrain_instances", 0)) < 2000:
+            failures.append("R04 terrain coverage is too small for the mapped world")
+        if bool(spec.get("authoritative_gameplay", true)):
+            failures.append("R04 visual 3D layer incorrectly became gameplay-authoritative")
     shell.free()
 
     return failures
