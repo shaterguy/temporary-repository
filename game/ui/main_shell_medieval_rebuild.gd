@@ -1,13 +1,17 @@
 extends "res://game/ui/main_shell_w24.gd"
 
+var _legacy_world_art_retired := false
+
 
 func _process(delta: float) -> void:
     super._process(delta)
+    _retire_legacy_world_art_once()
     _sync_medieval_presentation()
 
 
 func _mount_runtime_preview() -> void:
     super._mount_runtime_preview()
+    _retire_legacy_world_art_once()
     if not is_instance_valid(combat_preview):
         return
     combat_preview.set("camera_enabled", true)
@@ -15,6 +19,16 @@ func _mount_runtime_preview() -> void:
     if combat_camera != null:
         combat_camera.enabled = true
     _sync_medieval_presentation()
+
+
+func _retire_legacy_world_art_once() -> void:
+    if _legacy_world_art_retired:
+        return
+    for path in ["W13Environment", "W13RepresentativeArt"]:
+        var legacy_node := get_node_or_null(path) as CanvasItem
+        if legacy_node != null:
+            legacy_node.visible = false
+    _legacy_world_art_retired = true
 
 
 func _sync_medieval_presentation() -> void:
