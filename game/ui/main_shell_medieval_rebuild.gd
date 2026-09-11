@@ -1,6 +1,11 @@
 extends "res://game/ui/main_shell_w24.gd"
 
 
+func _process(delta: float) -> void:
+    super._process(delta)
+    _sync_medieval_presentation()
+
+
 func _mount_runtime_preview() -> void:
     super._mount_runtime_preview()
     if not is_instance_valid(combat_preview):
@@ -9,6 +14,18 @@ func _mount_runtime_preview() -> void:
     var combat_camera := combat_preview.get_node_or_null("CombatCamera") as Camera2D
     if combat_camera != null:
         combat_camera.enabled = true
+    _sync_medieval_presentation()
+
+
+func _sync_medieval_presentation() -> void:
+    if not is_instance_valid(combat_preview):
+        return
+    var combat_camera := combat_preview.get_node_or_null("CombatCamera") as Camera2D
+    if combat_camera == null:
+        return
+    var field := get_node_or_null("WorldPresentation/SubViewport/MedievalField3D")
+    if field != null and field.has_method("set_gameplay_focus"):
+        field.call("set_gameplay_focus", combat_camera.global_position)
 
 
 func _sync_story_event_art() -> void:
