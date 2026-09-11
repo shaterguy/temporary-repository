@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=3]
+[gd_scene load_steps=15 format=3]
 
 [ext_resource type="Script" path="res://game/ui/main_shell_medieval_rebuild.gd" id="1_shell"]
 [ext_resource type="Texture2D" path="res://assets/runtime/w13/environment_twilight_shipyard.svg" id="2_w13_environment"]
@@ -11,6 +11,7 @@
 [ext_resource type="Script" path="res://game/ui/mobile_input_overlay.gd" id="9_w25_mobile_controls"]
 [ext_resource type="Script" path="res://game/ui/pre_expedition_touch_controls.gd" id="10_pre_expedition_touch"]
 [ext_resource type="Script" path="res://game/ui/screen_ui_bridge.gd" id="11_screen_ui"]
+[ext_resource type="Script" path="res://game/presentation/medieval_field_2_5d.gd" id="12_medieval_field"]
 
 [sub_resource type="SystemFont" id="SystemFont_ui"]
 font_names = PackedStringArray("Noto Sans CJK KR", "Noto Sans KR", "sans-serif")
@@ -50,6 +51,27 @@ mouse_filter = 2
 texture = ExtResource("2_w13_environment")
 expand_mode = 1
 stretch_mode = 6
+
+[node name="WorldPresentation" type="SubViewportContainer" parent="."]
+unique_name_in_owner = true
+z_index = -5
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+stretch = true
+
+[node name="SubViewport" type="SubViewport" parent="WorldPresentation"]
+handle_input_locally = false
+size = Vector2i(1280, 720)
+render_target_update_mode = 4
+
+[node name="MedievalField3D" type="Node3D" parent="WorldPresentation/SubViewport"]
+unique_name_in_owner = true
+script = ExtResource("12_medieval_field")
 
 [node name="W13RepresentativeArt" type="Node2D" parent="."]
 unique_name_in_owner = true
