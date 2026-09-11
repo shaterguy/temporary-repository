@@ -476,10 +476,10 @@ func _create_projectile(delivery: String, origin: Vector3, target: Vector3) -> N
     if projectile == null:
         return null
     projectile.scale = Vector3.ONE * scale_factor
+    _effect_root.add_child(projectile)
     projectile.position = origin
     if origin.distance_squared_to(target) > 0.0001:
         projectile.look_at(target, Vector3.UP)
-    _effect_root.add_child(projectile)
     return projectile
 
 
