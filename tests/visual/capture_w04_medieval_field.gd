@@ -84,6 +84,7 @@ func _capture() -> void:
         return
 
     var waypoint_hashes: Array[String] = []
+    var visual_failures: Array[int] = []
     var minimum_color_buckets := 1_000_000
     var minimum_edge_contrast := 1.0
     var maximum_green_dominance := 0.0
@@ -127,9 +128,7 @@ func _capture() -> void:
         print("W04_WAYPOINT_%d_GREEN_DOMINANCE=%.4f" % [index + 1, green_dominance])
         print("W04_WAYPOINT_%d_EDGE_CONTRAST=%.4f" % [index + 1, edge_contrast])
         if not bool(composition.get("passes", false)):
-            printerr("W04_RENDER=FAIL_VISUAL_COMPOSITION_%d" % (index + 1))
-            quit(15)
-            return
+            visual_failures.append(index + 1)
 
         if index == 0:
             var shell_image: Image = root.get_texture().get_image()
@@ -154,17 +153,26 @@ func _capture() -> void:
         quit(14)
         return
 
-    print("W04_VISUAL_MIN_COLOR_BUCKETS=%d" % minimum_color_buckets)
-    print("W04_VISUAL_MIN_EDGE_CONTRAST=%.4f" % minimum_edge_contrast)
-    print("W04_VISUAL_MAX_GREEN_DOMINANCE=%.4f" % maximum_green_dominance)
-    print("W04_VISUAL_COMPOSITION=PASS")
-    print("W04_RENDER=PASS")
     print("W04_RENDER_SIZE=%dx%d" % [EXPECTED_SIZE.x, EXPECTED_SIZE.y])
     print("W04_WAYPOINT_RENDER_COUNT=%d" % waypoints.size())
     print("W04_WAYPOINT_MAX_SEPARATION=%.1f" % max_waypoint_separation)
     print("W04_WAYPOINT_HASHES_DISTINCT=PASS")
+    print("W04_VISUAL_MIN_COLOR_BUCKETS=%d" % minimum_color_buckets)
+    print("W04_VISUAL_MIN_EDGE_CONTRAST=%.4f" % minimum_edge_contrast)
+    print("W04_VISUAL_MAX_GREEN_DOMINANCE=%.4f" % maximum_green_dominance)
     print("W04_SHELL_SHA256=%s" % FileAccess.get_sha256(SHELL_OUTPUT))
     print("W04_FIELD_SHA256=%s" % FileAccess.get_sha256(FIELD_OUTPUT))
+
+    if not visual_failures.is_empty():
+        printerr("W04_VISUAL_COMPOSITION=FAIL")
+        printerr("W04_VISUAL_FAILED_WAYPOINTS=%s" % [visual_failures])
+        scene.queue_free()
+        await process_frame
+        quit(15)
+        return
+
+    print("W04_VISUAL_COMPOSITION=PASS")
+    print("W04_RENDER=PASS")
     scene.queue_free()
     await process_frame
     quit(0)
