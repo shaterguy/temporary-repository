@@ -32,8 +32,8 @@ const DEFAULT_REGION_ID := "twilight_shipyard"
 const SUPPORTED_REGION_IDS := ["twilight_shipyard", "glass_garden", "flooded_archive", "ash_railway", "eclipse_fortress"]
 
 # The first ten forest clusters deliberately surround the spawn/crossroads without
-# filling its two broad combat corridors. The later clusters make the ridge and
-# outer marches read as inhabited districts instead of empty grass screens.
+# filling its two broad combat corridors. Later clusters break the ridge and outer
+# marches into readable districts instead of broad uniform grass screens.
 const FOREST_CLUSTER_CENTERS := [
     Vector2(-720.0, -430.0), Vector2(760.0, -360.0), Vector2(-880.0, 690.0), Vector2(930.0, 760.0),
     Vector2(-520.0, -880.0), Vector2(560.0, -860.0), Vector2(-1120.0, 280.0), Vector2(1160.0, 300.0),
@@ -43,6 +43,8 @@ const FOREST_CLUSTER_CENTERS := [
     Vector2(4100.0, -1650.0), Vector2(4100.0, 250.0), Vector2(4100.0, 1550.0),
     Vector2(-1800.0, -2650.0), Vector2(0.0, -2550.0), Vector2(1800.0, -2650.0),
     Vector2(-1800.0, 2550.0), Vector2(0.0, 2450.0), Vector2(1800.0, 2550.0),
+    Vector2(-1760.0, 1880.0), Vector2(-1480.0, 1240.0), Vector2(-860.0, 1220.0),
+    Vector2(-120.0, 1480.0), Vector2(220.0, 2240.0),
     Vector2(-1250.0, 2080.0), Vector2(-430.0, 2200.0), Vector2(460.0, 2180.0), Vector2(1260.0, 2050.0),
     Vector2(2250.0, 1480.0), Vector2(2460.0, 2260.0), Vector2(3150.0, 1580.0), Vector2(3280.0, 2240.0),
     Vector2(-3150.0, 1550.0), Vector2(-3020.0, 2240.0),
@@ -54,13 +56,13 @@ const ROCK_CLUSTER_CENTERS := [
     Vector2(-1500.0, -950.0), Vector2(1550.0, 1050.0), Vector2(-3250.0, 850.0), Vector2(3350.0, -900.0),
     Vector2(-4100.0, -700.0), Vector2(-4050.0, 900.0), Vector2(4050.0, -700.0), Vector2(4150.0, 900.0),
     Vector2(-2100.0, -2450.0), Vector2(2100.0, -2400.0), Vector2(-2000.0, 2450.0), Vector2(2200.0, 2400.0),
+    Vector2(-1700.0, 1540.0), Vector2(-1060.0, 1320.0), Vector2(-760.0, 2260.0), Vector2(40.0, 1760.0),
     Vector2(-1180.0, 1880.0), Vector2(-300.0, 1990.0), Vector2(620.0, 1940.0), Vector2(2450.0, 1620.0),
     Vector2(3060.0, 1940.0), Vector2(2700.0, 2320.0),
 ]
 
-# The network keeps the original crossroads contract while adding continuous
-# ribbons and two long routes so each visual-review waypoint has readable travel
-# structure. All generated route geometry is presentation-only and collision-free.
+# The route network uses only the tracked KayKit road family. Small lateral weave
+# and wayside stones keep routes legible without the previous dark BoxMesh ribbons.
 const ROAD_GAMEPLAY_POINTS := [
     Vector2(-1500.0, 0.0), Vector2(-1350.0, 0.0), Vector2(-1200.0, 0.0), Vector2(-1050.0, 0.0),
     Vector2(-900.0, 0.0), Vector2(-750.0, 0.0), Vector2(-600.0, 0.0), Vector2(-450.0, 0.0),
@@ -80,8 +82,8 @@ const HAMLET_SPUR_ROAD_POINTS := [
 ]
 
 const RIDGE_TRAIL_POINTS := [
-    Vector2(-110.0, 170.0), Vector2(-210.0, 390.0), Vector2(-320.0, 610.0), Vector2(-430.0, 830.0),
-    Vector2(-550.0, 1060.0), Vector2(-680.0, 1280.0), Vector2(-810.0, 1500.0), Vector2(-930.0, 1710.0),
+    Vector2(-110.0, 170.0), Vector2(-205.0, 390.0), Vector2(-345.0, 610.0), Vector2(-420.0, 830.0),
+    Vector2(-590.0, 1060.0), Vector2(-655.0, 1280.0), Vector2(-845.0, 1500.0), Vector2(-930.0, 1710.0),
 ]
 
 const OUTER_MARCH_ROAD_POINTS := [
@@ -104,22 +106,27 @@ const HAMLET_GAMEPLAY_POINTS := [
     Vector2(3900.0, 260.0), Vector2(4150.0, 520.0),
     Vector2(-3950.0, -320.0), Vector2(-4200.0, -560.0),
     Vector2(1550.0, 2450.0), Vector2(-1550.0, -2420.0),
+    Vector2(-1740.0, 1560.0), Vector2(-1480.0, 2200.0), Vector2(-420.0, 1300.0), Vector2(120.0, 2180.0),
     Vector2(2480.0, 1680.0), Vector2(2780.0, 1740.0), Vector2(2960.0, 1980.0), Vector2(2680.0, 2180.0),
     Vector2(3250.0, 2150.0), Vector2(-1280.0, 2050.0), Vector2(1120.0, 2060.0),
 ]
 
-# Staggered pieces form a broken skyline instead of the former identical straight row.
+# Staggered pieces form a broken skyline and a second depth band around the ridge.
 const RIDGE_GAMEPLAY_POINTS := [
-    Vector2(-1320.0, 1660.0), Vector2(-1050.0, 1840.0), Vector2(-760.0, 1690.0),
-    Vector2(-450.0, 1910.0), Vector2(-120.0, 1740.0), Vector2(220.0, 1900.0),
-    Vector2(560.0, 1700.0), Vector2(890.0, 1850.0), Vector2(1200.0, 1640.0),
+    Vector2(-1740.0, 1480.0), Vector2(-1540.0, 2050.0), Vector2(-1320.0, 1660.0),
+    Vector2(-1050.0, 1840.0), Vector2(-880.0, 1320.0), Vector2(-760.0, 1690.0),
+    Vector2(-450.0, 1910.0), Vector2(-300.0, 2220.0), Vector2(-120.0, 1740.0),
+    Vector2(220.0, 1900.0), Vector2(420.0, 1460.0), Vector2(560.0, 1700.0),
+    Vector2(890.0, 1850.0), Vector2(1200.0, 1640.0),
 ]
 
 const TERRAIN_BREAK_GAMEPLAY_POINTS := [
     Vector2(-1320.0, -980.0), Vector2(-980.0, -1180.0), Vector2(-520.0, -1320.0),
     Vector2(540.0, -1280.0), Vector2(980.0, -1120.0), Vector2(1340.0, -920.0),
-    Vector2(-1420.0, 980.0), Vector2(-1180.0, 1320.0), Vector2(-620.0, 1480.0),
-    Vector2(620.0, 1460.0), Vector2(1160.0, 1320.0), Vector2(1440.0, 980.0),
+    Vector2(-1820.0, 1260.0), Vector2(-1680.0, 2060.0), Vector2(-1420.0, 980.0), Vector2(-1180.0, 1320.0),
+    Vector2(-980.0, 1120.0), Vector2(-920.0, 2320.0), Vector2(-620.0, 1480.0), Vector2(-280.0, 1260.0),
+    Vector2(-120.0, 2180.0), Vector2(260.0, 1540.0), Vector2(180.0, 2360.0), Vector2(620.0, 1460.0),
+    Vector2(1160.0, 1320.0), Vector2(1440.0, 980.0),
     Vector2(-2850.0, -1700.0), Vector2(2780.0, -1650.0), Vector2(-2520.0, 1980.0), Vector2(2820.0, 1840.0),
     Vector2(-3920.0, 1180.0), Vector2(3880.0, -1160.0),
     Vector2(2240.0, 1340.0), Vector2(2520.0, 1420.0), Vector2(3040.0, 1500.0),
@@ -135,6 +142,12 @@ const STONE_WALL_SEGMENTS := [
     [Vector2(2480.0, 2260.0), Vector2(2780.0, 2300.0)],
     [Vector2(-1040.0, -760.0), Vector2(-820.0, -870.0)],
     [Vector2(-820.0, -870.0), Vector2(-580.0, -790.0)],
+    [Vector2(-1760.0, 1430.0), Vector2(-1510.0, 1360.0)],
+    [Vector2(-1510.0, 1360.0), Vector2(-1320.0, 1480.0)],
+    [Vector2(-1450.0, 2140.0), Vector2(-1180.0, 2250.0)],
+    [Vector2(-1180.0, 2250.0), Vector2(-920.0, 2160.0)],
+    [Vector2(-520.0, 1280.0), Vector2(-260.0, 1200.0)],
+    [Vector2(-260.0, 1200.0), Vector2(-40.0, 1320.0)],
 ]
 
 const CHAPEL_GAMEPLAY_POSITION := Vector2(-760.0, -520.0)
@@ -149,8 +162,6 @@ var _camera: Camera3D
 var _environment: Environment
 var _key_light: DirectionalLight3D
 var _region_id: String = DEFAULT_REGION_ID
-var _road_base_material: StandardMaterial3D
-var _road_surface_material: StandardMaterial3D
 var _stone_material: StandardMaterial3D
 
 
@@ -201,7 +212,7 @@ func presentation_spec() -> Dictionary:
         ],
         "landmark_types": ["chapel", "hamlet", "bridge", "road", "river", "elevated_ridge", "outer_march_outpost", "stone_ruin"],
         "asset_backed": true,
-        "rendering": "MultiMesh terrain + PackedScene nature/landmarks/routes + collision-free route/wall meshes",
+        "rendering": "MultiMesh terrain + PackedScene nature/landmarks/routes + collision-free stone-wall accents",
         "terrain_instances": TILE_COLUMNS * TILE_ROWS,
         "tree_instances": FOREST_CLUSTER_CENTERS.size() * TREES_PER_CLUSTER,
         "rock_instances": ROCK_CLUSTER_CENTERS.size() * ROCKS_PER_CLUSTER,
@@ -223,13 +234,13 @@ func presentation_spec() -> Dictionary:
         "wayfinding_landmark_centers_gameplay": WAYFINDING_LANDMARK_CENTERS,
         "spawn_area_wayfinding_landmarks": 3,
         "route_pattern": "crossroads_river_ford",
-        "road_network_pattern": "crossroads_ford_with_chapel_hamlet_ridge_and_outer_march_routes",
+        "road_network_pattern": "kaykit_crossroads_ford_with_chapel_hamlet_ridge_and_outer_march_routes",
         "road_network_branches": 5,
         "terrain_break_instances": TERRAIN_BREAK_GAMEPLAY_POINTS.size(),
         "spatial_districts": ["central_ford", "moon_chapel_wood", "east_hamlet", "north_ridge", "outer_marches"],
         "natural_scatter_pattern": "golden_angle_jitter_dense_districts",
-        "visual_quality_guard": "w04_uniform_low_detail_and_contrast_sampling",
-        "composition_revision": "dense-medieval-districts-v3",
+        "visual_quality_guard": "w04_uniform_low_detail_connected_region_and_contrast_sampling",
+        "composition_revision": "dense-medieval-districts-v4",
         "clear_corridor_width_gameplay": CLEAR_CORRIDOR_WIDTH_GAMEPLAY,
         "river_crossing_passable_visual": true,
         "world_size_gameplay": WORLD_BOUNDS_GAMEPLAY.size,
@@ -337,17 +348,11 @@ func _build_wayfinding_landmarks() -> void:
     add_child(landmark_root)
     _ensure_decorative_materials()
 
-    _spawn_route_ribbon(ROAD_GAMEPLAY_POINTS, "CrossroadRibbon", landmark_root)
-    _spawn_route_ribbon(CHAPEL_SPUR_ROAD_POINTS, "ChapelRibbon", landmark_root)
-    _spawn_route_ribbon(HAMLET_SPUR_ROAD_POINTS, "HamletRibbon", landmark_root)
-    _spawn_route_ribbon(RIDGE_TRAIL_POINTS, "RidgeTrailRibbon", landmark_root)
-    _spawn_route_ribbon(OUTER_MARCH_ROAD_POINTS, "OuterMarchRibbon", landmark_root)
-
-    _spawn_route_tiles(ROAD_GAMEPLAY_POINTS, "Crossroad", 0.76, 0.0, landmark_root)
-    _spawn_route_tiles(CHAPEL_SPUR_ROAD_POINTS, "ChapelRoad", 0.72, -PI / 3.0, landmark_root)
-    _spawn_route_tiles(HAMLET_SPUR_ROAD_POINTS, "HamletRoad", 0.72, PI / 3.0, landmark_root)
-    _spawn_route_tiles(RIDGE_TRAIL_POINTS, "RidgeTrail", 0.68, -PI / 6.0, landmark_root)
-    _spawn_route_tiles(OUTER_MARCH_ROAD_POINTS, "OuterMarchRoad", 0.68, PI / 3.0, landmark_root)
+    _spawn_route_tiles(ROAD_GAMEPLAY_POINTS, "Crossroad", 0.92, 0.0, landmark_root)
+    _spawn_route_tiles(CHAPEL_SPUR_ROAD_POINTS, "ChapelRoad", 0.86, -PI / 3.0, landmark_root)
+    _spawn_route_tiles(HAMLET_SPUR_ROAD_POINTS, "HamletRoad", 0.86, PI / 3.0, landmark_root)
+    _spawn_route_tiles(RIDGE_TRAIL_POINTS, "RidgeTrail", 0.80, -PI / 6.0, landmark_root)
+    _spawn_route_tiles(OUTER_MARCH_ROAD_POINTS, "OuterMarchRoad", 0.82, PI / 3.0, landmark_root)
 
     for river_index in range(RIVER_GAMEPLAY_POINTS.size()):
         var gameplay_position: Vector2 = RIVER_GAMEPLAY_POINTS[river_index]
@@ -387,56 +392,26 @@ func _build_wayfinding_landmarks() -> void:
 
 func _spawn_route_tiles(points: Array, prefix: String, scale_value: float, base_rotation: float, parent: Node3D) -> void:
     for road_index in range(points.size()):
+        var gameplay_position: Vector2 = points[road_index]
+        var perpendicular := Vector2.UP
+        if points.size() > 1:
+            var previous_point: Vector2 = points[maxi(road_index - 1, 0)]
+            var next_point: Vector2 = points[mini(road_index + 1, points.size() - 1)]
+            var tangent := (next_point - previous_point).normalized()
+            if tangent.length_squared() > 0.0:
+                perpendicular = Vector2(-tangent.y, tangent.x)
+                gameplay_position += perpendicular * sin(float(road_index) * 1.73 + base_rotation) * 18.0
         var alternating_rotation := PI if road_index % 2 == 1 else 0.0
         _spawn_landmark_scene(
-            ROAD_SCENE, "%s_%02d" % [prefix, road_index], points[road_index], 0.025,
-            scale_value + float(road_index % 3) * 0.03, base_rotation + alternating_rotation, parent
+            ROAD_SCENE, "%s_%02d" % [prefix, road_index], gameplay_position, 0.025,
+            scale_value + float(road_index % 3) * 0.035, base_rotation + alternating_rotation, parent
         )
-
-
-func _spawn_route_ribbon(points: Array, prefix: String, parent: Node3D) -> void:
-    if points.size() < 2:
-        return
-    for segment_index in range(points.size() - 1):
-        var start_point: Vector2 = points[segment_index]
-        var end_point: Vector2 = points[segment_index + 1]
-        _spawn_decorative_strip(
-            start_point, end_point, "%s_Base_%02d" % [prefix, segment_index],
-            142.0, 0.010, 0.038, _road_base_material, parent
-        )
-        _spawn_decorative_strip(
-            start_point, end_point, "%s_Surface_%02d" % [prefix, segment_index],
-            96.0, 0.036, 0.028, _road_surface_material, parent
-        )
-
-
-func _spawn_decorative_strip(
-    start_gameplay: Vector2,
-    end_gameplay: Vector2,
-    node_name: String,
-    width_gameplay: float,
-    elevation: float,
-    height_world: float,
-    material: Material,
-    parent: Node3D
-) -> void:
-    var start_world := WorldProjection25D.gameplay_to_world3d(start_gameplay, elevation)
-    var end_world := WorldProjection25D.gameplay_to_world3d(end_gameplay, elevation)
-    var segment_length := Vector2(end_world.x - start_world.x, end_world.z - start_world.z).length()
-    if segment_length <= 0.001:
-        return
-    var mesh := BoxMesh.new()
-    mesh.size = Vector3(width_gameplay * WorldProjection25D.DEFAULT_WORLD_TO_METERS, height_world, segment_length)
-    var strip := MeshInstance3D.new()
-    strip.name = node_name
-    strip.mesh = mesh
-    strip.material_override = material
-    strip.position = (start_world + end_world) * 0.5
-    strip.rotation.y = atan2(end_world.x - start_world.x, end_world.z - start_world.z)
-    strip.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-    strip.visibility_range_end = LANDMARK_VISIBILITY_RANGE
-    strip.visibility_range_end_margin = 8.0
-    parent.add_child(strip)
+        if road_index % 3 == 1:
+            var marker_side := -1.0 if road_index % 6 < 3 else 1.0
+            _spawn_landmark_scene(
+                ROCK_SCENE, "%s_Wayside_%02d" % [prefix, road_index], gameplay_position + perpendicular * 68.0 * marker_side,
+                0.018, 0.72 + float(road_index % 4) * 0.08, float(road_index) * 0.61, parent
+            )
 
 
 func _spawn_stone_wall_segment(start_gameplay: Vector2, end_gameplay: Vector2, node_name: String, parent: Node3D) -> void:
@@ -460,12 +435,6 @@ func _spawn_stone_wall_segment(start_gameplay: Vector2, end_gameplay: Vector2, n
 
 
 func _ensure_decorative_materials() -> void:
-    _road_base_material = StandardMaterial3D.new()
-    _road_base_material.albedo_color = Color(0.17, 0.105, 0.055, 1.0)
-    _road_base_material.roughness = 1.0
-    _road_surface_material = StandardMaterial3D.new()
-    _road_surface_material.albedo_color = Color(0.36, 0.245, 0.13, 1.0)
-    _road_surface_material.roughness = 0.96
     _stone_material = StandardMaterial3D.new()
     _stone_material.albedo_color = Color(0.34, 0.35, 0.37, 1.0)
     _stone_material.roughness = 0.94

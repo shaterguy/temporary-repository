@@ -24,6 +24,7 @@ const MIN_EDGE_CONTRAST_RATIO := 0.035
 const MIN_EDGE_COLOR_DELTA := 0.14
 const MAX_LOCAL_COLOR_DELTA := 0.10
 const MAX_UNIFORM_LOW_DETAIL_RATIO := 0.74
+const MAX_LARGEST_UNIFORM_COMPONENT_RATIO := 0.56
 
 
 func _initialize() -> void:
@@ -92,6 +93,7 @@ func _capture() -> void:
     var minimum_edge_contrast := 1.0
     var maximum_green_dominance := 0.0
     var maximum_uniform_low_detail := 0.0
+    var maximum_largest_uniform_component := 0.0
     for index in range(waypoints.size()):
         var waypoint: Vector2 = waypoints[index]
         combat_preview.global_position = waypoint
@@ -124,16 +126,19 @@ func _capture() -> void:
         var green_dominance := float(composition.get("green_dominance", 1.0))
         var edge_contrast := float(composition.get("edge_contrast", 0.0))
         var uniform_low_detail := float(composition.get("uniform_low_detail", 1.0))
+        var largest_uniform_component := float(composition.get("largest_uniform_component", 1.0))
         minimum_color_buckets = mini(minimum_color_buckets, color_buckets)
         maximum_green_dominance = maxf(maximum_green_dominance, green_dominance)
         minimum_edge_contrast = minf(minimum_edge_contrast, edge_contrast)
         maximum_uniform_low_detail = maxf(maximum_uniform_low_detail, uniform_low_detail)
+        maximum_largest_uniform_component = maxf(maximum_largest_uniform_component, largest_uniform_component)
         print("W04_WAYPOINT_%d_POSITION=%.1f,%.1f" % [index + 1, waypoint.x, waypoint.y])
         print("W04_WAYPOINT_%d_SHA256=%s" % [index + 1, waypoint_hashes[index]])
         print("W04_WAYPOINT_%d_COLOR_BUCKETS=%d" % [index + 1, color_buckets])
         print("W04_WAYPOINT_%d_GREEN_DOMINANCE=%.4f" % [index + 1, green_dominance])
         print("W04_WAYPOINT_%d_EDGE_CONTRAST=%.4f" % [index + 1, edge_contrast])
         print("W04_WAYPOINT_%d_UNIFORM_LOW_DETAIL=%.4f" % [index + 1, uniform_low_detail])
+        print("W04_WAYPOINT_%d_LARGEST_UNIFORM_COMPONENT=%.4f" % [index + 1, largest_uniform_component])
         if not bool(composition.get("passes", false)):
             visual_failures.append(index + 1)
 
@@ -168,6 +173,7 @@ func _capture() -> void:
     print("W04_VISUAL_MIN_EDGE_CONTRAST=%.4f" % minimum_edge_contrast)
     print("W04_VISUAL_MAX_GREEN_DOMINANCE=%.4f" % maximum_green_dominance)
     print("W04_VISUAL_MAX_UNIFORM_LOW_DETAIL=%.4f" % maximum_uniform_low_detail)
+    print("W04_VISUAL_MAX_LARGEST_UNIFORM_COMPONENT=%.4f" % maximum_largest_uniform_component)
     print("W04_SHELL_SHA256=%s" % FileAccess.get_sha256(SHELL_OUTPUT))
     print("W04_FIELD_SHA256=%s" % FileAccess.get_sha256(FIELD_OUTPUT))
 
@@ -218,33 +224,82 @@ func _analyze_visual_composition(image: Image) -> Dictionary:
 
     var uniform_cells := 0
     var local_cell_count := 0
+    var uniform_grid: Array = []
     for row_index in range(sampled_rows.size() - 1):
         var row_samples: Array = sampled_rows[row_index]
         var next_row_samples: Array = sampled_rows[row_index + 1]
         var column_count := mini(row_samples.size(), next_row_samples.size())
+        var uniform_row: Array = []
         for column_index in range(column_count - 1):
             var current: Color = row_samples[column_index]
             var right: Color = row_samples[column_index + 1]
             var down: Color = next_row_samples[column_index]
             var local_delta := maxf(_color_delta(current, right), _color_delta(current, down))
-            if local_delta <= MAX_LOCAL_COLOR_DELTA:
+            var is_uniform := local_delta <= MAX_LOCAL_COLOR_DELTA
+            uniform_row.append(is_uniform)
+            if is_uniform:
                 uniform_cells += 1
             local_cell_count += 1
+        uniform_grid.append(uniform_row)
 
+    var largest_uniform_component_cells := _largest_uniform_component_size(uniform_grid)
     var green_dominance := float(green_samples) / maxf(float(sample_count), 1.0)
     var edge_contrast := float(contrast_edges) / maxf(float(edge_count), 1.0)
     var uniform_low_detail := float(uniform_cells) / maxf(float(local_cell_count), 1.0)
+    var largest_uniform_component := float(largest_uniform_component_cells) / maxf(float(local_cell_count), 1.0)
     return {
         "color_buckets": color_buckets.size(),
         "green_dominance": green_dominance,
         "edge_contrast": edge_contrast,
         "uniform_low_detail": uniform_low_detail,
+        "largest_uniform_component": largest_uniform_component,
         "passes": (
             color_buckets.size() >= MIN_COLOR_BUCKETS
             and edge_contrast >= MIN_EDGE_CONTRAST_RATIO
             and uniform_low_detail <= MAX_UNIFORM_LOW_DETAIL_RATIO
+            and largest_uniform_component <= MAX_LARGEST_UNIFORM_COMPONENT_RATIO
         ),
     }
+
+
+func _largest_uniform_component_size(uniform_grid: Array) -> int:
+    var visited: Dictionary = {}
+    var largest_component := 0
+    for row_index in range(uniform_grid.size()):
+        var row: Array = uniform_grid[row_index]
+        for column_index in range(row.size()):
+            if not bool(row[column_index]):
+                continue
+            var start := Vector2i(column_index, row_index)
+            if visited.has(start):
+                continue
+            visited[start] = true
+            var pending: Array = [start]
+            var pending_index := 0
+            var component_size := 0
+            while pending_index < pending.size():
+                var current: Vector2i = pending[pending_index]
+                pending_index += 1
+                component_size += 1
+                var neighbors := [
+                    Vector2i(current.x - 1, current.y),
+                    Vector2i(current.x + 1, current.y),
+                    Vector2i(current.x, current.y - 1),
+                    Vector2i(current.x, current.y + 1),
+                ]
+                for neighbor_variant in neighbors:
+                    var neighbor: Vector2i = neighbor_variant
+                    if neighbor.y < 0 or neighbor.y >= uniform_grid.size():
+                        continue
+                    var neighbor_row: Array = uniform_grid[neighbor.y]
+                    if neighbor.x < 0 or neighbor.x >= neighbor_row.size():
+                        continue
+                    if visited.has(neighbor) or not bool(neighbor_row[neighbor.x]):
+                        continue
+                    visited[neighbor] = true
+                    pending.append(neighbor)
+            largest_component = maxi(largest_component, component_size)
+    return largest_component
 
 
 func _color_delta(first: Color, second: Color) -> float:
