@@ -10,6 +10,9 @@ on:
       - 'toolchain.lock'
       - 'assets/third_party/audio/w07/**'
       - 'assets/licenses/W07_CC0_AUDIO.md'
+      - 'assets/licenses/W06_NOTO_SANS_KR.md'
+      - 'assets/licenses/NotoSansKR-OFL.txt'
+      - 'tools/fetch_noto_sans_kr.sh'
       - 'tests/visual/w08_integrated_play_review.gd'
       - 'tests/visual/w08_integrated_play_review.tscn'
       - 'docs/verification/W08_INTEGRATED_PLAY_REVIEW.md'
@@ -36,6 +39,13 @@ jobs:
       - name: Checkout exact candidate
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Materialize pinned Korean UI font
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tools/fetch_noto_sans_kr.sh
+          test -s assets/runtime/fonts/NotoSansKR-wght.ttf
+
       - name: Static W08 test-contract preflight
         shell: bash
         run: |
@@ -45,6 +55,10 @@ jobs:
           test -f tests/visual/w08_integrated_play_review.gd
           test -f tests/visual/w08_integrated_play_review.tscn
           test -f docs/verification/W08_INTEGRATED_PLAY_REVIEW.md
+          test -s assets/runtime/fonts/NotoSansKR-wght.ttf
+          test -f assets/licenses/W06_NOTO_SANS_KR.md
+          test -f assets/licenses/NotoSansKR-OFL.txt
+          grep -Fq 'SHIPPED_UI_FONT_PATH' game/ui/main_shell_medieval_rebuild.gd
           grep -Fq 'select_save_slot' tests/visual/w08_integrated_play_review.gd
           grep -Fq 'select_world_choice' tests/visual/w08_integrated_play_review.gd
           grep -Fq 'InputEventScreenTouch' tests/visual/w08_integrated_play_review.gd
@@ -64,14 +78,6 @@ jobs:
           test -s assets/licenses/W07_CC0_AUDIO.md
           (cd assets/third_party/audio/w07 && sha256sum --check --strict SHA256SUMS.txt)
           mkdir -p artifacts/w08
-
-      - name: Install Korean review font
-        shell: bash
-        run: |
-          set -euo pipefail
-          sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends fonts-noto-cjk
-          fc-match 'Noto Sans CJK KR' | grep -qi 'NotoSansCJK'
 
       - name: Download pinned Godot editor
         shell: bash

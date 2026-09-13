@@ -9,6 +9,9 @@ on:
       - 'game/presentation/medieval_combat_visuals_2_5d.gd'
       - 'game/presentation/medieval_field_2_5d.gd'
       - 'game/ui/main_shell_medieval_rebuild.gd'
+      - 'tools/fetch_noto_sans_kr.sh'
+      - 'assets/licenses/W06_NOTO_SANS_KR.md'
+      - 'assets/licenses/NotoSansKR-OFL.txt'
       - 'tests/visual/w09_runtime_identity_review.gd'
       - 'tests/visual/w09_runtime_identity_review.tscn'
       - '.github/workflows/w09-runtime-identity.yml'
@@ -34,6 +37,13 @@ jobs:
       - name: Checkout exact candidate
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Materialize pinned Korean UI font
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tools/fetch_noto_sans_kr.sh
+          test -s assets/runtime/fonts/NotoSansKR-wght.ttf
+
       - name: Static W09 test-contract preflight
         shell: bash
         run: |
@@ -42,6 +52,10 @@ jobs:
           test "$(jq -r '.engine.linux_x86_64_sha256' toolchain.lock)" = "$GODOT_ARCHIVE_SHA256"
           test -f tests/visual/w09_runtime_identity_review.gd
           test -f tests/visual/w09_runtime_identity_review.tscn
+          test -s assets/runtime/fonts/NotoSansKR-wght.ttf
+          test -f assets/licenses/W06_NOTO_SANS_KR.md
+          test -f assets/licenses/NotoSansKR-OFL.txt
+          grep -Fq 'SHIPPED_UI_FONT_PATH' game/ui/main_shell_medieval_rebuild.gd
           grep -Fq 'set_player_character' game/presentation/medieval_combat_visuals_2_5d.gd
           grep -Fq 'target["behavior_id"]' game/combat/w23_region_swarm_encounter.gd
           grep -Fq 'target["health"]' game/combat/w23_region_swarm_encounter.gd

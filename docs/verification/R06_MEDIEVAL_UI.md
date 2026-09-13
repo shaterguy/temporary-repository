@@ -26,7 +26,7 @@ Prior pre-rebuild readability PASS evidence is stale by user requirement and is 
 
 The W06 workflow produces fresh rendered slot/hub images at 1280×720 and 2340×1080 from the exact candidate commit. Automated structural checks verify opacity, touch target size, typography floor, input blocking, state changes, and content-bearing labels. The workflow also verifies the exact shipped font resource and renders multiple distinct Hangul glyphs into a dedicated pixel probe; identical rendered fingerprints are treated as tofu/missing-glyph failure. Render generation is evidence for review, not a claim of final human visual acceptance.
 
-The pinned font source, SHA-256 and OFL 1.1 redistribution record are stored under `assets/licenses/`. W06, W25 and the production Android export materialize the same pinned font before Godot import/export so verification and the shipped APK use the same font bytes.
+The pinned font source, SHA-256 and OFL 1.1 redistribution record are stored under `assets/licenses/`. W06, W08, W09, W25 and the production Android export materialize the same pinned font before Godot import/export so verification, integrated runtime reviews and the shipped APK use the same font bytes.
 
 ## Non-regression
 
