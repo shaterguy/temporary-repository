@@ -62,6 +62,7 @@ jobs:
           grep -Fq 'rock_instances' tests/unit/test_medieval_rebuild_world.gd
           test -f tests/visual/capture_w04_medieval_field.gd
           grep -Fq 'W04_WAYPOINT_HASHES_DISTINCT=PASS' tests/visual/capture_w04_medieval_field.gd
+          grep -Fq 'W04_VISUAL_COMPOSITION=PASS' tests/visual/capture_w04_medieval_field.gd
 
       - name: Download pinned Godot editor
         shell: bash
@@ -141,19 +142,27 @@ jobs:
           fi
           grep -Fxq 'W04_RENDER=PASS' "$render_log"
           grep -Fxq 'W04_RENDER_SIZE=1280x720' "$render_log"
-          grep -Fxq 'W04_WAYPOINT_RENDER_COUNT=3' "$render_log"
+          grep -Fxq 'W04_WAYPOINT_RENDER_COUNT=5' "$render_log"
           grep -Fxq 'W04_WAYPOINT_HASHES_DISTINCT=PASS' "$render_log"
+          grep -Fxq 'W04_VISUAL_COMPOSITION=PASS' "$render_log"
+          grep -Eq '^W04_VISUAL_MIN_COLOR_BUCKETS=[0-9]+$' "$render_log"
+          grep -Eq '^W04_VISUAL_MIN_EDGE_CONTRAST=0\.[0-9]+$' "$render_log"
+          grep -Eq '^W04_VISUAL_MAX_GREEN_DOMINANCE=0\.[0-9]+$' "$render_log"
           test -s artifacts/w04/main-shell.png
           test -s artifacts/w04/field-3d.png
           test -s artifacts/w04/field-waypoint-01-bridge.png
           test -s artifacts/w04/field-waypoint-02-chapel.png
-          test -s artifacts/w04/field-waypoint-03-ridge.png
+          test -s artifacts/w04/field-waypoint-03-hamlet.png
+          test -s artifacts/w04/field-waypoint-04-ridge.png
+          test -s artifacts/w04/field-waypoint-05-outer-march.png
           sha256sum \
             artifacts/w04/main-shell.png \
             artifacts/w04/field-3d.png \
             artifacts/w04/field-waypoint-01-bridge.png \
             artifacts/w04/field-waypoint-02-chapel.png \
-            artifacts/w04/field-waypoint-03-ridge.png
+            artifacts/w04/field-waypoint-03-hamlet.png \
+            artifacts/w04/field-waypoint-04-ridge.png \
+            artifacts/w04/field-waypoint-05-outer-march.png
 
       - name: Upload W04 render evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -164,6 +173,8 @@ jobs:
             artifacts/w04/field-3d.png
             artifacts/w04/field-waypoint-01-bridge.png
             artifacts/w04/field-waypoint-02-chapel.png
-            artifacts/w04/field-waypoint-03-ridge.png
+            artifacts/w04/field-waypoint-03-hamlet.png
+            artifacts/w04/field-waypoint-04-ridge.png
+            artifacts/w04/field-waypoint-05-outer-march.png
           if-no-files-found: error
           retention-days: 14

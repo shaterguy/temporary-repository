@@ -20,16 +20,24 @@ const TILE_SPACING_X := 1.5
 const TILE_SPACING_Z := 1.7320508
 const CAMERA_OFFSET := Vector3(0.0, 18.0, 14.0)
 const CAMERA_ORTHO_SIZE := 14.0
-const TREES_PER_CLUSTER := 9
-const ROCKS_PER_CLUSTER := 4
-const NATURE_VISIBILITY_RANGE := 90.0
-const LANDMARK_VISIBILITY_RANGE := 120.0
+const TREES_PER_CLUSTER := 12
+const ROCKS_PER_CLUSTER := 5
+const SPAWN_AREA_FOREST_CLUSTERS := 10
+const SPAWN_AREA_ROCK_CLUSTERS := 6
+const NATURE_VISIBILITY_RANGE := 96.0
+const LANDMARK_VISIBILITY_RANGE := 128.0
 const CLEAR_CORRIDOR_WIDTH_GAMEPLAY := 300.0
+const GOLDEN_ANGLE := 2.399963229728653
 const DEFAULT_REGION_ID := "twilight_shipyard"
 const SUPPORTED_REGION_IDS := ["twilight_shipyard", "glass_garden", "flooded_archive", "ash_railway", "eclipse_fortress"]
 
+# The first ten forest clusters deliberately surround the spawn/crossroads without
+# filling its two broad combat corridors. Remaining clusters keep silhouettes and
+# landmarks present as the player travels several screens in any direction.
 const FOREST_CLUSTER_CENTERS := [
     Vector2(-720.0, -430.0), Vector2(760.0, -360.0), Vector2(-880.0, 690.0), Vector2(930.0, 760.0),
+    Vector2(-520.0, -880.0), Vector2(560.0, -860.0), Vector2(-1120.0, 280.0), Vector2(1160.0, 300.0),
+    Vector2(-420.0, 1120.0), Vector2(480.0, 1160.0),
     Vector2(-2750.0, -1900.0), Vector2(2650.0, -1850.0), Vector2(-2450.0, 2050.0), Vector2(2750.0, 1900.0),
     Vector2(-4200.0, -1700.0), Vector2(-4200.0, -250.0), Vector2(-4200.0, 1350.0),
     Vector2(4100.0, -1650.0), Vector2(4100.0, 250.0), Vector2(4100.0, 1550.0),
@@ -38,24 +46,41 @@ const FOREST_CLUSTER_CENTERS := [
 ]
 
 const ROCK_CLUSTER_CENTERS := [
-    Vector2(-320.0, 240.0), Vector2(420.0, -280.0), Vector2(-1500.0, -950.0),
-    Vector2(1550.0, 1050.0), Vector2(-3250.0, 850.0), Vector2(3350.0, -900.0),
+    Vector2(-320.0, 240.0), Vector2(420.0, -280.0), Vector2(-650.0, -760.0), Vector2(680.0, -720.0),
+    Vector2(-1050.0, 520.0), Vector2(1100.0, 540.0),
+    Vector2(-1500.0, -950.0), Vector2(1550.0, 1050.0), Vector2(-3250.0, 850.0), Vector2(3350.0, -900.0),
     Vector2(-4100.0, -700.0), Vector2(-4050.0, 900.0), Vector2(4050.0, -700.0), Vector2(4150.0, 900.0),
     Vector2(-2100.0, -2450.0), Vector2(2100.0, -2400.0), Vector2(-2000.0, 2450.0), Vector2(2200.0, 2400.0),
 ]
 
+# Three readable road branches turn the former thin horizontal strip into a small
+# network that ties the ford, chapel and hamlet together. Road tiles remain purely
+# presentational/passable and therefore do not alter authoritative gameplay collision.
 const ROAD_GAMEPLAY_POINTS := [
-    Vector2(-1200.0, 0.0), Vector2(-1050.0, 0.0), Vector2(-900.0, 0.0), Vector2(-750.0, 0.0),
-    Vector2(-600.0, 0.0), Vector2(-450.0, 0.0), Vector2(-300.0, 0.0), Vector2(-150.0, 0.0),
-    Vector2(0.0, 0.0), Vector2(150.0, 0.0), Vector2(300.0, 0.0), Vector2(450.0, 0.0),
-    Vector2(600.0, 0.0), Vector2(750.0, 0.0), Vector2(900.0, 0.0), Vector2(1050.0, 0.0), Vector2(1200.0, 0.0),
+    Vector2(-1500.0, 0.0), Vector2(-1350.0, 0.0), Vector2(-1200.0, 0.0), Vector2(-1050.0, 0.0),
+    Vector2(-900.0, 0.0), Vector2(-750.0, 0.0), Vector2(-600.0, 0.0), Vector2(-450.0, 0.0),
+    Vector2(-300.0, 0.0), Vector2(-150.0, 0.0), Vector2(0.0, 0.0), Vector2(150.0, 0.0),
+    Vector2(300.0, 0.0), Vector2(450.0, 0.0), Vector2(600.0, 0.0), Vector2(750.0, 0.0),
+    Vector2(900.0, 0.0), Vector2(1050.0, 0.0), Vector2(1200.0, 0.0), Vector2(1350.0, 0.0), Vector2(1500.0, 0.0),
 ]
 
+const CHAPEL_SPUR_ROAD_POINTS := [
+    Vector2(-180.0, -120.0), Vector2(-300.0, -220.0), Vector2(-420.0, -320.0), Vector2(-540.0, -420.0),
+    Vector2(-660.0, -520.0), Vector2(-780.0, -620.0), Vector2(-900.0, -720.0),
+]
+
+const HAMLET_SPUR_ROAD_POINTS := [
+    Vector2(180.0, 120.0), Vector2(300.0, 220.0), Vector2(420.0, 320.0), Vector2(540.0, 420.0),
+    Vector2(660.0, 520.0), Vector2(780.0, 620.0), Vector2(900.0, 720.0),
+]
+
+# Keep the visual river inside the authoritative +/-96 gameplay-x spawn exclusion.
+# Small x offsets remove the ruler-straight look without creating collision/spawn drift.
 const RIVER_GAMEPLAY_POINTS := [
-    Vector2(0.0, -1384.0), Vector2(0.0, -1211.0), Vector2(0.0, -1038.0), Vector2(0.0, -865.0),
-    Vector2(0.0, -692.0), Vector2(0.0, -519.0), Vector2(0.0, -346.0), Vector2(0.0, -173.0),
-    Vector2(0.0, 0.0), Vector2(0.0, 173.0), Vector2(0.0, 346.0), Vector2(0.0, 519.0),
-    Vector2(0.0, 692.0), Vector2(0.0, 865.0), Vector2(0.0, 1038.0), Vector2(0.0, 1211.0), Vector2(0.0, 1384.0),
+    Vector2(-55.0, -1384.0), Vector2(-72.0, -1211.0), Vector2(-36.0, -1038.0), Vector2(28.0, -865.0),
+    Vector2(58.0, -692.0), Vector2(20.0, -519.0), Vector2(-32.0, -346.0), Vector2(-42.0, -173.0),
+    Vector2(0.0, 0.0), Vector2(38.0, 173.0), Vector2(48.0, 346.0), Vector2(24.0, 519.0),
+    Vector2(-34.0, 692.0), Vector2(-62.0, 865.0), Vector2(-30.0, 1038.0), Vector2(34.0, 1211.0), Vector2(56.0, 1384.0),
 ]
 
 const HAMLET_GAMEPLAY_POINTS := [
@@ -65,12 +90,19 @@ const HAMLET_GAMEPLAY_POINTS := [
     Vector2(1550.0, 2450.0), Vector2(-1550.0, -2420.0),
 ]
 
-# The high-slope pieces are long-distance silhouettes, not a spawn-screen wall.
-# Keeping them beyond the initial camera and at sub-unit scale avoids the large
-# bright foreground blocks seen in the first W04 landmark render.
+# High-slope pieces are long-distance silhouettes and low terrain breaks, not walls.
 const RIDGE_GAMEPLAY_POINTS := [
     Vector2(-1050.0, 1750.0), Vector2(-750.0, 1750.0), Vector2(-450.0, 1750.0), Vector2(-150.0, 1750.0),
     Vector2(150.0, 1750.0), Vector2(450.0, 1750.0), Vector2(750.0, 1750.0), Vector2(1050.0, 1750.0),
+]
+
+const TERRAIN_BREAK_GAMEPLAY_POINTS := [
+    Vector2(-1320.0, -980.0), Vector2(-980.0, -1180.0), Vector2(-520.0, -1320.0),
+    Vector2(540.0, -1280.0), Vector2(980.0, -1120.0), Vector2(1340.0, -920.0),
+    Vector2(-1420.0, 980.0), Vector2(-1180.0, 1320.0), Vector2(-620.0, 1480.0),
+    Vector2(620.0, 1460.0), Vector2(1160.0, 1320.0), Vector2(1440.0, 980.0),
+    Vector2(-2850.0, -1700.0), Vector2(2780.0, -1650.0), Vector2(-2520.0, 1980.0), Vector2(2820.0, 1840.0),
+    Vector2(-3920.0, 1180.0), Vector2(3880.0, -1160.0),
 ]
 
 const CHAPEL_GAMEPLAY_POSITION := Vector2(-760.0, -520.0)
@@ -134,16 +166,23 @@ func presentation_spec() -> Dictionary:
         "tree_instances": FOREST_CLUSTER_CENTERS.size() * TREES_PER_CLUSTER,
         "rock_instances": ROCK_CLUSTER_CENTERS.size() * ROCKS_PER_CLUSTER,
         "nature_clusters": FOREST_CLUSTER_CENTERS.size() + ROCK_CLUSTER_CENTERS.size(),
-        "spawn_area_forest_clusters": 4,
-        "spawn_area_rock_clusters": 2,
-        "road_instances": ROAD_GAMEPLAY_POINTS.size(),
+        "spawn_area_forest_clusters": SPAWN_AREA_FOREST_CLUSTERS,
+        "spawn_area_rock_clusters": SPAWN_AREA_ROCK_CLUSTERS,
+        "road_instances": ROAD_GAMEPLAY_POINTS.size() + CHAPEL_SPUR_ROAD_POINTS.size() + HAMLET_SPUR_ROAD_POINTS.size(),
         "river_instances": RIVER_GAMEPLAY_POINTS.size(),
         "building_instances": HAMLET_GAMEPLAY_POINTS.size() + 2,
-        "elevation_instances": RIDGE_GAMEPLAY_POINTS.size(),
+        "elevation_instances": RIDGE_GAMEPLAY_POINTS.size() + TERRAIN_BREAK_GAMEPLAY_POINTS.size(),
         "wayfinding_landmarks": WAYFINDING_LANDMARK_CENTERS.size(),
         "wayfinding_landmark_centers_gameplay": WAYFINDING_LANDMARK_CENTERS,
         "spawn_area_wayfinding_landmarks": 3,
         "route_pattern": "crossroads_river_ford",
+        "road_network_pattern": "crossroads_river_ford_with_chapel_and_hamlet_spurs",
+        "road_network_branches": 3,
+        "terrain_break_instances": TERRAIN_BREAK_GAMEPLAY_POINTS.size(),
+        "spatial_districts": ["central_ford", "moon_chapel_wood", "east_hamlet", "north_ridge", "outer_marches"],
+        "natural_scatter_pattern": "golden_angle_jitter",
+        "visual_quality_guard": "w04_render_color_contrast_sampling",
+        "composition_revision": "dense-medieval-districts-v2",
         "clear_corridor_width_gameplay": CLEAR_CORRIDOR_WIDTH_GAMEPLAY,
         "river_crossing_passable_visual": true,
         "world_size_gameplay": WORLD_BOUNDS_GAMEPLAY.size,
@@ -192,30 +231,53 @@ func _build_nature_landmarks() -> void:
     for cluster_index in range(FOREST_CLUSTER_CENTERS.size()):
         var center: Vector2 = FOREST_CLUSTER_CENTERS[cluster_index]
         for tree_index in range(TREES_PER_CLUSTER):
-            var angle := float(tree_index) * TAU / float(TREES_PER_CLUSTER) + float(cluster_index) * 0.37
-            var radius := 95.0 + float((tree_index * 73 + cluster_index * 41) % 220)
-            var gameplay_position := center + Vector2(cos(angle), sin(angle)) * radius
-            var tree := TREE_SCENE.instantiate()
+            var gameplay_position := center + _scatter_offset(tree_index, TREES_PER_CLUSTER, cluster_index, 72.0, 285.0)
+            gameplay_position = _keep_clear_crossroads(gameplay_position, center)
+            var tree := TREE_SCENE.instantiate() as Node3D
+            if tree == null:
+                continue
+            var angle := float(tree_index) * GOLDEN_ANGLE + float(cluster_index) * 0.71
             tree.name = "Forest_%02d_Tree_%02d" % [cluster_index, tree_index]
             tree.position = WorldProjection25D.gameplay_to_world3d(gameplay_position, 0.02)
-            tree.rotation.y = angle * 0.61
-            tree.scale = Vector3.ONE * (1.55 + float((tree_index + cluster_index * 2) % 5) * 0.12)
+            tree.rotation.y = angle * 0.73
+            tree.scale = Vector3.ONE * (1.30 + float((tree_index * 3 + cluster_index) % 7) * 0.12)
             _configure_geometry(tree, NATURE_VISIBILITY_RANGE)
             nature_root.add_child(tree)
 
     for cluster_index in range(ROCK_CLUSTER_CENTERS.size()):
         var center: Vector2 = ROCK_CLUSTER_CENTERS[cluster_index]
         for rock_index in range(ROCKS_PER_CLUSTER):
-            var angle := float(rock_index) * TAU / float(ROCKS_PER_CLUSTER) + float(cluster_index) * 0.53
-            var radius := 55.0 + float((rock_index * 61 + cluster_index * 29) % 135)
-            var gameplay_position := center + Vector2(cos(angle), sin(angle)) * radius
-            var rock := ROCK_SCENE.instantiate()
+            var gameplay_position := center + _scatter_offset(rock_index, ROCKS_PER_CLUSTER, cluster_index + 37, 38.0, 155.0)
+            gameplay_position = _keep_clear_crossroads(gameplay_position, center)
+            var rock := ROCK_SCENE.instantiate() as Node3D
+            if rock == null:
+                continue
+            var angle := float(rock_index) * GOLDEN_ANGLE + float(cluster_index) * 0.89
             rock.name = "Rock_%02d_%02d" % [cluster_index, rock_index]
             rock.position = WorldProjection25D.gameplay_to_world3d(gameplay_position, 0.015)
             rock.rotation.y = angle
-            rock.scale = Vector3.ONE * (4.4 + float((rock_index + cluster_index) % 4) * 0.55)
+            rock.scale = Vector3.ONE * (3.7 + float((rock_index + cluster_index * 2) % 5) * 0.48)
             _configure_geometry(rock, NATURE_VISIBILITY_RANGE)
             nature_root.add_child(rock)
+
+func _scatter_offset(item_index: int, item_count: int, cluster_index: int, min_radius: float, max_radius: float) -> Vector2:
+    var normalized := sqrt((float(item_index) + 0.65) / maxf(float(item_count), 1.0))
+    var radius := lerpf(min_radius, max_radius, normalized)
+    var angle := float(item_index) * GOLDEN_ANGLE + float(cluster_index) * 0.47
+    var jitter := Vector2(
+        sin(float(item_index * 17 + cluster_index * 11)) * 18.0,
+        cos(float(item_index * 13 + cluster_index * 7)) * 14.0
+    )
+    return Vector2(cos(angle), sin(angle)) * radius + jitter
+
+func _keep_clear_crossroads(gameplay_position: Vector2, cluster_center: Vector2) -> Vector2:
+    var adjusted := gameplay_position
+    var half_width := CLEAR_CORRIDOR_WIDTH_GAMEPLAY * 0.55
+    if absf(adjusted.y) < half_width:
+        adjusted.y = half_width if cluster_center.y >= 0.0 else -half_width
+    if absf(adjusted.x) < half_width:
+        adjusted.x = half_width if cluster_center.x >= 0.0 else -half_width
+    return adjusted
 
 func _build_wayfinding_landmarks() -> void:
     var landmark_root := Node3D.new()
@@ -223,26 +285,37 @@ func _build_wayfinding_landmarks() -> void:
     add_child(landmark_root)
 
     for road_index in range(ROAD_GAMEPLAY_POINTS.size()):
-        _spawn_landmark_scene(ROAD_SCENE, "Crossroad_%02d" % road_index, ROAD_GAMEPLAY_POINTS[road_index], 0.025, 1.0, 0.0, landmark_root)
+        _spawn_landmark_scene(ROAD_SCENE, "Crossroad_%02d" % road_index, ROAD_GAMEPLAY_POINTS[road_index], 0.025, 1.04, 0.0, landmark_root)
+    for road_index in range(CHAPEL_SPUR_ROAD_POINTS.size()):
+        _spawn_landmark_scene(ROAD_SCENE, "ChapelRoad_%02d" % road_index, CHAPEL_SPUR_ROAD_POINTS[road_index], 0.026, 1.04, -PI / 3.0, landmark_root)
+    for road_index in range(HAMLET_SPUR_ROAD_POINTS.size()):
+        _spawn_landmark_scene(ROAD_SCENE, "HamletRoad_%02d" % road_index, HAMLET_SPUR_ROAD_POINTS[road_index], 0.026, 1.04, PI / 3.0, landmark_root)
 
     for river_index in range(RIVER_GAMEPLAY_POINTS.size()):
         var gameplay_position: Vector2 = RIVER_GAMEPLAY_POINTS[river_index]
         var river_scene := RIVER_CROSSING_SCENE if gameplay_position == Vector2.ZERO else RIVER_SCENE
-        _spawn_landmark_scene(river_scene, "River_%02d" % river_index, gameplay_position, 0.03, 1.0, PI * 0.5, landmark_root)
+        var river_rotation := PI * 0.5 + sin(float(river_index) * 0.63) * 0.045
+        _spawn_landmark_scene(river_scene, "River_%02d" % river_index, gameplay_position, 0.03, 1.02, river_rotation, landmark_root)
 
-    _spawn_landmark_scene(BRIDGE_SCENE, "CentralStoneBridge", BRIDGE_GAMEPLAY_POSITION, 0.075, 1.35, PI * 0.5, landmark_root)
-    _spawn_landmark_scene(CHURCH_SCENE, "MoonChapel", CHAPEL_GAMEPLAY_POSITION, 0.04, 1.65, 0.28, landmark_root)
+    _spawn_landmark_scene(BRIDGE_SCENE, "CentralStoneBridge", BRIDGE_GAMEPLAY_POSITION, 0.075, 1.42, PI * 0.5, landmark_root)
+    _spawn_landmark_scene(CHURCH_SCENE, "MoonChapel", CHAPEL_GAMEPLAY_POSITION, 0.04, 1.72, 0.28, landmark_root)
 
     for home_index in range(HAMLET_GAMEPLAY_POINTS.size()):
         _spawn_landmark_scene(
-            HOME_SCENE, "EastHamletHome_%02d" % home_index, HAMLET_GAMEPLAY_POINTS[home_index], 0.04,
-            1.45 + float(home_index) * 0.08, -0.32 + float(home_index) * 0.29, landmark_root
+            HOME_SCENE, "HamletHome_%02d" % home_index, HAMLET_GAMEPLAY_POINTS[home_index], 0.04,
+            1.38 + float(home_index % 4) * 0.10, -0.34 + float(home_index % 5) * 0.29, landmark_root
         )
 
     for ridge_index in range(RIDGE_GAMEPLAY_POINTS.size()):
         _spawn_landmark_scene(
             SLOPED_GRASS_SCENE, "NorthRidge_%02d" % ridge_index, RIDGE_GAMEPLAY_POINTS[ridge_index], 0.015,
             0.72, PI if ridge_index % 2 == 1 else 0.0, landmark_root
+        )
+
+    for break_index in range(TERRAIN_BREAK_GAMEPLAY_POINTS.size()):
+        _spawn_landmark_scene(
+            SLOPED_GRASS_SCENE, "TerrainBreak_%02d" % break_index, TERRAIN_BREAK_GAMEPLAY_POINTS[break_index], 0.012,
+            0.36 + float(break_index % 4) * 0.055, float(break_index % 6) * PI / 3.0, landmark_root
         )
 
 func _spawn_landmark_scene(scene: PackedScene, node_name: String, gameplay_position: Vector2, elevation: float, uniform_scale: float, rotation_y: float, parent: Node3D) -> Node3D:
@@ -279,7 +352,7 @@ func _build_environment() -> void:
     _key_light.name = "MoonKeyLight"
     _key_light.rotation_degrees = Vector3(-58.0, -32.0, 0.0)
     _key_light.shadow_enabled = true
-    _key_light.directional_shadow_max_distance = 72.0
+    _key_light.directional_shadow_max_distance = 78.0
     add_child(_key_light)
     _apply_region_environment()
 
