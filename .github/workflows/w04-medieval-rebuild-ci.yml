@@ -63,6 +63,7 @@ jobs:
           test -f tests/visual/capture_w04_medieval_field.gd
           grep -Fq 'W04_WAYPOINT_HASHES_DISTINCT=PASS' tests/visual/capture_w04_medieval_field.gd
           grep -Fq 'W04_VISUAL_COMPOSITION=PASS' tests/visual/capture_w04_medieval_field.gd
+          grep -Fq 'W04_VISUAL_MAX_LARGEST_UNIFORM_COMPONENT' tests/visual/capture_w04_medieval_field.gd
 
       - name: Download pinned Godot editor
         shell: bash
@@ -148,6 +149,7 @@ jobs:
           grep -Eq '^W04_VISUAL_MIN_COLOR_BUCKETS=[0-9]+$' "$render_log"
           grep -Eq '^W04_VISUAL_MIN_EDGE_CONTRAST=0\.[0-9]+$' "$render_log"
           grep -Eq '^W04_VISUAL_MAX_GREEN_DOMINANCE=0\.[0-9]+$' "$render_log"
+          grep -Eq '^W04_VISUAL_MAX_LARGEST_UNIFORM_COMPONENT=0\.[0-9]+$' "$render_log"
           test -s artifacts/w04/main-shell.png
           test -s artifacts/w04/field-3d.png
           test -s artifacts/w04/field-waypoint-01-bridge.png
