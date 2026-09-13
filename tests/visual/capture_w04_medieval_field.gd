@@ -16,16 +16,19 @@ const EXPECTED_SIZE := Vector2i(1280, 720)
 const SETTLE_FRAMES := 12
 const WAYPOINT_SETTLE_FRAMES := 8
 const MIN_WAYPOINT_SEPARATION := 3000.0
-const SAMPLE_STEP := 24
-const SAMPLE_OFFSET := 12
+const SAMPLE_STEP := 16
+const SAMPLE_OFFSET := 8
 const COLOR_BUCKET_LEVELS := 6
 const MIN_COLOR_BUCKETS := 10
 const MIN_EDGE_CONTRAST_RATIO := 0.035
-const MAX_GREEN_DOMINANCE_RATIO := 0.90
 const MIN_EDGE_COLOR_DELTA := 0.14
+const MAX_LOCAL_COLOR_DELTA := 0.10
+const MAX_UNIFORM_LOW_DETAIL_RATIO := 0.74
+
 
 func _initialize() -> void:
     call_deferred("_capture")
+
 
 func _capture() -> void:
     root.size = EXPECTED_SIZE
@@ -88,6 +91,7 @@ func _capture() -> void:
     var minimum_color_buckets := 1_000_000
     var minimum_edge_contrast := 1.0
     var maximum_green_dominance := 0.0
+    var maximum_uniform_low_detail := 0.0
     for index in range(waypoints.size()):
         var waypoint: Vector2 = waypoints[index]
         combat_preview.global_position = waypoint
@@ -119,14 +123,17 @@ func _capture() -> void:
         var color_buckets := int(composition.get("color_buckets", 0))
         var green_dominance := float(composition.get("green_dominance", 1.0))
         var edge_contrast := float(composition.get("edge_contrast", 0.0))
+        var uniform_low_detail := float(composition.get("uniform_low_detail", 1.0))
         minimum_color_buckets = mini(minimum_color_buckets, color_buckets)
         maximum_green_dominance = maxf(maximum_green_dominance, green_dominance)
         minimum_edge_contrast = minf(minimum_edge_contrast, edge_contrast)
+        maximum_uniform_low_detail = maxf(maximum_uniform_low_detail, uniform_low_detail)
         print("W04_WAYPOINT_%d_POSITION=%.1f,%.1f" % [index + 1, waypoint.x, waypoint.y])
         print("W04_WAYPOINT_%d_SHA256=%s" % [index + 1, waypoint_hashes[index]])
         print("W04_WAYPOINT_%d_COLOR_BUCKETS=%d" % [index + 1, color_buckets])
         print("W04_WAYPOINT_%d_GREEN_DOMINANCE=%.4f" % [index + 1, green_dominance])
         print("W04_WAYPOINT_%d_EDGE_CONTRAST=%.4f" % [index + 1, edge_contrast])
+        print("W04_WAYPOINT_%d_UNIFORM_LOW_DETAIL=%.4f" % [index + 1, uniform_low_detail])
         if not bool(composition.get("passes", false)):
             visual_failures.append(index + 1)
 
@@ -160,6 +167,7 @@ func _capture() -> void:
     print("W04_VISUAL_MIN_COLOR_BUCKETS=%d" % minimum_color_buckets)
     print("W04_VISUAL_MIN_EDGE_CONTRAST=%.4f" % minimum_edge_contrast)
     print("W04_VISUAL_MAX_GREEN_DOMINANCE=%.4f" % maximum_green_dominance)
+    print("W04_VISUAL_MAX_UNIFORM_LOW_DETAIL=%.4f" % maximum_uniform_low_detail)
     print("W04_SHELL_SHA256=%s" % FileAccess.get_sha256(SHELL_OUTPUT))
     print("W04_FIELD_SHA256=%s" % FileAccess.get_sha256(FIELD_OUTPUT))
 
@@ -177,17 +185,22 @@ func _capture() -> void:
     await process_frame
     quit(0)
 
+
 func _analyze_visual_composition(image: Image) -> Dictionary:
     var color_buckets: Dictionary = {}
     var sample_count := 0
     var green_samples := 0
     var edge_count := 0
     var contrast_edges := 0
+    var sampled_rows: Array = []
+
     for y in range(SAMPLE_OFFSET, image.get_height(), SAMPLE_STEP):
         var previous := Color.BLACK
         var has_previous := false
+        var row_samples: Array = []
         for x in range(SAMPLE_OFFSET, image.get_width(), SAMPLE_STEP):
             var pixel := image.get_pixel(x, y)
+            row_samples.append(pixel)
             var red_bucket := clampi(int(floor(pixel.r * float(COLOR_BUCKET_LEVELS))), 0, COLOR_BUCKET_LEVELS - 1)
             var green_bucket := clampi(int(floor(pixel.g * float(COLOR_BUCKET_LEVELS))), 0, COLOR_BUCKET_LEVELS - 1)
             var blue_bucket := clampi(int(floor(pixel.b * float(COLOR_BUCKET_LEVELS))), 0, COLOR_BUCKET_LEVELS - 1)
@@ -196,24 +209,47 @@ func _analyze_visual_composition(image: Image) -> Dictionary:
                 green_samples += 1
             if has_previous:
                 edge_count += 1
-                var color_delta := absf(pixel.r - previous.r) + absf(pixel.g - previous.g) + absf(pixel.b - previous.b)
-                if color_delta >= MIN_EDGE_COLOR_DELTA:
+                if _color_delta(pixel, previous) >= MIN_EDGE_COLOR_DELTA:
                     contrast_edges += 1
             previous = pixel
             has_previous = true
             sample_count += 1
+        sampled_rows.append(row_samples)
+
+    var uniform_cells := 0
+    var local_cell_count := 0
+    for row_index in range(sampled_rows.size() - 1):
+        var row_samples: Array = sampled_rows[row_index]
+        var next_row_samples: Array = sampled_rows[row_index + 1]
+        var column_count := mini(row_samples.size(), next_row_samples.size())
+        for column_index in range(column_count - 1):
+            var current: Color = row_samples[column_index]
+            var right: Color = row_samples[column_index + 1]
+            var down: Color = next_row_samples[column_index]
+            var local_delta := maxf(_color_delta(current, right), _color_delta(current, down))
+            if local_delta <= MAX_LOCAL_COLOR_DELTA:
+                uniform_cells += 1
+            local_cell_count += 1
+
     var green_dominance := float(green_samples) / maxf(float(sample_count), 1.0)
     var edge_contrast := float(contrast_edges) / maxf(float(edge_count), 1.0)
+    var uniform_low_detail := float(uniform_cells) / maxf(float(local_cell_count), 1.0)
     return {
         "color_buckets": color_buckets.size(),
         "green_dominance": green_dominance,
         "edge_contrast": edge_contrast,
+        "uniform_low_detail": uniform_low_detail,
         "passes": (
             color_buckets.size() >= MIN_COLOR_BUCKETS
             and edge_contrast >= MIN_EDGE_CONTRAST_RATIO
-            and green_dominance <= MAX_GREEN_DOMINANCE_RATIO
+            and uniform_low_detail <= MAX_UNIFORM_LOW_DETAIL_RATIO
         ),
     }
+
+
+func _color_delta(first: Color, second: Color) -> float:
+    return absf(first.r - second.r) + absf(first.g - second.g) + absf(first.b - second.b)
+
 
 func _has_expected_size(image: Image) -> bool:
     return image != null and image.get_width() == EXPECTED_SIZE.x and image.get_height() == EXPECTED_SIZE.y
