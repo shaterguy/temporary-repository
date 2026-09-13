@@ -39,19 +39,19 @@ func _run() -> void:
             campaign.set("save_root", "user://w25_touch_navigation_%d" % Time.get_ticks_usec())
         _expect(str(shell.get("shell_mode")) == "SLOT_SELECT", "W25 shell did not begin in slot selection")
         if touch_choices != null:
-            _expect(bool(touch_choices.visible), "W25 touch choices hidden during slot selection")
+            _expect(_is_effectively_visible(touch_choices), "W25 touch choices hidden during slot selection")
         if choice_1 is Button and choice_2 is Button and choice_3 is Button:
-            _expect(bool(choice_1.visible) and bool(choice_2.visible) and bool(choice_3.visible), "W25 slot touch buttons are not all visible")
+            _expect(_is_effectively_visible(choice_1) and _is_effectively_visible(choice_2) and _is_effectively_visible(choice_3), "W25 slot touch buttons are not all visible")
             choice_1.emit_signal("pressed")
             await process_frame
             _expect(str(shell.get("shell_mode")) == "HUB", "W25 touch slot selection did not enter HUB")
-            _expect(bool(touch_choices.visible), "W25 touch choices hidden in HUB")
-            _expect(bool(choice_1.visible) and bool(choice_2.visible) and not bool(choice_3.visible), "W25 HUB touch choices did not reduce to two options")
+            _expect(_is_effectively_visible(touch_choices), "W25 touch choices hidden in HUB")
+            _expect(_is_effectively_visible(choice_1) and _is_effectively_visible(choice_2) and not _is_effectively_visible(choice_3), "W25 HUB touch choices did not reduce to two options")
             choice_1.emit_signal("pressed")
             await process_frame
             await process_frame
             _expect(str(shell.get("shell_mode")) == "EXPEDITION", "W25 touch world choice did not enter EXPEDITION")
-            _expect(not bool(touch_choices.visible), "W25 pre-expedition touch choices remained visible in expedition")
+            _expect(not _is_effectively_visible(touch_choices), "W25 pre-expedition touch choices remained visible in expedition")
 
         overlay = shell.get_node_or_null("ScreenUI/W25MobileControls")
         if overlay != null:
@@ -67,6 +67,9 @@ func _run() -> void:
         shell.queue_free()
         await process_frame
     _finish()
+
+func _is_effectively_visible(node: Node) -> bool:
+    return node is CanvasItem and (node as CanvasItem).is_visible_in_tree()
 
 func _expect(condition: bool, message: String) -> void:
     if not condition:

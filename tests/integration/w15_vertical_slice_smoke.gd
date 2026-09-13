@@ -28,13 +28,13 @@ func _run_vertical_slice() -> void:
 
     shell.set("campaign", CampaignRuntimeScript.new(TEST_ROOT))
     shell.call("_show_slot_prompt")
-    var tutorial: Node = shell.get_node_or_null("W15FirstExpeditionTutorial")
+    var tutorial: Node = shell.get_node_or_null("ScreenUI/W15FirstExpeditionTutorial")
     if not is_instance_valid(tutorial):
         _failures.append("W15 first-expedition tutorial is not mounted in the main scene")
         _finish(shell, 0)
         return
 
-    if shell.get_node_or_null("W13RepresentativeArt") == null or shell.get_node_or_null("W13RepresentativeHud") == null:
+    if shell.get_node_or_null("W13RepresentativeArt") == null or shell.get_node_or_null("ScreenUI/W13RepresentativeHud") == null:
         _failures.append("W13 representative art/HUD is not mounted in the actual main scene")
     if str(ProjectSettings.get_setting("autoload/AudioDirector", "")) != "*res://game/audio/audio_director.gd":
         _failures.append("W14 AudioDirector is not configured as the actual runtime autoload")

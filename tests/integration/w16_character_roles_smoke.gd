@@ -32,7 +32,7 @@ func _run_character_expansion() -> void:
     shell.set("campaign", CampaignRuntimeScript.new(TEST_ROOT))
     shell.call("_show_slot_prompt")
 
-    var tutorial: Node = shell.get_node_or_null("W16CharacterTutorial")
+    var tutorial: Node = shell.get_node_or_null("ScreenUI/W16CharacterTutorial")
     if not is_instance_valid(tutorial):
         _failures.append("W16 character tutorial is not mounted in the actual main scene")
         _finish(shell, 0)
