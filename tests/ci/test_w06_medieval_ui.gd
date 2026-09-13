@@ -5,6 +5,14 @@ const EXPECTED_HUB_MODE: String = "HUB"
 const EXPECTED_EXPEDITION_MODE: String = "EXPEDITION"
 const EXPECTED_UI_FONT_PATH: String = "res://assets/runtime/fonts/NotoSansKR-wght.ttf"
 const HANGUL_PROBE := ["잔", "광", "여", "정", "슬", "롯", "선", "택"]
+const REAL_MENU_FONT_CONTROL_PATHS := [
+    "ScreenUI/SafeArea/Content/Subtitle",
+    "ScreenUI/SafeArea/Content/Foundation",
+    "ScreenUI/SafeArea/Content/Status",
+    "ScreenUI/SafeArea/Content/TouchChoices/Choice1",
+    "ScreenUI/SafeArea/Content/TouchChoices/Choice2",
+    "ScreenUI/SafeArea/Content/TouchChoices/Choice3",
+]
 
 var _failures: Array[String] = []
 
@@ -41,6 +49,9 @@ func _run() -> void:
                     has_all_probe_glyphs = false
                     _expect(false, "runtime font is missing Hangul glyph %s" % glyph)
             shipped_font_ready = runtime_font.resource_path == EXPECTED_UI_FONT_PATH and has_all_probe_glyphs
+
+    var real_menu_font_ready := _verify_real_menu_effective_fonts(shell)
+    shipped_font_ready = shipped_font_ready and real_menu_font_ready
 
     var controls := shell.get_node_or_null("ScreenUI/SafeArea/Content/TouchChoices")
     _expect(controls != null and controls.has_method("readability_snapshot"), "menu readability controller must be mounted")
@@ -87,6 +98,7 @@ func _run() -> void:
     _expect(not bool(expedition_snapshot.get("menu_visible", true)), "opaque menu layers must clear during active expedition")
 
     print("W06_CONTRACT=r06-medieval-ui-readability-v1")
+    print("W06_REAL_MENU_FONT=PASS" if real_menu_font_ready else "W06_REAL_MENU_FONT=FAIL")
     print("W06_SHIPPED_FONT=PASS" if shipped_font_ready else "W06_SHIPPED_FONT=FAIL")
     print("W06_DIMMER_ALPHA=%.2f" % float(slot_snapshot.get("dimmer_alpha", 0.0)))
     print("W06_PANEL_ALPHA=%.2f" % float(slot_snapshot.get("panel_alpha", 0.0)))
@@ -99,6 +111,30 @@ func _run() -> void:
     shell.queue_free()
     await process_frame
     _finish()
+
+
+func _verify_real_menu_effective_fonts(shell: Node) -> bool:
+    var all_ready := true
+    for control_path: String in REAL_MENU_FONT_CONTROL_PATHS:
+        var control := shell.get_node_or_null(control_path) as Control
+        _expect(control != null, "real menu font control is missing: %s" % control_path)
+        if control == null:
+            all_ready = false
+            continue
+        var effective_font: Font = control.get_theme_font(&"font")
+        _expect(effective_font != null, "real menu control has no effective font: %s" % control_path)
+        if effective_font == null:
+            all_ready = false
+            continue
+        var expected_path := effective_font.resource_path == EXPECTED_UI_FONT_PATH
+        _expect(expected_path, "real menu control must resolve the shipped Korean font: %s -> %s" % [control_path, effective_font.resource_path])
+        var has_all_probe_glyphs := true
+        for glyph: String in HANGUL_PROBE:
+            if not effective_font.has_char(glyph.unicode_at(0)):
+                has_all_probe_glyphs = false
+                _expect(false, "real menu control font is missing Hangul glyph %s: %s" % [glyph, control_path])
+        all_ready = all_ready and expected_path and has_all_probe_glyphs
+    return all_ready
 
 
 func _expect(condition: bool, message: String) -> void:

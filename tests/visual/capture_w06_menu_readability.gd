@@ -3,6 +3,14 @@ extends SceneTree
 const OUTPUT_DIR := "res://artifacts/w06"
 const EXPECTED_UI_FONT_PATH: String = "res://assets/runtime/fonts/NotoSansKR-wght.ttf"
 const HANGUL_PROBE := ["잔", "광", "여", "정", "슬", "롯", "선", "택"]
+const REAL_MENU_FONT_CONTROL_PATHS := [
+    "ScreenUI/SafeArea/Content/Subtitle",
+    "ScreenUI/SafeArea/Content/Foundation",
+    "ScreenUI/SafeArea/Content/Status",
+    "ScreenUI/SafeArea/Content/TouchChoices/Choice1",
+    "ScreenUI/SafeArea/Content/TouchChoices/Choice2",
+    "ScreenUI/SafeArea/Content/TouchChoices/Choice3",
+]
 const VIEWPORT_MATRIX := [
     Vector2i(1280, 720),
     Vector2i(2340, 1080),
@@ -39,7 +47,7 @@ func _capture() -> void:
             await process_frame
 
         if not glyph_regression_checked:
-            if not await _verify_rendered_hangul(shell as Control):
+            if not _verify_rendered_hangul(shell as Control):
                 viewport.queue_free()
                 quit(8)
                 return
@@ -90,54 +98,57 @@ func _capture() -> void:
 
 
 func _verify_rendered_hangul(shell: Control) -> bool:
-    if shell == null or shell.theme == null or shell.theme.default_font == null:
-        printerr("W06_HANGUL_RENDER=FAIL_NO_FONT")
+    if shell == null:
+        printerr("W06_HANGUL_RENDER=FAIL_NO_SHELL")
         return false
-    var active_font: Font = shell.theme.default_font
-    if active_font.resource_path != EXPECTED_UI_FONT_PATH:
-        printerr("W06_HANGUL_RENDER=FAIL_FONT_PATH_%s" % active_font.resource_path)
+    var viewport := shell.get_viewport()
+    if viewport == null:
+        printerr("W06_HANGUL_RENDER=FAIL_NO_VIEWPORT")
         return false
-    for glyph: String in HANGUL_PROBE:
-        if not active_font.has_char(glyph.unicode_at(0)):
-            printerr("W06_HANGUL_RENDER=FAIL_MISSING_GLYPH_%s" % glyph)
+    var rendered_image: Image = viewport.get_texture().get_image()
+    if rendered_image == null or rendered_image.is_empty():
+        printerr("W06_HANGUL_RENDER=FAIL_EMPTY_REAL_MENU_IMAGE")
+        return false
+
+    var image_bounds := Rect2i(Vector2i.ZERO, rendered_image.get_size())
+    var rendered_region_fingerprints: Dictionary = {}
+    for control_path: String in REAL_MENU_FONT_CONTROL_PATHS:
+        var control := shell.get_node_or_null(control_path) as Control
+        if control == null:
+            printerr("W06_HANGUL_RENDER=FAIL_MISSING_CONTROL_%s" % control_path)
             return false
-
-    var probe_viewport := SubViewport.new()
-    probe_viewport.name = "W06HangulGlyphProbe"
-    probe_viewport.size = Vector2i(128, 128)
-    probe_viewport.transparent_bg = true
-    probe_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-    root.add_child(probe_viewport)
-
-    var label := Label.new()
-    label.position = Vector2.ZERO
-    label.size = Vector2(128, 128)
-    label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-    label.theme = shell.theme
-    label.add_theme_font_size_override("font_size", 64)
-    probe_viewport.add_child(label)
-
-    var fingerprints: Dictionary = {}
-    for glyph: String in HANGUL_PROBE:
-        label.text = glyph
-        await process_frame
-        await process_frame
-        var image: Image = probe_viewport.get_texture().get_image()
-        if image == null or image.is_empty():
-            printerr("W06_HANGUL_RENDER=FAIL_EMPTY_IMAGE_%s" % glyph)
-            probe_viewport.queue_free()
+        var active_font: Font = control.get_theme_font(&"font")
+        if active_font == null:
+            printerr("W06_HANGUL_RENDER=FAIL_NO_EFFECTIVE_FONT_%s" % control_path)
             return false
-        var fingerprint := image.get_data().hex_encode().sha256_text()
-        fingerprints[fingerprint] = true
+        if active_font.resource_path != EXPECTED_UI_FONT_PATH:
+            printerr("W06_HANGUL_RENDER=FAIL_EFFECTIVE_FONT_%s_%s" % [control_path, active_font.resource_path])
+            return false
+        for glyph: String in HANGUL_PROBE:
+            if not active_font.has_char(glyph.unicode_at(0)):
+                printerr("W06_HANGUL_RENDER=FAIL_MISSING_GLYPH_%s_%s" % [glyph, control_path])
+                return false
 
-    probe_viewport.queue_free()
-    await process_frame
-    if fingerprints.size() != HANGUL_PROBE.size():
-        printerr("W06_HANGUL_RENDER=FAIL_TOFU_FINGERPRINT_%d_OF_%d" % [fingerprints.size(), HANGUL_PROBE.size()])
+        var global_rect := control.get_global_rect()
+        var control_rect := Rect2i(
+            Vector2i(int(floor(global_rect.position.x)), int(floor(global_rect.position.y))),
+            Vector2i(int(ceil(global_rect.size.x)), int(ceil(global_rect.size.y)))
+        ).intersection(image_bounds)
+        if control_rect.size.x <= 0 or control_rect.size.y <= 0:
+            printerr("W06_HANGUL_RENDER=FAIL_EMPTY_REAL_CONTROL_RECT_%s" % control_path)
+            return false
+        var rendered_region := rendered_image.get_region(control_rect)
+        if rendered_region == null or rendered_region.is_empty():
+            printerr("W06_HANGUL_RENDER=FAIL_EMPTY_REAL_CONTROL_IMAGE_%s" % control_path)
+            return false
+        rendered_region_fingerprints[rendered_region.get_data().hex_encode().sha256_text()] = true
+
+    if rendered_region_fingerprints.size() < 4:
+        printerr("W06_HANGUL_RENDER=FAIL_REAL_CONTROL_FINGERPRINTS_%d" % rendered_region_fingerprints.size())
         return false
     print("W06_HANGUL_FONT_PATH=%s" % EXPECTED_UI_FONT_PATH)
-    print("W06_HANGUL_RENDER_UNIQUE=%d" % fingerprints.size())
+    print("W06_REAL_MENU_FONT=PASS")
+    print("W06_REAL_MENU_RENDER_REGIONS=%d" % rendered_region_fingerprints.size())
     print("W06_HANGUL_RENDER_FINGERPRINT=PASS")
     return true
 

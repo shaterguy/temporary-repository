@@ -57,6 +57,28 @@ func _install_shipped_ui_font() -> void:
     runtime_theme.default_font = font_resource as Font
     theme = runtime_theme
     _shipped_ui_font = font_resource as Font
+    _install_shipped_font_across_screen_ui(runtime_theme)
+
+
+func _install_shipped_font_across_screen_ui(runtime_theme: Theme) -> void:
+    var screen_ui := get_node_or_null("ScreenUI")
+    if screen_ui == null:
+        push_warning("ScreenUI is missing while installing the deterministic Korean UI font")
+        return
+    _repair_control_theme_boundaries(screen_ui, runtime_theme)
+
+
+func _repair_control_theme_boundaries(node: Node, fallback_theme: Theme) -> void:
+    for child: Node in node.get_children():
+        if child is Control:
+            var control := child as Control
+            if control.theme != null:
+                var local_theme := control.theme.duplicate(true) as Theme
+                local_theme.default_font = _shipped_ui_font
+                control.theme = local_theme
+            elif not (node is Control):
+                control.theme = fallback_theme
+        _repair_control_theme_boundaries(child, fallback_theme)
 
 
 func ui_font_snapshot() -> Dictionary:
