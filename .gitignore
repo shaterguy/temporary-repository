@@ -9,6 +9,9 @@ export/
 *.apk
 *.aab
 
+# Build-materialized pinned runtime assets
+assets/runtime/fonts/NotoSansKR-wght.ttf
+
 # Signing and local secrets
 *.jks
 *.keystore

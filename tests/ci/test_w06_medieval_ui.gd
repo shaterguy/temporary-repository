@@ -3,6 +3,8 @@ extends SceneTree
 const EXPECTED_SLOT_MODE: String = "SLOT_SELECT"
 const EXPECTED_HUB_MODE: String = "HUB"
 const EXPECTED_EXPEDITION_MODE: String = "EXPEDITION"
+const EXPECTED_UI_FONT_PATH: String = "res://assets/runtime/fonts/NotoSansKR-wght.ttf"
+const HANGUL_PROBE := ["잔", "광", "여", "정", "슬", "롯", "선", "택"]
 
 var _failures: Array[String] = []
 
@@ -23,6 +25,22 @@ func _run() -> void:
     root.add_child(shell)
     for _frame in range(4):
         await process_frame
+
+    var shipped_font_ready := false
+    var shell_control := shell as Control
+    _expect(shell_control != null, "main shell must be a Control")
+    if shell_control != null:
+        var runtime_theme := shell_control.theme
+        var runtime_font: Font = runtime_theme.default_font if runtime_theme != null else null
+        _expect(runtime_font != null, "runtime theme must expose a default font")
+        if runtime_font != null:
+            _expect(runtime_font.resource_path == EXPECTED_UI_FONT_PATH, "runtime theme must use the shipped pinned Korean font")
+            var has_all_probe_glyphs := true
+            for glyph: String in HANGUL_PROBE:
+                if not runtime_font.has_char(glyph.unicode_at(0)):
+                    has_all_probe_glyphs = false
+                    _expect(false, "runtime font is missing Hangul glyph %s" % glyph)
+            shipped_font_ready = runtime_font.resource_path == EXPECTED_UI_FONT_PATH and has_all_probe_glyphs
 
     var controls := shell.get_node_or_null("ScreenUI/SafeArea/Content/TouchChoices")
     _expect(controls != null and controls.has_method("readability_snapshot"), "menu readability controller must be mounted")
@@ -69,6 +87,7 @@ func _run() -> void:
     _expect(not bool(expedition_snapshot.get("menu_visible", true)), "opaque menu layers must clear during active expedition")
 
     print("W06_CONTRACT=r06-medieval-ui-readability-v1")
+    print("W06_SHIPPED_FONT=PASS" if shipped_font_ready else "W06_SHIPPED_FONT=FAIL")
     print("W06_DIMMER_ALPHA=%.2f" % float(slot_snapshot.get("dimmer_alpha", 0.0)))
     print("W06_PANEL_ALPHA=%.2f" % float(slot_snapshot.get("panel_alpha", 0.0)))
     print("W06_TOUCH_TARGET_PX=%d" % int(slot_snapshot.get("touch_height", 0.0)))

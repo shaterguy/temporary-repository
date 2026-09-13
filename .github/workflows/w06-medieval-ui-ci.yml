@@ -6,9 +6,13 @@ on:
       - 'work/sr-20260911-medieval-rebuild'
     paths:
       - 'game/ui/main_shell.tscn'
+      - 'game/ui/main_shell_medieval_rebuild.gd'
       - 'game/ui/medieval_menu_readability.gd'
       - 'tests/ci/test_w06_medieval_ui.gd'
       - 'tests/visual/capture_w06_menu_readability.gd'
+      - 'tools/fetch_noto_sans_kr.sh'
+      - 'assets/licenses/W06_NOTO_SANS_KR.md'
+      - 'assets/licenses/NotoSansKR-OFL.txt'
       - 'docs/verification/R06_MEDIEVAL_UI.md'
       - '.github/workflows/w06-medieval-ui-ci.yml'
   workflow_dispatch:
@@ -33,6 +37,13 @@ jobs:
       - name: Checkout exact candidate
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Materialize pinned Korean UI font
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tools/fetch_noto_sans_kr.sh
+          test -s assets/runtime/fonts/NotoSansKR-wght.ttf
+
       - name: W06 contract preflight
         shell: bash
         run: |
@@ -42,10 +53,14 @@ jobs:
           test -f game/ui/medieval_menu_readability.gd
           test -f tests/ci/test_w06_medieval_ui.gd
           test -f tests/visual/capture_w06_menu_readability.gd
+          test -f assets/licenses/W06_NOTO_SANS_KR.md
+          test -f assets/licenses/NotoSansKR-OFL.txt
           grep -Fq 'MenuDimmer' game/ui/main_shell.tscn
           grep -Fq 'MenuCard' game/ui/main_shell.tscn
           grep -Fq 'custom_minimum_size = Vector2(0, 80)' game/ui/main_shell.tscn
+          grep -Fq 'SHIPPED_UI_FONT_PATH' game/ui/main_shell_medieval_rebuild.gd
           grep -Fq 'W06_CONTRACT=r06-medieval-ui-readability-v1' tests/ci/test_w06_medieval_ui.gd
+          grep -Fq 'W06_HANGUL_RENDER_FINGERPRINT=PASS' tests/visual/capture_w06_menu_readability.gd
           grep -Fq 'Prior pre-rebuild readability PASS evidence is stale' docs/verification/R06_MEDIEVAL_UI.md
 
       - name: Download pinned Godot editor
@@ -89,6 +104,7 @@ jobs:
             exit 1
           fi
           grep -Fxq 'W06_CONTRACT=r06-medieval-ui-readability-v1' "$test_log"
+          grep -Fxq 'W06_SHIPPED_FONT=PASS' "$test_log"
           grep -Fxq 'W06_INPUT_BLOCK=PASS' "$test_log"
           grep -Fxq 'W06_MENU_STATE_TRANSITION=PASS' "$test_log"
           grep -Fxq 'W06_MEDIEVAL_UI=PASS' "$test_log"
@@ -108,6 +124,7 @@ jobs:
             echo "::error::W06 render reported script/runtime errors"
             exit 1
           fi
+          grep -Fxq 'W06_HANGUL_RENDER_FINGERPRINT=PASS' "$render_log"
           grep -Fxq 'W06_CAPTURE_1280x720=PASS' "$render_log"
           grep -Fxq 'W06_CAPTURE_2340x1080=PASS' "$render_log"
           grep -Fxq 'W06_CAPTURE_COUNT=4' "$render_log"

@@ -17,6 +17,9 @@ on:
       - 'tests/unit/test_w25_mobile_input.gd'
       - 'tests/unit/test_w25_save_recovery.gd'
       - 'tests/integration/w25_mobile_hardening_smoke.gd'
+      - 'tools/fetch_noto_sans_kr.sh'
+      - 'assets/licenses/W06_NOTO_SANS_KR.md'
+      - 'assets/licenses/NotoSansKR-OFL.txt'
       - 'docs/verification/W25_ANDROID_HARDENING.md'
       - '.github/workflows/w25-android-hardening-ci.yml'
   pull_request:
@@ -32,6 +35,9 @@ on:
       - 'tests/unit/test_w25_mobile_input.gd'
       - 'tests/unit/test_w25_save_recovery.gd'
       - 'tests/integration/w25_mobile_hardening_smoke.gd'
+      - 'tools/fetch_noto_sans_kr.sh'
+      - 'assets/licenses/W06_NOTO_SANS_KR.md'
+      - 'assets/licenses/NotoSansKR-OFL.txt'
       - 'docs/verification/W25_ANDROID_HARDENING.md'
       - '.github/workflows/w25-android-hardening-ci.yml'
   workflow_dispatch:
@@ -56,6 +62,13 @@ jobs:
       - name: Checkout exact candidate
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Materialize pinned Korean UI font
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tools/fetch_noto_sans_kr.sh
+          test -s assets/runtime/fonts/NotoSansKR-wght.ttf
+
       - name: Static W25 contract preflight
         shell: bash
         run: |
@@ -72,8 +85,10 @@ jobs:
           test -f tests/unit/test_w25_save_recovery.gd
           test -f tests/integration/w25_mobile_hardening_smoke.gd
           test -f docs/verification/W25_ANDROID_HARDENING.md
+          test -s assets/runtime/fonts/NotoSansKR-wght.ttf
           grep -Fq 'res://game/ui/main_shell_medieval_rebuild.gd' game/ui/main_shell.tscn
           grep -Fq 'extends "res://game/ui/main_shell_w24.gd"' game/ui/main_shell_medieval_rebuild.gd
+          grep -Fq 'SHIPPED_UI_FONT_PATH' game/ui/main_shell_medieval_rebuild.gd
           grep -Fq 'res://game/ui/mobile_input_overlay.gd' game/ui/main_shell.tscn
           grep -Fq 'res://game/ui/medieval_menu_readability.gd' game/ui/main_shell.tscn
           grep -Fq '[node name="W25MobileControls" type="Control" parent="ScreenUI"]' game/ui/main_shell.tscn

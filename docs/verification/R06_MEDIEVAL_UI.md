@@ -18,12 +18,15 @@ This checkpoint advances R03 AC-04 only. It does not change save/campaign semant
 - Hub choices expose destination and route identity instead of generic `선택 1/2` labels.
 - Menu dim/card/content are removed during active expedition so the world and combat HUD regain visual priority.
 - The dim layer stops pointer/touch propagation outside the active buttons. Existing gameplay touch input remains expedition-only.
+- Korean UI text must use the pinned Noto Sans KR runtime asset materialized by `tools/fetch_noto_sans_kr.sh`; a host-only system fallback is not acceptance evidence.
 
 ## Fresh evidence policy
 
 Prior pre-rebuild readability PASS evidence is stale by user requirement and is not used as acceptance evidence for this checkpoint.
 
-The W06 workflow produces fresh rendered slot/hub images at 1280×720 and 2340×1080 from the exact candidate commit. Automated structural checks verify opacity, touch target size, typography floor, input blocking, state changes, and content-bearing labels. Render generation is evidence for review, not a claim of final human visual acceptance.
+The W06 workflow produces fresh rendered slot/hub images at 1280×720 and 2340×1080 from the exact candidate commit. Automated structural checks verify opacity, touch target size, typography floor, input blocking, state changes, and content-bearing labels. The workflow also verifies the exact shipped font resource and renders multiple distinct Hangul glyphs into a dedicated pixel probe; identical rendered fingerprints are treated as tofu/missing-glyph failure. Render generation is evidence for review, not a claim of final human visual acceptance.
+
+The pinned font source, SHA-256 and OFL 1.1 redistribution record are stored under `assets/licenses/`. W06, W25 and the production Android export materialize the same pinned font before Godot import/export so verification and the shipped APK use the same font bytes.
 
 ## Non-regression
 

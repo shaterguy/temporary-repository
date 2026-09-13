@@ -7,8 +7,15 @@ const MEDIEVAL_PRESENTATION_REGION_IDS := [
     "ash_railway",
     "eclipse_fortress",
 ]
+const SHIPPED_UI_FONT_PATH: String = "res://assets/runtime/fonts/NotoSansKR-wght.ttf"
 
 var _legacy_world_art_retired := false
+var _shipped_ui_font: Font = null
+
+
+func _ready() -> void:
+    _install_shipped_ui_font()
+    super._ready()
 
 
 func _process(delta: float) -> void:
@@ -34,6 +41,33 @@ func _on_weapon_action(action: Dictionary) -> void:
     var combat_visuals := get_node_or_null("WorldPresentation/SubViewport/MedievalCombatVisuals3D")
     if combat_visuals != null and combat_visuals.has_method("record_weapon_action"):
         combat_visuals.call("record_weapon_action", action, combat_preview, encounter_preview)
+
+
+func _install_shipped_ui_font() -> void:
+    if not ResourceLoader.exists(SHIPPED_UI_FONT_PATH):
+        push_warning("Deterministic Korean UI font is not materialized: %s" % SHIPPED_UI_FONT_PATH)
+        return
+    var font_resource: Resource = load(SHIPPED_UI_FONT_PATH)
+    if not font_resource is Font:
+        push_error("Deterministic Korean UI font failed to load as Font: %s" % SHIPPED_UI_FONT_PATH)
+        return
+    var runtime_theme := Theme.new()
+    if theme != null:
+        runtime_theme = theme.duplicate(true) as Theme
+    runtime_theme.default_font = font_resource as Font
+    theme = runtime_theme
+    _shipped_ui_font = font_resource as Font
+
+
+func ui_font_snapshot() -> Dictionary:
+    var active_font: Font = null
+    if theme != null:
+        active_font = theme.default_font
+    return {
+        "expected_path": SHIPPED_UI_FONT_PATH,
+        "resource_path": active_font.resource_path if active_font != null else "",
+        "deterministic": active_font != null and active_font.resource_path == SHIPPED_UI_FONT_PATH,
+    }
 
 
 func _retire_legacy_world_art_once() -> void:

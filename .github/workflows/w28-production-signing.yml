@@ -45,6 +45,13 @@ jobs:
           echo "W28_SIGNING_CANDIDATE_SHA=$candidate_sha"
           echo "W28_SIGNING_CANDIDATE_SYNC=PASS"
 
+      - name: Materialize pinned Korean UI font
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash tools/fetch_noto_sans_kr.sh
+          test -s assets/runtime/fonts/NotoSansKR-wght.ttf
+
       - name: Static release contract preflight
         shell: bash
         run: |
@@ -60,6 +67,10 @@ jobs:
           test "$(jq -r '.identity.prod_application_id' toolchain.lock)" = "com.shaterguy.lanternfall"
           test "$(jq -r '.identity.version_name' toolchain.lock)" = "1.0.0-dev1"
           test "$(jq -r '.identity.version_code' toolchain.lock)" = "1"
+          test -s assets/runtime/fonts/NotoSansKR-wght.ttf
+          test -f assets/licenses/W06_NOTO_SANS_KR.md
+          test -f assets/licenses/NotoSansKR-OFL.txt
+          grep -Fq 'SHIPPED_UI_FONT_PATH' game/ui/main_shell_medieval_rebuild.gd
           echo "TEST_CONTRACT_PREFLIGHT=VALID"
           echo "ACTION_PREFLIGHT=VALID"
 
