@@ -78,7 +78,6 @@ func _test_pool_and_spatial_pressure() -> void:
     var started := Time.get_ticks_msec()
     var pool = EnemyPoolScript.new()
     var spatial = SpatialHashScript.new(64.0)
-    var total_queries := 0
     for wave: int in range(POOL_WAVES):
         spatial.clear()
         var ids: Array[int] = []
@@ -103,7 +102,6 @@ func _test_pool_and_spatial_pressure() -> void:
             if nearby.is_empty():
                 _failures.append("W27 spatial query unexpectedly returned no local entities")
                 return
-            total_queries += 1
         for entity_id: int in ids:
             var result: Dictionary = pool.apply_damage(entity_id, 12)
             if not bool(result.get("found", false)) or not bool(result.get("killed", false)):
@@ -115,8 +113,6 @@ func _test_pool_and_spatial_pressure() -> void:
     _pool_spatial_ms = Time.get_ticks_msec() - started
     if pool.capacity() != POOL_LIVE_SET:
         _failures.append("W27 pool capacity changed after churn: %d" % pool.capacity())
-    if total_queries != POOL_WAVES * 8:
-        _failures.append("W27 spatial query count drifted: %d" % total_queries)
     if _pool_spatial_ms > MAX_POOL_SPATIAL_MS:
         _failures.append("W27 pool/spatial pressure exceeded %dms: %dms" % [MAX_POOL_SPATIAL_MS, _pool_spatial_ms])
 

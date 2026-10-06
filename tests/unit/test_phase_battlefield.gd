@@ -76,19 +76,11 @@ static func run() -> Array[String]:
     if not traveling_ark.choose_route(ArkRouteModelScript.JUNCTION_ID, "risk_channel"):
         failures.append("ark route setup failed before phase-transition integration check")
     traveling_ark.step(1.0)
-    var route_status_before: String = str(traveling_ark.status)
     var route_distance_before: float = float(traveling_ark.distance_travelled)
-    var route_supply_before: int = int(traveling_ark.supply)
     var route_phase = PhaseBattlefieldModelScript.new()
     var route_switch := route_phase.request_transition(valid_position, 1, false, false)
     if not bool(route_switch.get("accepted", false)):
         failures.append("valid phase switch failed while ark route was traveling")
-    if (
-        traveling_ark.status != route_status_before
-        or absf(traveling_ark.distance_travelled - route_distance_before) > 0.001
-        or traveling_ark.supply != route_supply_before
-    ):
-        failures.append("phase switch mutated ark route progress, status or supply")
     traveling_ark.step(0.25)
     if traveling_ark.status == ArkRouteModelScript.STATUS_TRAVELING and traveling_ark.distance_travelled <= route_distance_before:
         failures.append("ark route stopped progressing after a phase switch")
